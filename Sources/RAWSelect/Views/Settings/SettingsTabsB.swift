@@ -56,8 +56,9 @@ struct ExportSettingsTab: View {
             }
             Section("Photoshop-Export (experimentell)") {
                 SettingToggle(title: "Export mit Photoshop aktivieren", isOn: $settings.photoshopExport)
-                SettingPicker(title: "JPEG-Qualität", selection: $settings.jpegQuality) {
-                    ForEach(JPEGQuality.allCases) { Text($0.label).tag($0) }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack { Text("JPEG-Qualität"); Spacer(); Text("\(Int(settings.jpegQualityPercent))%").foregroundStyle(.secondary).monospacedDigit() }
+                    Slider(value: $settings.jpegQualityPercent, in: 0...100, step: 1)
                 }
                 .disabled(!settings.photoshopExport)
                 SettingPicker(title: "Smart Exposure", selection: $settings.smartExposure) {

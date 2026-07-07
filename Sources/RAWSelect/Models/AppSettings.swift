@@ -33,11 +33,6 @@ enum SmartExposureEV: String, CaseIterable, Identifiable { case ev03 = "0.3", ev
     var label: String { "±\(rawValue) EV" }
     var ev: Double { Double(rawValue) ?? 0.7 }
 }
-enum JPEGQuality: String, CaseIterable, Identifiable { case q80 = "80", q90 = "90", q100 = "100"
-    var id: String { rawValue }
-    var label: String { rawValue }
-    var value: Int { Int(rawValue) ?? 90 }
-}
 
 enum ConflictMode: String, CaseIterable, Identifiable { case rename, skip, ask, overwrite
     var id: String { rawValue }
@@ -117,7 +112,7 @@ final class AppSettings: ObservableObject {
     var revealAfterExport: Bool { get { b("rs.revealAfterExport", true) } set { set("rs.revealAfterExport", newValue) } }
     var rawJpgExport: RawJpgExport { get { en("rs.rawJpgExport", .both) } set { setEnum("rs.rawJpgExport", newValue) } }
     var photoshopExport: Bool { get { b("rs.photoshopExport", false) } set { set("rs.photoshopExport", newValue) } }
-    var jpegQuality: JPEGQuality { get { en("rs.jpegQuality", .q90) } set { setEnum("rs.jpegQuality", newValue) } }
+    var jpegQualityPercent: Double { get { dbl("rs.jpegQualityPercent", 100) } set { set("rs.jpegQualityPercent", newValue) } }
     var smartExposure: SmartExposure { get { en("rs.smartExposure", .standard) } set { setEnum("rs.smartExposure", newValue) } }
     var smartExposureMax: SmartExposureEV { get { en("rs.smartExposureMax", .ev07) } set { setEnum("rs.smartExposureMax", newValue) } }
 
@@ -145,8 +140,9 @@ final class AppSettings: ObservableObject {
     var psConflict: ConflictMode { get { en("rs.psConflict", .rename) } set { setEnum("rs.psConflict", newValue) } }
     var lastPsExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
 
-    /// Photoshop JPEG quality (0…12) from the 80/90/100 setting.
-    var jpegQualityPS: Int { switch jpegQuality { case .q80: return 10; case .q90: return 11; case .q100: return 12 } }
+    /// Photoshop JPEG quality (0…12) from the 0…100 percent setting.
+    var jpegQualityPS: Int { max(0, min(12, Int((jpegQualityPercent / 100 * 12).rounded()))) }
+    static func psQuality(fromPercent percent: Double) -> Int { max(0, min(12, Int((percent / 100 * 12).rounded()))) }
 
     /// Adds a preset to the recent list (most recent first, max 5).
     func rememberRecentPreset(_ path: String) {

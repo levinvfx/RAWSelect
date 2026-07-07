@@ -144,6 +144,14 @@ automatisch (Bundle-ID `com.adobe.Photoshop`) oder du wählst es in den Einstell
 zeigt der Wizard einen klaren Hinweis. Photoshop startet sichtbar und rendert im Hintergrund —
 du musst nichts manuell in Photoshop bedienen.
 
+**Zuschnitt & Drehen (vor dem Export, auch im Batch):** Nach „Zuschneiden & Export →" gehst du
+jedes ausgewählte Bild einzeln durch: Crop-Rahmen ziehen, 90° links/rechts drehen, „Überspringen"
+oder „Weiter". Der Zuschnitt ist **nicht-destruktiv** (nur für den Export) und wird als
+Rotation + normalisierter Crop-Rahmen an Photoshop übergeben (`rotateCanvas` + `crop`), **vor**
+Preset und Belichtung. Alternativ „Direkt exportieren" ohne Crop.
+
+**JPEG-Qualität:** Slider 0–100 % (Default 100), intern korrekt auf Photoshops 0–12-Skala umgerechnet.
+
 **Smart Exposure (komplett offline):** Analysiert jedes Bild **lokal** über Histogramm,
 Durchschnitts-/Median-Helligkeit und Shadow-/Highlight-Clipping und berechnet eine **sanfte**
 Belichtungskorrektur in EV (Aus / Sanft / Standard / Stark, Clamp ±0.3…±1.5 EV). Highlights/Schatten

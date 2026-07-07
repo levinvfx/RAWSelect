@@ -73,7 +73,7 @@ struct PhotoshopExportService {
             try? fm.createDirectory(at: config.targetRoot, withIntermediateDirectories: true)
 
             // Build manifest: copy RAW + write sidecar + resolve unique output path.
-            var manifest: [(raw: URL, out: URL, name: String)] = []
+            var manifest: [(item: PhotoshopExportItem, raw: URL, out: URL, name: String)] = []
             var usedOut = Set<String>()
             for (idx, item) in items.enumerated() {
                 let base = item.rawURL.deletingPathExtension().lastPathComponent
@@ -88,7 +88,7 @@ struct PhotoshopExportService {
                 try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
                 if let out = resolveOutput(base: base, in: dir, conflict: config.conflict, used: &usedOut) {
                     usedOut.insert(out.path)
-                    manifest.append((tempRaw, out, item.rawURL.lastPathComponent))
+                    manifest.append((item, tempRaw, out, item.rawURL.lastPathComponent))
                 }
             }
 
@@ -111,7 +111,7 @@ struct PhotoshopExportService {
             let ran = logText.contains("PROG ")
             var success = 0
             var failures: [ExportFailure] = []
-            for line in logText.split(separator: "\n") {
+            for line in logText.split(whereSeparator: \.isNewline) {   // ExtendScript may use CR line endings
                 if line.hasPrefix("OK ") { success += 1 }
                 else if line.hasPrefix("ERR ") {
                     let comps = String(line.dropFirst(4)).components(separatedBy: " || ")
@@ -190,15 +190,23 @@ struct PhotoshopExportService {
         s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
     }
 
-    private static func makeJSX(manifest: [(raw: URL, out: URL, name: String)], config: Config, logURL: URL) -> String {
-        let itemsJS = manifest.map {
-            "{raw:\"\(jsEscape($0.raw.path))\",out:\"\(jsEscape($0.out.path))\",name:\"\(jsEscape($0.name))\"}"
+    private static func makeJSX(manifest: [(item: PhotoshopExportItem, raw: URL, out: URL, name: String)], config: Config, logURL: URL) -> String {
+        let itemsJS = manifest.map { entry -> String in
+            let e = entry.item.edit
+            let rot = (e.rotation % 4) * 90
+            var s = "{raw:\"\(jsEscape(entry.raw.path))\",out:\"\(jsEscape(entry.out.path))\",name:\"\(jsEscape(entry.name))\",rot:\(rot)"
+            if let c = e.crop {
+                s += ",hasCrop:true,cx:\(c.minX),cy:\(c.minY),cw:\(c.width),ch:\(c.height)"
+            } else {
+                s += ",hasCrop:false"
+            }
+            return s + "}"
         }.joined(separator: ",\n")
 
         return """
         #target photoshop
         var LOG = new File("\(jsEscape(logURL.path))");
-        function log(s){ try{ LOG.open("a"); LOG.encoding="UTF-8"; LOG.writeln(s); LOG.close(); }catch(e){} }
+        function log(s){ try{ LOG.open("a"); LOG.encoding="UTF-8"; LOG.lineFeed="Unix"; LOG.writeln(s); LOG.close(); }catch(e){} }
         var items = [\n\(itemsJS)\n];
         var quality = \(config.jpegQualityPS);
         var profile = "\(jsEscape(config.colorProfile))";
@@ -216,6 +224,15 @@ struct PhotoshopExportService {
             desc.putPath(charIDToTypeID("null"), new File(it.raw));
             executeAction(charIDToTypeID("Opn "), desc, DialogModes.NO);
             var doc = app.activeDocument;
+            if (it.rot && it.rot !== 0){ try { doc.rotateCanvas(it.rot); } catch(e){} }
+            if (it.hasCrop){
+              try {
+                var cw = doc.width.as("px"); var ch = doc.height.as("px");
+                var l = Math.round(it.cx * cw); var t = Math.round(it.cy * ch);
+                var r = Math.round((it.cx + it.cw) * cw); var b = Math.round((it.cy + it.ch) * ch);
+                doc.crop([UnitValue(l,"px"), UnitValue(t,"px"), UnitValue(r,"px"), UnitValue(b,"px")]);
+              } catch(e){}
+            }
             if (profile.length > 0){ try { doc.convertProfile(profile, Intent.RELATIVECOLORIMETRIC, true, true); } catch(e){} }
             if (longEdge > 0){
               var wpx = doc.width.as("px"); var hpx = doc.height.as("px");
@@ -283,7 +300,7 @@ struct PhotoshopExportService {
     private static func lastProgress(logURL: URL) -> (Int, String)? {
         guard let text = try? String(contentsOf: logURL, encoding: .utf8) else { return nil }
         var last: (Int, String)?
-        for line in text.split(separator: "\n") where line.hasPrefix("PROG ") {
+        for line in text.split(whereSeparator: \.isNewline) where line.hasPrefix("PROG ") {
             let parts = line.dropFirst(5).split(separator: " ", maxSplits: 2)
             if parts.count >= 3, let i = Int(parts[0]) { last = (i, String(parts[2])) }
         }
