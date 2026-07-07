@@ -25,6 +25,7 @@ struct SidebarView: View {
             if let browseRoot = app.browseRoot {
                 Section("Ordner") {
                     FolderNavigator(root: browseRoot)
+                        .id(browseRoot)   // rebuild the tree when the volume/root changes
                 }
             }
         }

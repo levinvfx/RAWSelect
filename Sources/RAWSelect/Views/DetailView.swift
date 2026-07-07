@@ -2,7 +2,6 @@ import SwiftUI
 
 struct DetailView: View {
     @EnvironmentObject var app: AppState
-    @State private var showFilter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,7 +17,19 @@ struct DetailView: View {
     private var content: some View {
         if app.rootURL == nil {
             EmptyStateView()
-        } else if app.filteredGroups.isEmpty {
+        } else {
+            VStack(spacing: 0) {
+                FilterBar()
+                Divider()
+                contentBody
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var contentBody: some View {
+        if app.filteredGroups.isEmpty {
             ContentUnavailableView(
                 app.groups.isEmpty ? "Keine Bilder gefunden" : "Nichts in diesem Filter",
                 systemImage: "photo",
@@ -42,6 +53,7 @@ struct DetailView: View {
             } label: {
                 Label("Ordner öffnen", systemImage: "folder")
             }
+            .help("Ordner öffnen (⌘O)")
         }
 
         ToolbarItem(placement: .principal) {
@@ -81,37 +93,32 @@ struct DetailView: View {
 
         ToolbarItem(placement: .primaryAction) {
             Button {
-                showFilter.toggle()
-            } label: {
-                Label("Filter", systemImage: app.tagFilter.isActive
-                      ? "line.3.horizontal.decrease.circle.fill"
-                      : "line.3.horizontal.decrease.circle")
-            }
-            .help("Nach Tags filtern")
-            .popover(isPresented: $showFilter, arrowEdge: .bottom) {
-                TagFilterView().environmentObject(app).frame(width: 240)
-            }
-        }
-
-        ToolbarItemGroup(placement: .primaryAction) {
-            Button {
                 app.revealCurrent()
             } label: {
                 Label("Im Finder anzeigen", systemImage: "arrow.up.forward.app")
             }
             .disabled(app.currentGroup == nil)
+            .help("Aktuelles Bild im Finder anzeigen (⌘R)")
+        }
 
+        ToolbarItem(placement: .primaryAction) {
             Menu {
                 Button("Bilder + XMP kopieren…") { app.copySelection(includeSidecars: true) }
                 Button("Nur Bilder kopieren (ohne XMP)…") { app.copySelection(includeSidecars: false) }
             } label: {
-                Label("Auswahl kopieren…", systemImage: "doc.on.doc")
+                Label(copyLabel, systemImage: "doc.on.doc")
             } primaryAction: {
                 app.copySelection(includeSidecars: true)
             }
+            .menuStyle(.button)
+            .buttonStyle(.bordered)          // persistent lighter-gray highlight
             .disabled(app.selectionCount == 0)
-            .help("Ausgewählte Bilder in einen Zielordner kopieren")
+            .help(app.selectionCount > 0
+                  ? "\(app.selectionCount) ausgewählte Bilder in einen Ordner kopieren"
+                  : "Ausgewählte Bilder in einen Ordner kopieren")
+        }
 
+        ToolbarItem(placement: .primaryAction) {
             Button {
                 app.requestMoveSelection()
             } label: {
@@ -122,6 +129,10 @@ struct DetailView: View {
                   ? "Verschieben ist von SD-Karten/externen Datenträgern deaktiviert."
                   : "Ausgewählte Bilder verschieben")
         }
+    }
+
+    private var copyLabel: String {
+        app.selectionCount > 1 ? "\(app.selectionCount) kopieren…" : "Kopieren…"
     }
 }
 
