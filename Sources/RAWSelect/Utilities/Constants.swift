@@ -17,6 +17,12 @@ enum PreviewConfig {
     /// How many neighbouring photos to prefetch around the current one.
     static let prefetchForward = 8
     static let prefetchBackward = 4
+
+    /// Tiny always-available grid thumbnail (fallback shown instantly while the
+    /// sharp version decodes – so scrolling never shows a spinner).
+    static let tinyMaxPixel = 160
+    /// Sharp grid thumbnail size as a factor of the cell side (kept small = fast).
+    static let gridSharpFactor: CGFloat = 1.7
 }
 
 enum PhotoTypes {

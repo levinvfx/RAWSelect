@@ -10,6 +10,7 @@ struct ThumbnailCell: View {
     var showsCaption: Bool = true
 
     @State private var image: NSImage?
+    @State private var isSharp = false
 
     private var borderColor: Color {
         if isSelected { return .accentColor }
@@ -23,14 +24,14 @@ struct ThumbnailCell: View {
                     .fill(Color(nsColor: .quaternaryLabelColor).opacity(0.35))
 
                 if let image {
+                    // Always show whatever we have (tiny fallback or sharp) – no
+                    // spinner, so fast scrolling never flashes a loading state.
                     Image(nsImage: image)
                         .resizable()
-                        .interpolation(.medium)
+                        .interpolation(isSharp ? .medium : .low)
                         .aspectRatio(contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         .opacity(group.reject ? 0.45 : 1)
-                } else {
-                    ProgressView().controlSize(.small)
                 }
 
                 if group.mark != 0 {
@@ -63,8 +64,17 @@ struct ThumbnailCell: View {
             }
         }
         .task(id: group.id) {
-            let maxPixel = Int(side * 2.2)
-            image = await ThumbnailLoader.shared.thumbnail(for: group.previewURL, maxPixel: maxPixel)
+            let loader = ThumbnailLoader.shared
+            // 1) Tiny version first (usually already warmed → instant).
+            if let tiny = await loader.thumbnail(for: group.previewURL, maxPixel: PreviewConfig.tinyMaxPixel) {
+                if !isSharp { image = tiny }
+            }
+            // 2) Sharp version upgrades in place when ready.
+            let sharpPx = Int(side * PreviewConfig.gridSharpFactor)
+            if let sharp = await loader.thumbnail(for: group.previewURL, maxPixel: sharpPx) {
+                image = sharp
+                isSharp = true
+            }
         }
     }
 

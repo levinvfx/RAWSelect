@@ -77,6 +77,19 @@ final class AppState: ObservableObject {
 
     func refreshVolumes() { volumes = VolumeScanner.externalVolumes() }
 
+    /// Show a volume/folder in the sidebar navigator WITHOUT scanning it. Images
+    /// are only loaded when the user double-clicks a (sub)folder.
+    func browse(_ url: URL) {
+        scanTask?.cancel()
+        browseRoot = url
+        rootURL = nil
+        groups = []
+        selectedIDs = []
+        currentID = nil
+        isScanning = false
+        statusMessage = "Ordner in der Seitenleiste doppelklicken, um die Bilder zu laden."
+    }
+
     // MARK: Opening / scanning
     func openFolderDialog() {
         if let url = FinderService.chooseFolder(title: "Ordner oder SD-Karte öffnen") { open(url) }
@@ -122,6 +135,9 @@ final class AppState: ObservableObject {
             self.groups = found
             self.applySort()
             self.isScanning = false
+            // Warm the tiny-thumbnail cache for every photo so the grid always has
+            // at least a low-res image to show while scrolling (never a spinner).
+            ThumbnailLoader.shared.warmTiny(found.map { $0.previewURL }, maxPixel: PreviewConfig.tinyMaxPixel)
             if let first = self.filteredGroups.first { self.selectSingle(first.id) }
             let markedNote = self.markedCount > 0 ? " (\(self.markedCount) bereits markiert)" : ""
             self.statusMessage = found.isEmpty

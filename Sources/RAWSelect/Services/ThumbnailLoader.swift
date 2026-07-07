@@ -49,6 +49,11 @@ final class ThumbnailLoader {
         queue.addOperation(operation)
     }
 
+    /// Warms tiny thumbnails for a whole folder at very low priority.
+    func warmTiny(_ urls: [URL], maxPixel: Int) {
+        for url in urls { prefetch(for: url, maxPixel: maxPixel, fullQuality: false) }
+    }
+
     /// Async thumbnail/preview. Returns a cached image immediately if present;
     /// otherwise decodes on the background queue. Cancels if the Task is cancelled.
     ///

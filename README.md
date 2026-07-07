@@ -39,8 +39,11 @@ swift run RAWSelect --selftest
 
 ## Workflow
 
-1. Links einen **Datenträger** wählen oder **„Ordner öffnen…“** (⌘O).
-2. Die App scannt rekursiv und zeigt alle Bilder im Raster.
+1. Links einen **Datenträger** wählen – die App **scannt noch nicht**, sondern zeigt die
+   **Ordnerstruktur** zum Navigieren. **Doppelklick** auf einen Ordner lädt dessen Bilder
+   (Einzelklick klappt nur auf/zu). Alternativ **„Ordner öffnen…“** (⌘O).
+2. Die Bilder erscheinen im Raster. Beim Scrollen wird nie ein Ladesymbol gezeigt – zuerst
+   eine kleine Vorschau, die dann in scharf nachlädt.
 3. Mit **Pfeiltasten** navigieren, mit **1–9** markieren, **0** entfernt die Markierung.
 4. **Mehrere Bilder auswählen**: ⌘-Klick fügt einzeln hinzu, Shift-Klick wählt eine
    ganze Reihe, ⌘A wählt alle im aktuellen Filter. **1–9 markiert dann alle

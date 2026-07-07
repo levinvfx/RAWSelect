@@ -11,7 +11,7 @@ struct SidebarView: View {
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 ForEach(app.volumes) { volume in
-                    Button { app.open(volume.url) } label: {
+                    Button { app.browse(volume.url) } label: {
                         Label(volume.name, systemImage: "sdcard")
                     }
                     .buttonStyle(.plain)
