@@ -30,8 +30,6 @@ struct PhotoGroup: Identifiable, Hashable {
 
     /// 0 = unmarked, 1…9 = colour mark.
     var mark: Int = 0
-    /// 0…5 star rating.
-    var rating: Int = 0
     /// Marked as rejected / to be sorted out.
     var reject: Bool = false
 
@@ -41,17 +39,15 @@ struct PhotoGroup: Identifiable, Hashable {
     var fileSize: Int = 0
 
     var isRaw: Bool { files.contains(where: { PhotoTypes.isRaw($0) }) }
-    var hasState: Bool { mark != 0 || rating != 0 || reject }
+    var hasState: Bool { mark != 0 || reject }
 
     static func == (lhs: PhotoGroup, rhs: PhotoGroup) -> Bool {
-        lhs.id == rhs.id && lhs.mark == rhs.mark && lhs.rating == rhs.rating
-            && lhs.reject == rhs.reject && lhs.files == rhs.files
+        lhs.id == rhs.id && lhs.mark == rhs.mark && lhs.reject == rhs.reject && lhs.files == rhs.files
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
         hasher.combine(mark)
-        hasher.combine(rating)
         hasher.combine(reject)
     }
 }
@@ -59,9 +55,8 @@ struct PhotoGroup: Identifiable, Hashable {
 /// Sidebar filter states.
 enum PhotoFilter: Hashable {
     case all
-    case unmarked        // no colour mark, no stars, not rejected
+    case unmarked        // no colour mark, not rejected
     case mark(Int)       // colour mark n
-    case rating(Int)     // rating >= n
     case reject          // rejected only
 
     func matches(_ group: PhotoGroup) -> Bool {
@@ -69,7 +64,6 @@ enum PhotoFilter: Hashable {
         case .all: return true
         case .unmarked: return !group.hasState
         case .mark(let n): return group.mark == n
-        case .rating(let n): return group.rating >= n
         case .reject: return group.reject
         }
     }

@@ -39,9 +39,6 @@ struct ThumbnailCell: View {
                 if group.reject {
                     rejectBadge
                 }
-                if group.rating > 0 {
-                    starsOverlay
-                }
                 if group.isRaw {
                     rawBadge
                 }
@@ -100,22 +97,6 @@ struct ThumbnailCell: View {
                 Spacer()
             }
             Spacer()
-        }
-    }
-
-    private var starsOverlay: some View {
-        VStack {
-            Spacer()
-            HStack(spacing: 1) {
-                ForEach(1...5, id: \.self) { i in
-                    Image(systemName: i <= group.rating ? "star.fill" : "star")
-                        .font(.system(size: max(7, side * 0.06)))
-                        .foregroundStyle(i <= group.rating ? .yellow : .white.opacity(0.5))
-                }
-            }
-            .padding(.horizontal, 6).padding(.vertical, 3)
-            .background(Capsule().fill(.black.opacity(0.45)))
-            .padding(.bottom, 6)
         }
     }
 

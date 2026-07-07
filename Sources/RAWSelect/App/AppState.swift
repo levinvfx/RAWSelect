@@ -64,11 +64,6 @@ final class AppState: ObservableObject {
         for g in groups where g.mark != 0 { counts[g.mark, default: 0] += 1 }
         return counts
     }
-    var ratingCounts: [Int: Int] {
-        var counts: [Int: Int] = [:]
-        for g in groups where g.rating != 0 { for s in 1...g.rating { counts[s, default: 0] += 1 } }
-        return counts
-    }
     var rejectCount: Int { groups.filter { $0.reject }.count }
     var unmarkedCount: Int { groups.filter { !$0.hasState }.count }
     var markedCount: Int { groups.filter { $0.mark != 0 }.count }
@@ -90,6 +85,7 @@ final class AppState: ObservableObject {
     func open(_ url: URL, setBrowseRoot: Bool = true) {
         scanTask?.cancel()
         rootURL = url
+        filter = .all      // opening a folder always shows all images found in it
         if setBrowseRoot {
             if url.isOnExternalVolume, let vol = try? url.resourceValues(forKeys: [.volumeURLKey]).volume {
                 browseRoot = vol
@@ -116,7 +112,6 @@ final class AppState: ObservableObject {
                     groups[i].persistKey = key
                     if let state = savedMarks[key] {
                         groups[i].mark = state.mark
-                        groups[i].rating = state.rating
                         groups[i].reject = state.reject
                     }
                 }
@@ -211,14 +206,6 @@ final class AppState: ObservableObject {
         }
     }
 
-    func setRating(_ rating: Int) {
-        mutateSelection({ $0.rating = rating }) { n in
-            rating == 0
-                ? (n == 1 ? "Bewertung entfernt." : "Bewertung von \(n) Bildern entfernt.")
-                : (n == 1 ? "\(rating) Sterne gesetzt." : "\(rating) Sterne für \(n) Bilder gesetzt.")
-        }
-    }
-
     func toggleReject() {
         let newValue = !(currentGroup?.reject ?? false)
         mutateSelection({ $0.reject = newValue }) { n in
@@ -254,7 +241,7 @@ final class AppState: ObservableObject {
         guard let identity else { return }
         var states: [String: SessionStore.PhotoState] = [:]
         for g in groups where g.hasState {
-            states[g.persistKey] = SessionStore.PhotoState(mark: g.mark, rating: g.rating, reject: g.reject)
+            states[g.persistKey] = SessionStore.PhotoState(mark: g.mark, reject: g.reject)
         }
         SessionStore.save(identityID: identity.id, states: states)
     }
@@ -363,7 +350,6 @@ final class AppState: ObservableObject {
         if event.modifierFlags.contains(.command) { return false }   // leave ⌘-shortcuts to menus
         if NSApp.keyWindow?.firstResponder is NSText { return false }
 
-        let option = event.modifierFlags.contains(.option)
         let extend = event.modifierFlags.contains(.shift)
 
         switch event.keyCode {
@@ -375,13 +361,8 @@ final class AppState: ObservableObject {
         if let chars = event.charactersIgnoringModifiers, chars.count == 1,
            let scalar = chars.unicodeScalars.first {
             switch scalar.value {
-            case 48...57:                                   // digits 0–9
-                let digit = Int(scalar.value) - 48
-                if option {
-                    if digit <= 5 { setRating(digit); return true }
-                } else {
-                    setMark(digit); return true
-                }
+            case 48...57:                                   // digits 0–9 → colour mark
+                setMark(Int(scalar.value) - 48); return true
             case UInt32(UInt8(ascii: "x")), UInt32(UInt8(ascii: "X")):
                 toggleReject(); return true
             case UInt32(UInt8(ascii: "i")), UInt32(UInt8(ascii: "I")):

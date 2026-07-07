@@ -46,7 +46,7 @@ private struct LargePreview: View {
                     if group.mark != 0 { markPill }
                 }
                 Spacer()
-                ratingBar
+                rejectBar
             }
             .padding(16)
         }
@@ -93,30 +93,21 @@ private struct LargePreview: View {
         .frame(maxWidth: 280, alignment: .leading)
     }
 
-    private var ratingBar: some View {
-        HStack(spacing: 14) {
-            HStack(spacing: 3) {
-                ForEach(1...5, id: \.self) { i in
-                    Image(systemName: i <= group.rating ? "star.fill" : "star")
-                        .foregroundStyle(i <= group.rating ? .yellow : .secondary)
-                        .onTapGesture { app.setRating(group.rating == i ? 0 : i) }
-                }
-            }
-            .font(.system(size: 15))
-
-            Divider().frame(height: 16)
-
-            Button {
-                app.toggleReject()
-            } label: {
+    @ViewBuilder
+    private var rejectBar: some View {
+        Button {
+            app.toggleReject()
+        } label: {
+            HStack(spacing: 6) {
                 Image(systemName: group.reject ? "xmark.circle.fill" : "xmark.circle")
                     .foregroundStyle(group.reject ? .red : .secondary)
+                Text(group.reject ? "Ausschuss" : "Als Ausschuss markieren")
+                    .font(.callout)
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 15))
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(.regularMaterial, in: Capsule())
         }
-        .padding(.horizontal, 14).padding(.vertical, 8)
-        .background(.regularMaterial, in: Capsule())
+        .buttonStyle(.plain)
     }
 }
 

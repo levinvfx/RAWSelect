@@ -37,13 +37,6 @@ struct SidebarView: View {
                     .tag(PhotoFilter.reject)
             }
 
-            Section("Sterne") {
-                ForEach((1...5).reversed(), id: \.self) { stars in
-                    filterRow(title: "\(stars)+ Sterne", stars: stars, count: app.ratingCounts[stars] ?? 0)
-                        .tag(PhotoFilter.rating(stars))
-                }
-            }
-
             Section("Markierungen") {
                 ForEach(1...9, id: \.self) { mark in
                     filterRow(title: "Markierung \(mark)", dot: MarkStyle.color(for: mark),
@@ -62,17 +55,10 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func filterRow(title: String, systemImage: String? = nil, tint: Color? = nil,
-                           dot: Color? = nil, stars: Int? = nil, count: Int) -> some View {
+                           dot: Color? = nil, count: Int) -> some View {
         HStack(spacing: 8) {
             if let dot {
                 Circle().fill(dot).frame(width: 10, height: 10)
-            } else if let stars {
-                HStack(spacing: 1) {
-                    ForEach(0..<stars, id: \.self) { _ in
-                        Image(systemName: "star.fill").font(.system(size: 8)).foregroundStyle(.yellow)
-                    }
-                }
-                .frame(width: 46, alignment: .leading)
             } else if let systemImage {
                 Image(systemName: systemImage)
                     .foregroundStyle(tint ?? .secondary)
