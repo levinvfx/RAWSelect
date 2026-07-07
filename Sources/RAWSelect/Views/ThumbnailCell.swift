@@ -28,12 +28,19 @@ struct ThumbnailCell: View {
                         .interpolation(.medium)
                         .aspectRatio(contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .opacity(group.reject ? 0.45 : 1)
                 } else {
                     ProgressView().controlSize(.small)
                 }
 
                 if group.mark != 0 {
                     markBadge
+                }
+                if group.reject {
+                    rejectBadge
+                }
+                if group.rating > 0 {
+                    starsOverlay
                 }
                 if group.isRaw {
                     rawBadge
@@ -77,6 +84,38 @@ struct ThumbnailCell: View {
                     .padding(6)
             }
             Spacer()
+        }
+    }
+
+    private var rejectBadge: some View {
+        VStack {
+            HStack {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 20, height: 20)
+                    .background(Circle().fill(.red))
+                    .overlay(Circle().strokeBorder(.white.opacity(0.85), lineWidth: 1))
+                    .padding(6)
+                Spacer()
+            }
+            Spacer()
+        }
+    }
+
+    private var starsOverlay: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 1) {
+                ForEach(1...5, id: \.self) { i in
+                    Image(systemName: i <= group.rating ? "star.fill" : "star")
+                        .font(.system(size: max(7, side * 0.06)))
+                        .foregroundStyle(i <= group.rating ? .yellow : .white.opacity(0.5))
+                }
+            }
+            .padding(.horizontal, 6).padding(.vertical, 3)
+            .background(Capsule().fill(.black.opacity(0.45)))
+            .padding(.bottom, 6)
         }
     }
 

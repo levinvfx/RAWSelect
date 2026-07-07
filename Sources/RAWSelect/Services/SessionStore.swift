@@ -8,9 +8,17 @@ import CryptoKit
 /// SD card is never modified. Keyed by the group's volume-relative persist key.
 struct SessionStore {
 
+    /// Per-photo culling state, keyed by persistKey.
+    struct PhotoState: Codable {
+        var mark: Int = 0
+        var rating: Int = 0
+        var reject: Bool = false
+        var isDefault: Bool { mark == 0 && rating == 0 && !reject }
+    }
+
     struct SessionData: Codable {
         var identity: String
-        var marks: [String: Int]   // persistKey -> mark (1…9)
+        var states: [String: PhotoState]
     }
 
     private static var directory: URL {
@@ -26,18 +34,18 @@ struct SessionStore {
         return directory.appendingPathComponent("\(hex).json")
     }
 
-    static func load(identityID: String) -> [String: Int] {
+    static func load(identityID: String) -> [String: PhotoState] {
         let url = fileURL(for: identityID)
         guard let data = try? Data(contentsOf: url),
               let session = try? JSONDecoder().decode(SessionData.self, from: data) else {
             return [:]
         }
-        return session.marks
+        return session.states
     }
 
-    static func save(identityID: String, marks: [String: Int]) {
-        let nonZero = marks.filter { $0.value != 0 }
-        let session = SessionData(identity: identityID, marks: nonZero)
+    static func save(identityID: String, states: [String: PhotoState]) {
+        let nonDefault = states.filter { !$0.value.isDefault }
+        let session = SessionData(identity: identityID, states: nonDefault)
         let url = fileURL(for: identityID)
         do {
             let encoder = JSONEncoder()

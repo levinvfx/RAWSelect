@@ -21,59 +21,102 @@ struct LoupeView: View {
 }
 
 private struct LargePreview: View {
+    @EnvironmentObject var app: AppState
     let group: PhotoGroup
     @State private var image: NSImage?
+    @State private var metadata = PhotoMetadata()
 
     var body: some View {
-        GeometryReader { geo in
-            let target = Self.targetPixels(for: geo.size)
-            ZStack {
-                Color(nsColor: .textBackgroundColor).opacity(0.4)
-                if let image {
-                    Image(nsImage: image)
-                        .resizable()
-                        .interpolation(.high)
-                        .aspectRatio(contentMode: .fit)
-                        .padding(16)
-                } else {
-                    ProgressView("Vorschau wird geladen…")
-                }
+        ZStack {
+            Color(nsColor: .textBackgroundColor).opacity(0.4)
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+                    .padding(16)
+            } else {
+                ProgressView()
+            }
 
-                if group.mark != 0 {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            HStack(spacing: 6) {
-                                Circle().fill(MarkStyle.color(for: group.mark)).frame(width: 12, height: 12)
-                                Text("Markierung \(group.mark)")
-                                    .font(.callout.weight(.medium))
-                            }
-                            .padding(.horizontal, 12).padding(.vertical, 7)
-                            .background(.regularMaterial, in: Capsule())
-                            .padding(16)
-                        }
-                        Spacer()
-                    }
+            VStack {
+                HStack(alignment: .top) {
+                    if app.showInfo { infoOverlay }
+                    Spacer()
+                    if group.mark != 0 { markPill }
                 }
+                Spacer()
+                ratingBar
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Sharp preview rendered from the full image, matched to the display's
-            // pixel size (min Full HD). Only the currently viewed photo is decoded,
-            // and results are cached; copying still reads the original bytes.
-            .task(id: "\(group.id)|\(target)") {
-                image = await ThumbnailLoader.shared.thumbnail(for: group.previewURL,
-                                                               maxPixel: target, fullQuality: true)
-            }
+            .padding(16)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Sharp preview rendered from the full image at a fixed target size, so
+        // prefetched neighbours share the same cache key and appear instantly.
+        .task(id: group.id) {
+            image = await ThumbnailLoader.shared.thumbnail(for: group.previewURL,
+                                                           maxPixel: PreviewConfig.loupeMaxPixel,
+                                                           fullQuality: true)
+        }
+        .task(id: group.id) {
+            let url = group.files.first ?? group.previewURL
+            metadata = await Task.detached { MetadataService.metadata(for: url) }.value
         }
     }
 
-    /// Long-edge pixel target for the preview area, bucketed to avoid reload churn
-    /// on small resizes, clamped to [1920, 4096].
-    static func targetPixels(for size: CGSize) -> Int {
-        let scale = NSScreen.main?.backingScaleFactor ?? 2
-        let longEdge = Int((max(size.width, size.height) * scale).rounded(.up))
-        let bucketed = ((longEdge + 199) / 200) * 200
-        return min(max(bucketed, 1920), 4096)
+    private var markPill: some View {
+        HStack(spacing: 6) {
+            Circle().fill(MarkStyle.color(for: group.mark)).frame(width: 12, height: 12)
+            Text("Markierung \(group.mark)").font(.callout.weight(.medium))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background(.regularMaterial, in: Capsule())
+    }
+
+    private var infoOverlay: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(group.displayName).font(.callout.weight(.semibold))
+            Divider().padding(.vertical, 2)
+            ForEach(metadata.rows, id: \.0) { row in
+                HStack(spacing: 8) {
+                    Text(row.0).foregroundStyle(.secondary).frame(width: 78, alignment: .leading)
+                    Text(row.1)
+                }
+                .font(.caption.monospacedDigit())
+            }
+            if metadata.rows.isEmpty {
+                Text("Keine EXIF-Daten").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .frame(maxWidth: 280, alignment: .leading)
+    }
+
+    private var ratingBar: some View {
+        HStack(spacing: 14) {
+            HStack(spacing: 3) {
+                ForEach(1...5, id: \.self) { i in
+                    Image(systemName: i <= group.rating ? "star.fill" : "star")
+                        .foregroundStyle(i <= group.rating ? .yellow : .secondary)
+                        .onTapGesture { app.setRating(group.rating == i ? 0 : i) }
+                }
+            }
+            .font(.system(size: 15))
+
+            Divider().frame(height: 16)
+
+            Button {
+                app.toggleReject()
+            } label: {
+                Image(systemName: group.reject ? "xmark.circle.fill" : "xmark.circle")
+                    .foregroundStyle(group.reject ? .red : .secondary)
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 15))
+        }
+        .padding(.horizontal, 14).padding(.vertical, 8)
+        .background(.regularMaterial, in: Capsule())
     }
 }
 

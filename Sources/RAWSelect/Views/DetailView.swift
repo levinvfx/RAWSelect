@@ -52,6 +52,32 @@ struct DetailView: View {
             .help("Zwischen Raster und grosser Vorschau wechseln")
         }
 
+        ToolbarItemGroup(placement: .automatic) {
+            Menu {
+                Picker("Sortieren nach", selection: $app.sortOrder) {
+                    ForEach(SortOrder.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }
+                Toggle("Umgekehrt", isOn: $app.sortReversed)
+            } label: {
+                Label("Sortieren", systemImage: "arrow.up.arrow.down")
+            }
+            .help("Sortierreihenfolge")
+
+            Button {
+                app.toggleInfo()
+            } label: {
+                Label("Info", systemImage: app.showInfo ? "info.circle.fill" : "info.circle")
+            }
+            .help("EXIF-Infos ein/aus (I)")
+
+            Button {
+                app.toggleFullscreen()
+            } label: {
+                Label("Vollbild", systemImage: "arrow.up.left.and.arrow.down.right")
+            }
+            .help("Vollbild (F)")
+        }
+
         ToolbarItemGroup(placement: .primaryAction) {
             Button {
                 app.revealCurrent()

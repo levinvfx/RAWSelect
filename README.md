@@ -56,8 +56,11 @@ swift run RAWSelect --selftest
 |-------|--------|
 | **← / →** | vorheriges / nächstes Bild |
 | **Shift + ← / →** | Auswahl erweitern |
-| **1 – 9** | Markierung setzen (auf ganze Auswahl) |
-| **0** | Markierung entfernen |
+| **1 – 9 / 0** | Farb-Markierung setzen / entfernen (ganze Auswahl) |
+| **⌥1 – ⌥5 / ⌥0** | Sterne 0–5 setzen / entfernen (auch per Klick auf die Sterne) |
+| **X** | Ausschuss (Reject) umschalten |
+| **I** | EXIF-Info-Overlay ein/aus |
+| **F** | Vollbild ein/aus |
 | **Klick** | einzeln auswählen |
 | **⌘-Klick** | zur Auswahl hinzufügen/entfernen |
 | **Shift-Klick** | Reihe auswählen |
@@ -78,7 +81,14 @@ swift run RAWSelect --selftest
   volle RAW-Datei wird dabei nie geladen (nur der Pfad gemerkt, das Original erst
   beim Kopieren von der SD geholt).
 - Raster-Ansicht **und** grosse Loupe-Ansicht mit Filmstreifen (Umschalter oben).
-- **Mehrfachauswahl** (⌘/Shift/⌘A) – Markieren und Kopieren gilt für die ganze Auswahl.
+- **Mehrfachauswahl** (⌘/Shift/⌘A) – Bewerten und Kopieren gilt für die ganze Auswahl.
+- **Bewertungen**: Farb-Markierungen 1–9, **Sterne 0–5** und **Ausschuss (Reject)** – je mit
+  eigenem Filter in der Sidebar. Alles nur app-intern, nie in die Dateien geschrieben.
+- **EXIF-Info-Overlay** (Taste I): Kamera, Objektiv, Brennweite, Blende, Zeit, ISO, Datum.
+- **Ordner-Navigator** in der Sidebar: in Unterordner klicken und gezielt nur einen Ordner
+  sichten statt der ganzen Karte.
+- **Sortierung** (Dateiname/Datum, umgekehrt), **Thumbnail-Grösse** per Slider, **Vollbild** (F),
+  Prefetching der Nachbar-Previews für Sichten ohne Ladezeit.
 - Lazy geladene Thumbnails, Hintergrund-Decoding, Memory-Cache → bleibt bei
   1000–3000 Bildern flüssig, UI friert beim Scannen nicht ein.
 - **Kopieren** der Auswahl **flach** in einen frei wählbaren Zielordner, wahlweise

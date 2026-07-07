@@ -16,13 +16,37 @@ final class ThumbnailLoader {
         return q
     }()
 
+    private let lock = NSLock()
+    private var inFlight = Set<String>()
+
     private init() {
-        cache.countLimit = 800
-        cache.totalCostLimit = 640 * 1024 * 1024   // ~640 MB, keeps full-res previews in check
+        cache.countLimit = 1200
+        cache.totalCostLimit = 1024 * 1024 * 1024   // ~1 GB, keeps many HD previews warm
     }
 
     private func key(_ url: URL, _ maxPixel: Int, _ fullQuality: Bool) -> NSString {
         "\(url.path)|\(maxPixel)|\(fullQuality ? "F" : "T")" as NSString
+    }
+
+    /// Warms the cache for an image without waiting for the result. Skips work if
+    /// the image is already cached or currently being decoded.
+    func prefetch(for url: URL, maxPixel: Int, fullQuality: Bool) {
+        let cacheKey = key(url, maxPixel, fullQuality)
+        if cache.object(forKey: cacheKey) != nil { return }
+        let keyString = cacheKey as String
+        lock.lock()
+        if inFlight.contains(keyString) { lock.unlock(); return }
+        inFlight.insert(keyString)
+        lock.unlock()
+
+        let operation = ThumbnailOperation(url: url, maxPixel: maxPixel, fullQuality: fullQuality)
+        operation.queuePriority = .low
+        operation.completionBlock = { [weak self] in
+            guard let self else { return }
+            if let image = operation.result { self.cache.setObject(image, forKey: cacheKey, cost: operation.cost) }
+            self.lock.lock(); self.inFlight.remove(keyString); self.lock.unlock()
+        }
+        queue.addOperation(operation)
     }
 
     /// Async thumbnail/preview. Returns a cached image immediately if present;

@@ -6,6 +6,19 @@ enum AppInfo {
     static let version = "1.0"
 }
 
+/// Sizing for the large loupe preview. Sharp but a touch smaller than the full
+/// display resolution, so decoding stays fast and neighbours can be prefetched.
+enum PreviewConfig {
+    static var loupeMaxPixel: Int {
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let height = NSScreen.main?.frame.height ?? 1080
+        return min(2048, max(1600, Int(height * scale)))
+    }
+    /// How many neighbouring photos to prefetch around the current one.
+    static let prefetchForward = 8
+    static let prefetchBackward = 4
+}
+
 enum PhotoTypes {
     /// All image extensions we scan for (lowercased, without dot).
     static let all: Set<String> = [

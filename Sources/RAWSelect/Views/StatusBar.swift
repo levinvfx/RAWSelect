@@ -13,29 +13,53 @@ struct StatusBar: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .layoutPriority(1)
 
-            Spacer()
+            if app.viewMode == .grid && !app.groups.isEmpty {
+                sizeSlider
+            }
 
-            if app.selectionCount > 1 {
-                Text("\(app.selectionCount) ausgewählt")
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(Color.accentColor)
-                    .lineLimit(1)
-            } else if let group = app.currentGroup {
-                Text(group.displayName)
-                    .font(.callout.monospacedDigit())
+            Spacer(minLength: 12)
+
+            if let group = app.currentGroup {
+                if app.selectionCount > 1 {
+                    Text("\(app.selectionCount) ausgewählt")
+                        .foregroundStyle(Color.accentColor)
+                }
+                Text(sizeString(group.fileSize))
+                    .foregroundStyle(.tertiary)
+                Text(pathString(group))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .truncationMode(.head)
+                    .frame(maxWidth: 360, alignment: .trailing)
             }
             if !app.filteredGroups.isEmpty {
                 Text(positionText)
-                    .font(.callout.monospacedDigit())
                     .foregroundStyle(.tertiary)
             }
         }
+        .font(.callout.monospacedDigit())
         .padding(.horizontal, 14)
         .frame(height: 30)
         .background(.bar)
+    }
+
+    private var sizeSlider: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "photo").font(.caption2).foregroundStyle(.tertiary)
+            Slider(value: $app.thumbnailSize, in: 100...320)
+                .frame(width: 120)
+                .controlSize(.mini)
+        }
+    }
+
+    private func sizeString(_ bytes: Int) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    }
+
+    private func pathString(_ group: PhotoGroup) -> String {
+        (group.files.first ?? group.previewURL).path
     }
 
     private var positionText: String {

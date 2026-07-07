@@ -45,12 +45,13 @@ enum SelfTest {
         // 3. Mark persistence via volume identity
         let identity = FolderIdentity(root: root)
         let key = identity.persistKey(directory: paired!.directory, baseName: paired!.baseName)
-        SessionStore.save(identityID: identity.id, marks: [key: 3])
-        check(SessionStore.load(identityID: identity.id)[key] == 3, "mark persists under volume-identity key")
+        SessionStore.save(identityID: identity.id, states: [key: .init(mark: 3, rating: 4, reject: false)])
+        let loadedState = SessionStore.load(identityID: identity.id)[key]
+        check(loadedState?.mark == 3 && loadedState?.rating == 4, "mark+rating persist under volume-identity key")
         // Same physical volume, different subfolder opened later → still remembered.
         let identity2 = FolderIdentity(root: sub)
         let key2 = identity2.persistKey(directory: paired!.directory, baseName: paired!.baseName)
-        check(SessionStore.load(identityID: identity2.id)[key2] == 3, "mark survives opening a different subfolder")
+        check(SessionStore.load(identityID: identity2.id)[key2]?.mark == 3, "state survives opening a different subfolder")
 
         // 4. Flat copy WITH sidecars, twice, to exercise conflicts
         let target = root.appendingPathComponent("out")

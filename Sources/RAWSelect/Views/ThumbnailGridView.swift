@@ -3,7 +3,9 @@ import SwiftUI
 struct ThumbnailGridView: View {
     @EnvironmentObject var app: AppState
 
-    private let columns = [GridItem(.adaptive(minimum: 160, maximum: 220), spacing: 16)]
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: app.thumbnailSize, maximum: app.thumbnailSize * 1.4), spacing: 16)]
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -12,7 +14,8 @@ struct ThumbnailGridView: View {
                     ForEach(app.filteredGroups) { group in
                         ThumbnailCell(group: group,
                                       isSelected: app.selectedIDs.contains(group.id),
-                                      isCurrent: group.id == app.currentID)
+                                      isCurrent: group.id == app.currentID,
+                                      side: app.thumbnailSize)
                             .id(group.id)
                             .contentShape(Rectangle())
                             .onTapGesture {

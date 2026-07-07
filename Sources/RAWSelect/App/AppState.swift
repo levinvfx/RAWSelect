@@ -7,16 +7,22 @@ final class AppState: ObservableObject {
     // MARK: Published state
     @Published var volumes: [VolumeInfo] = []
     @Published var rootURL: URL?
+    @Published var browseRoot: URL?      // root of the sidebar folder navigator
     @Published var groups: [PhotoGroup] = []
     @Published var filter: PhotoFilter = .all { didSet { reconcileSelection() } }
 
     /// All selected photos (multi-select). `currentID` is the "active" one shown
     /// in the loupe and used as the anchor for keyboard navigation.
     @Published var selectedIDs: Set<String> = []
-    @Published var currentID: String?
+    @Published var currentID: String? { didSet { prefetchAroundCurrent() } }
     private var anchorID: String?
 
-    @Published var viewMode: ViewMode = .grid
+    @Published var viewMode: ViewMode = .grid { didSet { if viewMode == .loupe { prefetchAroundCurrent() } } }
+
+    @Published var sortOrder: SortOrder = .filename { didSet { applySort() } }
+    @Published var sortReversed: Bool = false { didSet { applySort() } }
+    @Published var thumbnailSize: Double = 160
+    @Published var showInfo: Bool = false
 
     @Published var isScanning = false
     @Published var statusMessage = "Kein Ordner geöffnet."
@@ -58,7 +64,13 @@ final class AppState: ObservableObject {
         for g in groups where g.mark != 0 { counts[g.mark, default: 0] += 1 }
         return counts
     }
-    var unmarkedCount: Int { groups.filter { $0.mark == 0 }.count }
+    var ratingCounts: [Int: Int] {
+        var counts: [Int: Int] = [:]
+        for g in groups where g.rating != 0 { for s in 1...g.rating { counts[s, default: 0] += 1 } }
+        return counts
+    }
+    var rejectCount: Int { groups.filter { $0.reject }.count }
+    var unmarkedCount: Int { groups.filter { !$0.hasState }.count }
     var markedCount: Int { groups.filter { $0.mark != 0 }.count }
 
     // MARK: Lifecycle
@@ -75,9 +87,16 @@ final class AppState: ObservableObject {
         if let url = FinderService.chooseFolder(title: "Ordner oder SD-Karte öffnen") { open(url) }
     }
 
-    func open(_ url: URL) {
+    func open(_ url: URL, setBrowseRoot: Bool = true) {
         scanTask?.cancel()
         rootURL = url
+        if setBrowseRoot {
+            if url.isOnExternalVolume, let vol = try? url.resourceValues(forKeys: [.volumeURLKey]).volume {
+                browseRoot = vol
+            } else {
+                browseRoot = url
+            }
+        }
         groups = []
         selectedIDs = []
         currentID = nil
@@ -95,13 +114,18 @@ final class AppState: ObservableObject {
                 for i in groups.indices {
                     let key = identity.persistKey(directory: groups[i].directory, baseName: groups[i].baseName)
                     groups[i].persistKey = key
-                    if let mark = savedMarks[key] { groups[i].mark = mark }
+                    if let state = savedMarks[key] {
+                        groups[i].mark = state.mark
+                        groups[i].rating = state.rating
+                        groups[i].reject = state.reject
+                    }
                 }
                 return groups
             }.value
 
             if Task.isCancelled { return }
             self.groups = found
+            self.applySort()
             self.isScanning = false
             if let first = self.filteredGroups.first { self.selectSingle(first.id) }
             let markedNote = self.markedCount > 0 ? " (\(self.markedCount) bereits markiert)" : ""
@@ -156,6 +180,20 @@ final class AppState: ObservableObject {
         if extend { selectRange(to: id) } else { selectSingle(id) }
     }
 
+    /// Warms the HD preview cache for the photos around the current one so that
+    /// stepping through with the arrow keys has no load time.
+    private func prefetchAroundCurrent() {
+        guard viewMode == .loupe, let id = currentID else { return }
+        let list = filteredGroups
+        guard let idx = list.firstIndex(where: { $0.id == id }) else { return }
+        let lower = max(0, idx - PreviewConfig.prefetchBackward)
+        let upper = min(list.count - 1, idx + PreviewConfig.prefetchForward)
+        let maxPixel = PreviewConfig.loupeMaxPixel
+        for i in lower...upper where i != idx {
+            ThumbnailLoader.shared.prefetch(for: list[i].previewURL, maxPixel: maxPixel, fullQuality: true)
+        }
+    }
+
     private func reconcileSelection() {
         let ids = Set(filteredGroups.map { $0.id })
         selectedIDs.formIntersection(ids)
@@ -164,44 +202,78 @@ final class AppState: ObservableObject {
         if let c = currentID, selectedIDs.isEmpty { selectedIDs = [c]; anchorID = c }
     }
 
-    // MARK: Marking (applies to the whole selection)
+    // MARK: Rating / marking (applies to the whole selection)
     func setMark(_ mark: Int) {
+        mutateSelection({ $0.mark = mark }) { n in
+            mark == 0
+                ? (n == 1 ? "Markierung entfernt." : "Markierung von \(n) Bildern entfernt.")
+                : (n == 1 ? "Markierung \(mark) gesetzt." : "Markierung \(mark) für \(n) Bilder gesetzt.")
+        }
+    }
+
+    func setRating(_ rating: Int) {
+        mutateSelection({ $0.rating = rating }) { n in
+            rating == 0
+                ? (n == 1 ? "Bewertung entfernt." : "Bewertung von \(n) Bildern entfernt.")
+                : (n == 1 ? "\(rating) Sterne gesetzt." : "\(rating) Sterne für \(n) Bilder gesetzt.")
+        }
+    }
+
+    func toggleReject() {
+        let newValue = !(currentGroup?.reject ?? false)
+        mutateSelection({ $0.reject = newValue }) { n in
+            newValue
+                ? (n == 1 ? "Als Ausschuss markiert." : "\(n) Bilder als Ausschuss markiert.")
+                : (n == 1 ? "Ausschuss entfernt." : "Ausschuss von \(n) Bildern entfernt.")
+        }
+    }
+
+    /// Applies `body` to every selected photo, persists, and keeps culling flowing
+    /// by advancing to a neighbour if the photos left the current filter.
+    private func mutateSelection(_ body: (inout PhotoGroup) -> Void, status: (Int) -> String) {
         let targets = selectedIDs.isEmpty ? Set([currentID].compactMap { $0 }) : selectedIDs
         guard !targets.isEmpty else { return }
 
         let anchorPos = filteredGroups.firstIndex { $0.id == currentID }
-        for i in groups.indices where targets.contains(groups[i].id) { groups[i].mark = mark }
-        persistMarks()
+        for i in groups.indices where targets.contains(groups[i].id) { body(&groups[i]) }
+        persistState()
+        statusMessage = status(targets.count)
 
-        let n = targets.count
-        if mark == 0 {
-            statusMessage = n == 1 ? "Markierung entfernt." : "Markierung von \(n) Bildern entfernt."
-        } else {
-            statusMessage = n == 1 ? "Markierung \(mark) gesetzt." : "Markierung \(mark) für \(n) Bilder gesetzt."
-        }
-
-        // Keep culling flowing: if the marked photos left the current filter,
-        // move to the neighbouring photo.
         let visible = Set(filteredGroups.map { $0.id })
         if currentID == nil || !visible.contains(currentID!) {
             let list = filteredGroups
             if list.isEmpty { selectedIDs = []; currentID = nil }
-            else {
-                let pos = min(anchorPos ?? 0, list.count - 1)
-                selectSingle(list[pos].id)
-            }
+            else { selectSingle(list[min(anchorPos ?? 0, list.count - 1)].id) }
         } else {
             selectedIDs.formIntersection(visible)
             if selectedIDs.isEmpty, let c = currentID { selectedIDs = [c] }
         }
     }
 
-    private func persistMarks() {
+    private func persistState() {
         guard let identity else { return }
-        var marks: [String: Int] = [:]
-        for g in groups where g.mark != 0 { marks[g.persistKey] = g.mark }
-        SessionStore.save(identityID: identity.id, marks: marks)
+        var states: [String: SessionStore.PhotoState] = [:]
+        for g in groups where g.hasState {
+            states[g.persistKey] = SessionStore.PhotoState(mark: g.mark, rating: g.rating, reject: g.reject)
+        }
+        SessionStore.save(identityID: identity.id, states: states)
     }
+
+    // MARK: Sorting & view
+    private func applySort() {
+        let order = sortOrder
+        groups.sort { a, b in
+            switch order {
+            case .filename: return a.id.localizedStandardCompare(b.id) == .orderedAscending
+            case .date: return a.fileDate < b.fileDate
+            }
+        }
+        if sortReversed { groups.reverse() }
+        reconcileSelection()
+    }
+
+    func toggleFullscreen() { NSApp.keyWindow?.toggleFullScreen(nil) }
+    func toggleInfo() { showInfo.toggle() }
 
     // MARK: Finder
     func revealCurrent() {
@@ -268,7 +340,7 @@ final class AppState: ObservableObject {
                     let movedIDs = Set(snapshot.map { $0.id })
                     self.groups.removeAll { movedIDs.contains($0.id) }
                     self.selectedIDs.subtract(movedIDs)
-                    self.persistMarks()
+                    self.persistState()
                     self.reconcileSelection()
                 }
                 FinderService.revealFolder(target)
@@ -291,7 +363,9 @@ final class AppState: ObservableObject {
         if event.modifierFlags.contains(.command) { return false }   // leave ⌘-shortcuts to menus
         if NSApp.keyWindow?.firstResponder is NSText { return false }
 
+        let option = event.modifierFlags.contains(.option)
         let extend = event.modifierFlags.contains(.shift)
+
         switch event.keyCode {
         case 123: step(by: -1, extend: extend); return true   // ←
         case 124: step(by: 1, extend: extend); return true    // →
@@ -299,9 +373,23 @@ final class AppState: ObservableObject {
         }
 
         if let chars = event.charactersIgnoringModifiers, chars.count == 1,
-           let scalar = chars.unicodeScalars.first, scalar.value >= 48, scalar.value <= 57 {
-            setMark(Int(scalar.value) - 48)
-            return true
+           let scalar = chars.unicodeScalars.first {
+            switch scalar.value {
+            case 48...57:                                   // digits 0–9
+                let digit = Int(scalar.value) - 48
+                if option {
+                    if digit <= 5 { setRating(digit); return true }
+                } else {
+                    setMark(digit); return true
+                }
+            case UInt32(UInt8(ascii: "x")), UInt32(UInt8(ascii: "X")):
+                toggleReject(); return true
+            case UInt32(UInt8(ascii: "i")), UInt32(UInt8(ascii: "I")):
+                toggleInfo(); return true
+            case UInt32(UInt8(ascii: "f")), UInt32(UInt8(ascii: "F")):
+                toggleFullscreen(); return true
+            default: break
+            }
         }
         return false
     }

@@ -24,36 +24,59 @@ struct PhotoGroup: Identifiable, Hashable {
     /// File whose name we show to the user (prefers the RAW file if present).
     let displayName: String
 
-    /// Stable key used to persist the mark, independent of where the folder is
+    /// Stable key used to persist the state, independent of where the folder is
     /// mounted (see FolderIdentity). Filled in by AppState after scanning.
     var persistKey: String = ""
 
-    /// 0 = unmarked, 1…9 = mark.
+    /// 0 = unmarked, 1…9 = colour mark.
     var mark: Int = 0
+    /// 0…5 star rating.
+    var rating: Int = 0
+    /// Marked as rejected / to be sorted out.
+    var reject: Bool = false
+
+    /// Capture/modification date and total byte size, gathered during scanning
+    /// (used for sorting and the status bar).
+    var fileDate: Date = .distantPast
+    var fileSize: Int = 0
 
     var isRaw: Bool { files.contains(where: { PhotoTypes.isRaw($0) }) }
+    var hasState: Bool { mark != 0 || rating != 0 || reject }
 
     static func == (lhs: PhotoGroup, rhs: PhotoGroup) -> Bool {
-        lhs.id == rhs.id && lhs.mark == rhs.mark && lhs.files == rhs.files
+        lhs.id == rhs.id && lhs.mark == rhs.mark && lhs.rating == rhs.rating
+            && lhs.reject == rhs.reject && lhs.files == rhs.files
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
         hasher.combine(mark)
+        hasher.combine(rating)
+        hasher.combine(reject)
     }
 }
 
 /// Sidebar filter states.
 enum PhotoFilter: Hashable {
     case all
-    case unmarked
-    case mark(Int)
+    case unmarked        // no colour mark, no stars, not rejected
+    case mark(Int)       // colour mark n
+    case rating(Int)     // rating >= n
+    case reject          // rejected only
 
     func matches(_ group: PhotoGroup) -> Bool {
         switch self {
         case .all: return true
-        case .unmarked: return group.mark == 0
+        case .unmarked: return !group.hasState
         case .mark(let n): return group.mark == n
+        case .rating(let n): return group.rating >= n
+        case .reject: return group.reject
         }
     }
+}
+
+/// How the grid/filmstrip is ordered.
+enum SortOrder: String, CaseIterable, Hashable {
+    case filename = "Dateiname"
+    case date = "Datum"
 }

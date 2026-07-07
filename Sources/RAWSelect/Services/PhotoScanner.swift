@@ -54,7 +54,17 @@ struct PhotoScanner {
             let base = sorted[0].deletingPathExtension().lastPathComponent
             let matchedSidecars = (sidecars[key] ?? [])
                 .reduce(into: [URL]()) { acc, url in if !acc.contains(url) { acc.append(url) } }
-            groups.append(PhotoGroup(
+
+            var totalSize = 0
+            for f in sorted + matchedSidecars {
+                if let v = try? f.resourceValues(forKeys: [.fileSizeKey]) { totalSize += v.fileSize ?? 0 }
+            }
+            var date = Date.distantPast
+            if let v = try? sorted[0].resourceValues(forKeys: [.contentModificationDateKey, .creationDateKey]) {
+                date = v.creationDate ?? v.contentModificationDate ?? .distantPast
+            }
+
+            var group = PhotoGroup(
                 id: key,
                 directory: sorted[0].deletingLastPathComponent(),
                 baseName: base,
@@ -62,7 +72,10 @@ struct PhotoScanner {
                 sidecars: matchedSidecars,
                 previewURL: preferredPreview(from: sorted),
                 displayName: preferredDisplayName(from: sorted)
-            ))
+            )
+            group.fileSize = totalSize
+            group.fileDate = date
+            groups.append(group)
         }
 
         groups.sort { $0.id.localizedStandardCompare($1.id) == .orderedAscending }
