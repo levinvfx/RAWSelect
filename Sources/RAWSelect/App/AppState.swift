@@ -139,9 +139,9 @@ final class AppState: ObservableObject {
         // Capture scan-relevant settings on the main actor.
         let allowed = Set(settings.enabledTypes.map { $0.lowercased() })
         let recursive = settings.recursiveScan
-        let groupPairs = settings.groupRawJpg && settings.detectRawJpgPairs
+        let groupPairs = settings.groupRawJpg
         let ignoreHidden = settings.ignoreHidden
-        let cameraOnly = settings.cameraFoldersOnly || settings.scanMode == .fast
+        let cameraOnly = settings.cameraFoldersOnly
 
         scanTask = Task {
             let found: [PhotoGroup] = await Task.detached(priority: .userInitiated) {
@@ -231,7 +231,7 @@ final class AppState: ObservableObject {
         guard let idx = list.firstIndex(where: { $0.id == id }) else { return }
         let lower = max(0, idx - Int(settings.preloadBackward))
         let upper = min(list.count - 1, idx + Int(settings.preloadForward))
-        let maxPixel = PreviewConfig.loupeMaxPixel
+        let maxPixel = settings.perfectPixels
         for i in lower...upper where i != idx {
             ThumbnailLoader.shared.prefetch(for: list[i].previewURL, maxPixel: maxPixel, fullQuality: false)
         }
@@ -297,15 +297,11 @@ final class AppState: ObservableObject {
         groups.sort { a, b in
             switch field {
             case .filename: return a.id.localizedStandardCompare(b.id) == .orderedAscending
-            case .captureDate, .modifiedDate:
+            case .captureDate:
                 if a.fileDate != b.fileDate { return a.fileDate < b.fileDate }
                 return a.id.localizedStandardCompare(b.id) == .orderedAscending
             case .mark:
                 if a.mark != b.mark { return a.mark < b.mark }
-                return a.id.localizedStandardCompare(b.id) == .orderedAscending
-            case .type:
-                let ea = a.previewURL.pathExtension.lowercased(), eb = b.previewURL.pathExtension.lowercased()
-                if ea != eb { return ea < eb }
                 return a.id.localizedStandardCompare(b.id) == .orderedAscending
             }
         }
@@ -373,6 +369,7 @@ final class AppState: ObservableObject {
         guard !snapshot.isEmpty else { statusMessage = "Keine passenden Bilder für den Export."; return }
 
         let conflict = settings.conflictMode
+        let rawJpgMode = settings.rawJpgExport
         if conflict == .overwrite && !confirmOverwrite() { return }
 
         let makeSubfolder: (PhotoGroup) -> String? = useSubfolders
@@ -389,7 +386,7 @@ final class AppState: ObservableObject {
                 let outcome = try await Task.detached(priority: .userInitiated) { [weak self] in
                     try FileOperationService.perform(
                         kind, groups: snapshot, targetRoot: target, includeSidecars: includeSidecars,
-                        subfolder: makeSubfolder, conflict: conflict,
+                        rawJpg: rawJpgMode, subfolder: makeSubfolder, conflict: conflict,
                         progress: { completed, total in
                             Task { @MainActor in
                                 self?.operation?.completed = completed

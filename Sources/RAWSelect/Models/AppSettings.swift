@@ -1,99 +1,45 @@
 import SwiftUI
 import Combine
 
-// MARK: - Enums for pickers
+// MARK: - Enums shown in the (reduced) settings UI
 
-enum StartBehavior: String, CaseIterable, Identifiable { case startScreen, lastSession, lastFolder, emptyWindow
-    var id: String { rawValue }
-    var label: String { switch self {
-        case .startScreen: return "Startscreen anzeigen"
-        case .lastSession: return "Letzte Session öffnen"
-        case .lastFolder: return "Letzten Ordner automatisch öffnen"
-        case .emptyWindow: return "Leeres Fenster öffnen" } }
-}
 enum SDBehavior: String, CaseIterable, Identifiable { case notify, autoOpen, ignore
     var id: String { rawValue }
     var label: String { switch self { case .notify: return "Hinweis anzeigen"; case .autoOpen: return "Automatisch öffnen"; case .ignore: return "Ignorieren" } }
 }
-enum ScanMode: String, CaseIterable, Identifiable { case fast, normal, full
+enum SortField: String, CaseIterable, Identifiable { case filename, captureDate, mark
     var id: String { rawValue }
-    var label: String { switch self { case .fast: return "Schnell: Nur Kameraordner"; case .normal: return "Normal: Ausgewählter Ordner rekursiv"; case .full: return "Vollständig: Gesamten Datenträger scannen" } }
+    var label: String { switch self { case .filename: return "Dateiname"; case .captureDate: return "Aufnahmedatum"; case .mark: return "Markierung" } }
 }
-enum SortField: String, CaseIterable, Identifiable { case filename, captureDate, modifiedDate, mark, type
+enum PreviewMode: String, CaseIterable, Identifiable { case fast, balanced, quality
     var id: String { rawValue }
-    var label: String { switch self { case .filename: return "Dateiname"; case .captureDate: return "Aufnahmedatum"; case .modifiedDate: return "Änderungsdatum"; case .mark: return "Markierung"; case .type: return "Dateityp" } }
+    var label: String { switch self { case .fast: return "Schnell"; case .balanced: return "Ausgewogen"; case .quality: return "Qualität" } }
+    var instantPixels: Int { switch self { case .fast: return 400; case .balanced: return 800; case .quality: return 1200 } }
+    var perfectPixels: Int { switch self { case .fast: return 1920; case .balanced: return 2048; case .quality: return 3840 } }
+    var preloadForward: Int { switch self { case .fast: return 10; case .balanced: return 20; case .quality: return 30 } }
+    var preloadBackward: Int { switch self { case .fast: return 5; case .balanced: return 10; case .quality: return 15 } }
+    var maxJobs: Int { switch self { case .fast: return 2; case .balanced: return 3; case .quality: return 4 } }
 }
-enum InstantSize: String, CaseIterable, Identifiable { case px400 = "400", px800 = "800", px1200 = "1200", px1600 = "1600"
+enum RawJpgExport: String, CaseIterable, Identifiable { case both, rawOnly, jpgOnly
     var id: String { rawValue }
-    var pixels: Int { Int(rawValue) ?? 800 }
-    var label: String { "\(rawValue) px" }
+    var label: String { switch self { case .both: return "RAW + JPG"; case .rawOnly: return "Nur RAW"; case .jpgOnly: return "Nur JPG" } }
 }
-enum QualityLevel: String, CaseIterable, Identifiable { case low, medium, high
+enum SmartExposure: String, CaseIterable, Identifiable { case off, soft, standard, strong
     var id: String { rawValue }
-    var label: String { switch self { case .low: return "Niedrig"; case .medium: return "Mittel"; case .high: return "Hoch" } }
+    var label: String { switch self { case .off: return "Aus"; case .soft: return "Sanft"; case .standard: return "Standard"; case .strong: return "Stark" } }
 }
-enum PerfectQuality: String, CaseIterable, Identifiable { case fullHD, screen, uhd4k
+enum SmartExposureEV: String, CaseIterable, Identifiable { case ev03 = "0.3", ev07 = "0.7", ev10 = "1.0"
     var id: String { rawValue }
-    var label: String { switch self { case .fullHD: return "Full HD"; case .screen: return "Bildschirmoptimiert, mind. Full HD"; case .uhd4k: return "4K" } }
+    var label: String { "±\(rawValue) EV" }
 }
-enum AdvanceDirection: String, CaseIterable, Identifiable { case next, previous
+enum JPEGQuality: String, CaseIterable, Identifiable { case q80 = "80", q90 = "90", q100 = "100"
     var id: String { rawValue }
-    var label: String { self == .next ? "Nächstes Bild" : "Vorheriges Bild" }
+    var label: String { rawValue }
+    var value: Int { Int(rawValue) ?? 90 }
 }
-enum DefaultExportAction: String, CaseIterable, Identifiable { case copy, move
-    var id: String { rawValue }
-    var label: String { self == .copy ? "Kopieren" : "Verschieben" }
-}
-enum ExportFolderFormat: String, CaseIterable, Identifiable { case numberName, numberMark, name, single
-    var id: String { rawValue }
-    var label: String { switch self { case .numberName: return "01_Select"; case .numberMark: return "01_Mark_1"; case .name: return "Select"; case .single: return "Alles in einen Ordner" } }
-}
-enum RawJpgExport: String, CaseIterable, Identifiable { case both, rawOnly, jpgOnly, ask
-    var id: String { rawValue }
-    var label: String { switch self { case .both: return "RAW + JPG kopieren"; case .rawOnly: return "Nur RAW kopieren"; case .jpgOnly: return "Nur JPG kopieren"; case .ask: return "Jedes Mal fragen" } }
-}
-enum RawJpgOpen: String, CaseIterable, Identifiable { case raw, jpg, ask
-    var id: String { rawValue }
-    var label: String { switch self { case .raw: return "RAW öffnen"; case .jpg: return "JPG öffnen"; case .ask: return "Jedes Mal fragen" } }
-}
-enum ConflictMode: String, CaseIterable, Identifiable { case rename, skip, ask, overwrite
-    var id: String { rawValue }
-    var label: String { switch self { case .rename: return "Automatisch _1, _2, _3 anhängen"; case .skip: return "Überspringen"; case .ask: return "Jedes Mal fragen"; case .overwrite: return "Überschreiben" } }
-}
-enum AppearanceMode: String, CaseIterable, Identifiable { case system, light, dark
-    var id: String { rawValue }
-    var label: String { switch self { case .system: return "System"; case .light: return "Hell"; case .dark: return "Dunkel" } }
-    var colorScheme: ColorScheme? { switch self { case .system: return nil; case .light: return .light; case .dark: return .dark } }
-}
-enum AppBackground: String, CaseIterable, Identifiable { case system, light, dark, softWhite
-    var id: String { rawValue }
-    var label: String { switch self { case .system: return "System"; case .light: return "Hell"; case .dark: return "Dunkel"; case .softWhite: return "Sanftes Weiss" } }
-}
-enum PreviewBackground: String, CaseIterable, Identifiable { case system, dark, light, neutralGray
-    var id: String { rawValue }
-    var label: String { switch self { case .system: return "System"; case .dark: return "Dunkel"; case .light: return "Hell"; case .neutralGray: return "Neutralgrau" } }
-    var color: Color { switch self {
-        case .system: return Color(nsColor: .textBackgroundColor).opacity(0.4)
-        case .dark: return Color(white: 0.12)
-        case .light: return Color(white: 0.95)
-        case .neutralGray: return Color(white: 0.5) } }
-}
-enum AccentChoice: String, CaseIterable, Identifiable { case system, blue, graphite, custom
-    var id: String { rawValue }
-    var label: String { switch self { case .system: return "System"; case .blue: return "Blau"; case .graphite: return "Graphit"; case .custom: return "Eigene Farbe" } }
-}
-enum CacheLimit: String, CaseIterable, Identifiable { case gb1 = "1", gb5 = "5", gb10 = "10", gb20 = "20"
-    var id: String { rawValue }
-    var label: String { "\(rawValue) GB" }
-}
-enum CacheAge: String, CaseIterable, Identifiable { case d7 = "7", d30 = "30", d60 = "60", d90 = "90"
-    var id: String { rawValue }
-    var label: String { "\(rawValue) Tage" }
-}
-enum SessionLocation: String, CaseIterable, Identifiable { case appStorage, sidecar
-    var id: String { rawValue }
-    var label: String { self == .appStorage ? "App-Speicher" : "Session-Datei im Bildordner" }
-}
+
+// Internal enums kept for fixed code defaults (not shown in UI).
+enum ConflictMode { case rename, skip, ask, overwrite }
 
 // MARK: - Mark definitions
 
@@ -118,8 +64,9 @@ struct MarkDefinition: Codable, Identifiable, Equatable {
 
 // MARK: - AppSettings store
 
-/// Central, type-safe, persistent settings store (UserDefaults-backed). Computed
-/// properties publish on change so `$settings.x` bindings update the UI live.
+/// Central, type-safe settings store. Only a small, curated set of options is
+/// user-facing (see SettingsView); everything else is a sensible fixed default
+/// in code. Kept values are UserDefaults-backed and publish on change.
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
     let objectWillChange = ObservableObjectPublisher()
@@ -129,6 +76,7 @@ final class AppSettings: ObservableObject {
     // Typed accessors
     private func b(_ k: String, _ def: Bool) -> Bool { d.object(forKey: k) as? Bool ?? def }
     private func dbl(_ k: String, _ def: Double) -> Double { d.object(forKey: k) as? Double ?? def }
+    private func int(_ k: String, _ def: Int) -> Int { d.object(forKey: k) as? Int ?? def }
     private func str(_ k: String, _ def: String) -> String { d.object(forKey: k) as? String ?? def }
     private func en<E: RawRepresentable>(_ k: String, _ def: E) -> E where E.RawValue == String {
         (d.string(forKey: k).flatMap { E(rawValue: $0) }) ?? def
@@ -140,120 +88,75 @@ final class AppSettings: ObservableObject {
     private func setEnum<E: RawRepresentable>(_ k: String, _ v: E) where E.RawValue == String { set(k, v.rawValue) }
     private func setCod<T: Codable>(_ k: String, _ v: T) { if let data = try? JSONEncoder().encode(v) { set(k, data) } }
 
-    // 1 – Allgemein
-    var startBehavior: StartBehavior { get { en("rs.startBehavior", .startScreen) } set { setEnum("rs.startBehavior", newValue) } }
+    // ───────── User-facing settings ─────────
+
+    // Allgemein
     var restoreSession: Bool { get { b("rs.restoreSession", true) } set { set("rs.restoreSession", newValue) } }
-    var rememberLastFolder: Bool { get { b("rs.rememberLastFolder", true) } set { set("rs.rememberLastFolder", newValue) } }
-    var rememberWindow: Bool { get { b("rs.rememberWindow", true) } set { set("rs.rememberWindow", newValue) } }
-    var autoScanOnLaunch: Bool { get { b("rs.autoScanOnLaunch", false) } set { set("rs.autoScanOnLaunch", newValue) } }
     var warnOnQuitDuringOp: Bool { get { b("rs.warnOnQuitDuringOp", true) } set { set("rs.warnOnQuitDuringOp", newValue) } }
     var completionNotification: Bool { get { b("rs.completionNotification", true) } set { set("rs.completionNotification", newValue) } }
 
-    // 2 – Quellen
+    // Quellen
     var autoDetectVolumes: Bool { get { b("rs.autoDetectVolumes", true) } set { set("rs.autoDetectVolumes", newValue) } }
     var sdBehavior: SDBehavior { get { en("rs.sdBehavior", .notify) } set { setEnum("rs.sdBehavior", newValue) } }
-    var cameraFoldersOnly: Bool { get { b("rs.cameraFoldersOnly", true) } set { set("rs.cameraFoldersOnly", newValue) } }
-    var recursiveScan: Bool { get { b("rs.recursiveScan", true) } set { set("rs.recursiveScan", newValue) } }
-    var ignoreHidden: Bool { get { b("rs.ignoreHidden", true) } set { set("rs.ignoreHidden", newValue) } }
-    var rescanOnFocus: Bool { get { b("rs.rescanOnFocus", true) } set { set("rs.rescanOnFocus", newValue) } }
-    var scanMode: ScanMode { get { en("rs.scanMode", .fast) } set { setEnum("rs.scanMode", newValue) } }
-    var enabledTypes: [String] {
-        get { cod("rs.enabledTypes", ["arw","cr2","cr3","nef","raf","dng","jpg","jpeg","heic","png"]) }
-        set { setCod("rs.enabledTypes", newValue) }
-    }
 
-    // 3 – Ansicht & Preview
+    // Ansicht & Performance
     var thumbnailSize: Double { get { dbl("rs.thumbnailSize", 128) } set { set("rs.thumbnailSize", newValue) } }
     var sortField: SortField { get { en("rs.sortField", .filename) } set { setEnum("rs.sortField", newValue) } }
     var sortReversed: Bool { get { b("rs.sortReversed", false) } set { set("rs.sortReversed", newValue) } }
-    var showFilename: Bool { get { b("rs.showFilename", true) } set { set("rs.showFilename", newValue) } }
-    var showTypeBadge: Bool { get { b("rs.showTypeBadge", true) } set { set("rs.showTypeBadge", newValue) } }
-    var showMarkBadge: Bool { get { b("rs.showMarkBadge", true) } set { set("rs.showMarkBadge", newValue) } }
-    var showDateUnderThumb: Bool { get { b("rs.showDateUnderThumb", false) } set { set("rs.showDateUnderThumb", newValue) } }
     var groupRawJpg: Bool { get { b("rs.groupRawJpg", true) } set { set("rs.groupRawJpg", newValue) } }
-    var fitToPreview: Bool { get { b("rs.fitToPreview", true) } set { set("rs.fitToPreview", newValue) } }
-    var respectRotation: Bool { get { b("rs.respectRotation", true) } set { set("rs.respectRotation", newValue) } }
-    var syncPreviewGrid: Bool { get { b("rs.syncPreviewGrid", true) } set { set("rs.syncPreviewGrid", newValue) } }
-    var wrapNavigation: Bool { get { b("rs.wrapNavigation", false) } set { set("rs.wrapNavigation", newValue) } }
-    var zoomWithZ: Bool { get { b("rs.zoomWithZ", true) } set { set("rs.zoomWithZ", newValue) } }
-    var loadPerfectOnZoom: Bool { get { b("rs.loadPerfectOnZoom", true) } set { set("rs.loadPerfectOnZoom", newValue) } }
-    var instantFirst: Bool { get { b("rs.instantFirst", true) } set { set("rs.instantFirst", newValue) } }
-    var instantSize: InstantSize { get { en("rs.instantSize", .px800) } set { setEnum("rs.instantSize", newValue) } }
-    var instantQuality: QualityLevel { get { en("rs.instantQuality", .medium) } set { setEnum("rs.instantQuality", newValue) } }
-    var perfectAuto: Bool { get { b("rs.perfectAuto", true) } set { set("rs.perfectAuto", newValue) } }
-    var perfectQuality: PerfectQuality { get { en("rs.perfectQuality", .screen) } set { setEnum("rs.perfectQuality", newValue) } }
-    var respectScale: Bool { get { b("rs.respectScale", true) } set { set("rs.respectScale", newValue) } }
-    var smoothPreviewSwap: Bool { get { b("rs.smoothPreviewSwap", false) } set { set("rs.smoothPreviewSwap", newValue) } }
+    var previewMode: PreviewMode { get { en("rs.previewMode", .balanced) } set { setEnum("rs.previewMode", newValue) } }
 
-    // 4 – Markierungen
-    var singleMarkPerPhoto: Bool { get { b("rs.singleMarkPerPhoto", true) } set { set("rs.singleMarkPerPhoto", newValue) } }
-    var zeroClearsMark: Bool { get { b("rs.zeroClearsMark", true) } set { set("rs.zeroClearsMark", newValue) } }
+    // Markierungen
     var autoAdvance: Bool { get { b("rs.autoAdvance", true) } set { set("rs.autoAdvance", newValue) } }
-    var advanceDirection: AdvanceDirection { get { en("rs.advanceDirection", .next) } set { setEnum("rs.advanceDirection", newValue) } }
-    var storeMarksLocally: Bool { get { b("rs.storeMarksLocally", true) } set { set("rs.storeMarksLocally", newValue) } }
-    var showMarkToolbar: Bool { get { b("rs.showMarkToolbar", true) } set { set("rs.showMarkToolbar", newValue) } }
-    var warnOnResetMarks: Bool { get { b("rs.warnOnResetMarks", true) } set { set("rs.warnOnResetMarks", newValue) } }
     var marks: [MarkDefinition] { get { cod("rs.marks", MarkDefinition.defaults) } set { setCod("rs.marks", newValue) } }
 
-    // 5 – Export & Dateien
-    var defaultExportAction: DefaultExportAction { get { en("rs.defaultExportAction", .copy) } set { setEnum("rs.defaultExportAction", newValue) } }
-    var exportSubfolders: Bool { get { b("rs.exportSubfolders", true) } set { set("rs.exportSubfolders", newValue) } }
-    var useMarkFolderNames: Bool { get { b("rs.useMarkFolderNames", true) } set { set("rs.useMarkFolderNames", newValue) } }
-    var exportFolderFormat: ExportFolderFormat { get { en("rs.exportFolderFormat", .numberName) } set { setEnum("rs.exportFolderFormat", newValue) } }
-    var ignoreUnmarked: Bool { get { b("rs.ignoreUnmarked", true) } set { set("rs.ignoreUnmarked", newValue) } }
+    // Export
     var revealAfterExport: Bool { get { b("rs.revealAfterExport", true) } set { set("rs.revealAfterExport", newValue) } }
-    var rememberExportTarget: Bool { get { b("rs.rememberExportTarget", true) } set { set("rs.rememberExportTarget", newValue) } }
-    var detectRawJpgPairs: Bool { get { b("rs.detectRawJpgPairs", true) } set { set("rs.detectRawJpgPairs", newValue) } }
     var rawJpgExport: RawJpgExport { get { en("rs.rawJpgExport", .both) } set { setEnum("rs.rawJpgExport", newValue) } }
-    var rawJpgOpen: RawJpgOpen { get { en("rs.rawJpgOpen", .raw) } set { setEnum("rs.rawJpgOpen", newValue) } }
-    var conflictMode: ConflictMode { get { en("rs.conflictMode", .rename) } set { setEnum("rs.conflictMode", newValue) } }
-    var keepFileDates: Bool { get { b("rs.keepFileDates", true) } set { set("rs.keepFileDates", newValue) } }
-    var renameOnExport: Bool { get { b("rs.renameOnExport", false) } set { set("rs.renameOnExport", newValue) } }
-    var allowMoveFromSD: Bool { get { b("rs.allowMoveFromSD", false) } set { set("rs.allowMoveFromSD", newValue) } }
-    var allowDeleteFromSD: Bool { get { b("rs.allowDeleteFromSD", false) } set { set("rs.allowDeleteFromSD", newValue) } }
-    var warnBeforeMove: Bool { get { b("rs.warnBeforeMove", true) } set { set("rs.warnBeforeMove", newValue) } }
-    var warnBeforeDelete: Bool { get { b("rs.warnBeforeDelete", true) } set { set("rs.warnBeforeDelete", newValue) } }
-    var deleteToTrashOnly: Bool { get { b("rs.deleteToTrashOnly", true) } set { set("rs.deleteToTrashOnly", newValue) } }
+    var photoshopExport: Bool { get { b("rs.photoshopExport", false) } set { set("rs.photoshopExport", newValue) } }
+    var jpegQuality: JPEGQuality { get { en("rs.jpegQuality", .q90) } set { setEnum("rs.jpegQuality", newValue) } }
+    var smartExposure: SmartExposure { get { en("rs.smartExposure", .standard) } set { setEnum("rs.smartExposure", newValue) } }
+    var smartExposureMax: SmartExposureEV { get { en("rs.smartExposureMax", .ev07) } set { setEnum("rs.smartExposureMax", newValue) } }
 
-    // 6 – Performance & Cache
-    var preloadPerfect: Bool { get { b("rs.preloadPerfect", true) } set { set("rs.preloadPerfect", newValue) } }
-    var preloadForward: Double { get { dbl("rs.preloadForward", 20) } set { set("rs.preloadForward", newValue) } }
-    var preloadBackward: Double { get { dbl("rs.preloadBackward", 10) } set { set("rs.preloadBackward", newValue) } }
-    var preloadCurrentFilterOnly: Bool { get { b("rs.preloadCurrentFilterOnly", true) } set { set("rs.preloadCurrentFilterOnly", newValue) } }
-    var cancelStalePreloads: Bool { get { b("rs.cancelStalePreloads", true) } set { set("rs.cancelStalePreloads", newValue) } }
-    var maxParallelJobs: Double { get { dbl("rs.maxParallelJobs", 3) } set { set("rs.maxParallelJobs", newValue) } }
-    var thumbnailCache: Bool { get { b("rs.thumbnailCache", true) } set { set("rs.thumbnailCache", newValue) } }
-    var perfectCache: Bool { get { b("rs.perfectCache", true) } set { set("rs.perfectCache", newValue) } }
-    var cachePath: String { get { str("rs.cachePath", "") } set { set("rs.cachePath", newValue) } }
-    var cacheLimit: CacheLimit { get { en("rs.cacheLimit", .gb5) } set { setEnum("rs.cacheLimit", newValue) } }
-    var autoCleanCache: Bool { get { b("rs.autoCleanCache", true) } set { set("rs.autoCleanCache", newValue) } }
-    var cacheAge: CacheAge { get { en("rs.cacheAge", .d30) } set { setEnum("rs.cacheAge", newValue) } }
-    var clearCacheOnQuit: Bool { get { b("rs.clearCacheOnQuit", false) } set { set("rs.clearCacheOnQuit", newValue) } }
-    var autoManageMemory: Bool { get { b("rs.autoManageMemory", true) } set { set("rs.autoManageMemory", newValue) } }
-    var reducePreloadLowPower: Bool { get { b("rs.reducePreloadLowPower", true) } set { set("rs.reducePreloadLowPower", newValue) } }
+    // Erweitert
+    var photoshopAutoDetect: Bool { get { b("rs.photoshopAutoDetect", true) } set { set("rs.photoshopAutoDetect", newValue) } }
+    var photoshopPath: String { get { str("rs.photoshopPath", "") } set { set("rs.photoshopPath", newValue) } }
+    var presetPath: String { get { str("rs.presetPath", "") } set { set("rs.presetPath", newValue) } }
 
-    // 7 – Darstellung
-    var appearance: AppearanceMode { get { en("rs.appearance", .system) } set { setEnum("rs.appearance", newValue) } }
-    var appBackground: AppBackground { get { en("rs.appBackground", .system) } set { setEnum("rs.appBackground", newValue) } }
-    var previewBackground: PreviewBackground { get { en("rs.previewBackground", .system) } set { setEnum("rs.previewBackground", newValue) } }
-    var accent: AccentChoice { get { en("rs.accent", .system) } set { setEnum("rs.accent", newValue) } }
-    var accentCustomHex: String { get { str("rs.accentCustomHex", "#3B82F6") } set { set("rs.accentCustomHex", newValue) } }
-    var colorMgmtThumbs: Bool { get { b("rs.colorMgmtThumbs", true) } set { set("rs.colorMgmtThumbs", newValue) } }
-    var colorMgmtPreview: Bool { get { b("rs.colorMgmtPreview", true) } set { set("rs.colorMgmtPreview", newValue) } }
-    var checkerboardTransparency: Bool { get { b("rs.checkerboardTransparency", true) } set { set("rs.checkerboardTransparency", newValue) } }
-    var reduceMotion: Bool { get { b("rs.reduceMotion", true) } set { set("rs.reduceMotion", newValue) } }
-    var subtleTransitions: Bool { get { b("rs.subtleTransitions", true) } set { set("rs.subtleTransitions", newValue) } }
-    var metadataPanel: Bool { get { b("rs.metadataPanel", true) } set { set("rs.metadataPanel", newValue) } }
-    var compactToolbar: Bool { get { b("rs.compactToolbar", true) } set { set("rs.compactToolbar", newValue) } }
+    // ───────── Fixed defaults (not shown in UI) ─────────
 
-    // 8 – Erweitert
-    var externalAppPath: String { get { str("rs.externalAppPath", "") } set { set("rs.externalAppPath", newValue) } }
-    var maxExternalOpen: Double { get { dbl("rs.maxExternalOpen", 20) } set { set("rs.maxExternalOpen", newValue) } }
-    var warnManyExternal: Bool { get { b("rs.warnManyExternal", true) } set { set("rs.warnManyExternal", newValue) } }
-    var xmpExport: Bool { get { b("rs.xmpExport", false) } set { set("rs.xmpExport", newValue) } }
-    var writeMetadataJpeg: Bool { get { b("rs.writeMetadataJpeg", false) } set { set("rs.writeMetadataJpeg", newValue) } }
-    var sessionLocation: SessionLocation { get { en("rs.sessionLocation", .appStorage) } set { setEnum("rs.sessionLocation", newValue) } }
-    var debugLogs: Bool { get { b("rs.debugLogs", false) } set { set("rs.debugLogs", newValue) } }
+    // Sources / scanning
+    var enabledTypes: [String] { ["arw","cr2","cr3","nef","raf","dng","jpg","jpeg","heic","png"] }
+    var recursiveScan: Bool { true }
+    var ignoreHidden: Bool { true }
+    var cameraFoldersOnly: Bool { true }
+
+    // View / preview badges & behaviour
+    var showFilename: Bool { true }
+    var showTypeBadge: Bool { true }
+    var showMarkBadge: Bool { true }
+    var showDateUnderThumb: Bool { false }
+    var wrapNavigation: Bool { false }
+    var metadataPanel: Bool { true }
+    var showMarkToolbar: Bool { true }
+
+    // Preview quality / preloading – derived from previewMode.
+    var instantPixels: Int { previewMode.instantPixels }
+    var perfectPixels: Int { previewMode.perfectPixels }
+    var preloadForward: Double { Double(previewMode.preloadForward) }
+    var preloadBackward: Double { Double(previewMode.preloadBackward) }
+    var maxParallelJobs: Double { Double(previewMode.maxJobs) }
+    var preloadPerfect: Bool { true }
+
+    // Marks behaviour
+    var zeroClearsMark: Bool { true }
+    var advanceDirection: AdvanceDirection { .next }
+
+    // Export
+    var exportSubfolders: Bool { true }
+    var useMarkFolderNames: Bool { true }
+    var ignoreUnmarked: Bool { true }
+    var conflictMode: ConflictMode { .rename }
 
     // MARK: Derived helpers
     func markDefinition(_ n: Int) -> MarkDefinition {
@@ -262,36 +165,25 @@ final class AppSettings: ObservableObject {
     func markColor(_ n: Int) -> Color { markDefinition(n).color }
     func markName(_ n: Int) -> String { markDefinition(n).name }
 
-    /// Subfolder name for a mark on export, or nil to place in the target root.
+    /// Subfolder name for a mark on export (format 01_Select), or nil for none.
     func exportFolderName(for mark: Int) -> String? {
         guard exportSubfolders, mark >= 1, mark <= 9 else { return nil }
-        switch exportFolderFormat {
-        case .single: return nil
-        case .numberMark: return String(format: "%02d_Mark_%d", mark, mark)
-        case .name: return useMarkFolderNames ? sanitize(markName(mark)) : String(format: "%02d", mark)
-        case .numberName:
-            let base = useMarkFolderNames ? markName(mark) : "Mark_\(mark)"
-            return String(format: "%02d_", mark) + sanitize(base)
-        }
+        return String(format: "%02d_", mark) + sanitize(markName(mark))
     }
     private func sanitize(_ s: String) -> String {
         s.components(separatedBy: CharacterSet(charactersIn: "/:\\")).joined(separator: "-")
     }
 
-    var accentColor: Color? {
-        switch accent {
-        case .system: return nil
-        case .blue: return .blue
-        case .graphite: return Color(white: 0.4)
-        case .custom: return Color(hex: accentCustomHex)
-        }
-    }
+    /// Appearance follows the system automatically.
+    var systemColorScheme: ColorScheme? { nil }
 
     func resetAll() {
         objectWillChange.send()
         for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") { d.removeObject(forKey: key) }
     }
 }
+
+enum AdvanceDirection { case next, previous }
 
 // MARK: - Color <-> hex
 

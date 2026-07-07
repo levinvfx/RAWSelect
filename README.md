@@ -104,34 +104,30 @@ swift run RAWSelect --selftest
 
 ## Einstellungen (Settings)
 
-Öffnen wie bei jeder macOS-App: **RAW Select → Settings…** in der Menüleiste oder **⌘,**.
-Es öffnet sich ein **eigenes, natives Settings-Fenster** (kein Bereich in der Haupt-App) mit
-8 Tabs: Allgemein, Quellen, Ansicht & Preview, Markierungen, Export & Dateien, Performance &
-Cache, Darstellung, Erweitert. Alle Werte werden in `UserDefaults` gespeichert (bleiben nach
-Neustart erhalten) und haben sinnvolle Defaults ab dem ersten Start.
+Öffnen wie bei jeder macOS-App: **RAW Select → Settings…** oder **⌘,** — eigenes, natives
+Fenster (kein Bereich in der Haupt-App). Bewusst **reduziert auf 6 Tabs**:
 
-**Wirken bereits live:**
-- Thumbnail-Grösse, Sortierung (Feld + umgekehrt), Dateiname/Datum/Typ-/Markierungs-Badge,
-  RAW+JPG-Gruppierung
-- Markierungsnamen & -farben (Badges, Filterleiste, Loupe, Export-Ordnernamen)
-- 2-Stufen-Preview: Instant-Grösse/-Qualität, Perfect automatisch/Qualität, weicher Wechsel
-- Preload voraus/zurück, „Perfect vorausladen“, max. parallele Jobs
-- Auto-Advance nach Markierung (+ Richtung), Taste 0 löscht, „am Ende wieder zum Anfang“
-- Filterleiste ein/aus, Metadaten-Panel, Erscheinungsbild (Hell/Dunkel/System), Akzentfarbe,
-  Preview-Hintergrund
-- Scan: Dateitypen, rekursiv, nur Kameraordner, versteckte Dateien ignorieren
-- Export: Unterordner pro Markierung + Ordnerformat, unmarkierte ignorieren, Konfliktmodus
-  (Umbenennen/Überspringen/Überschreiben mit Warnung), Zielordner danach öffnen
-- Cache jetzt leeren, Session exportieren/importieren, alle Settings zurücksetzen
+- **Allgemein** – Letzte Session wiederherstellen · Warnen bei laufendem Vorgang beim Beenden ·
+  Abschluss-Benachrichtigung
+- **Quellen** – SD-Karten automatisch erkennen · Verhalten bei erkannter Karte (Hinweis/Öffnen/Ignorieren)
+- **Ansicht** – Thumbnail-Grösse · Sortieren (Dateiname/Aufnahmedatum/Markierung) · Sortierung
+  umkehren · RAW+JPG als ein Bild · **Vorschau-Modus** (Schnell/Ausgewogen/Qualität)
+- **Markierungen** – Auto-Advance · editierbare Markierungen 1–9 (Name + Farbe)
+- **Export** – Zielordner im Finder öffnen · RAW+JPG beim Export · Photoshop-Export
+  (experimentell): JPEG-Qualität, Smart Exposure, max. Helligkeitskorrektur
+- **Erweitert** – Photoshop finden/wählen · Standard-Preset (.xmp) · Cache leeren · alle Einstellungen zurücksetzen
 
-**Vorbereitet & gespeichert, aber noch nicht voll angeschlossen** (brechen nichts):
-Startverhalten/Session-Wiederherstellung, Fensterposition merken, SD-Auto-Öffnen & Hinweis,
-Abschluss-Benachrichtigung, 100%-Zoom (Taste Z), Disk-Cache-Grösse/-Alter/-Ort & Auto-Cleanup,
-Energiesparmodus, Color-Management-Schalter, XMP-Sidecar-Export, externe Standard-App.
-Diese Schalter sind bewusst nicht-destruktiv vorbereitet.
+**Vorschau-Modus** bündelt die technischen Werte (Instant-Grösse, Perfect-Auflösung, Vorlade-
+Anzahl, parallele Jobs) — der User stellt nur einen Regler statt vieler Einzeloptionen.
 
-**Sicherheit:** „In RAW schreiben“ und „RAW verändern“ sind fest deaktiviert. „Von SD
-verschieben/löschen“ sind standardmässig aus; Überschreiben nur mit zusätzlicher Warnung.
+Alle übrigen früheren Optionen sind als **sichere Defaults fest im Code** hinterlegt (z. B. alle
+Bildtypen an, rekursiv scannen, Kameraordner bevorzugen, versteckte ignorieren, Export in
+`01_Select`-Unterordner, Konflikte automatisch `_1/_2`, Originaldatum behalten, Erscheinungsbild =
+System, Metadaten-Panel an). Photoshop-Export & Smart Exposure sind als Einstellungen vorbereitet
+(Funktion folgt).
+
+**Sicherheit (fest, nicht abschaltbar):** RAW-Dateien werden nie verändert, SD-Karten nie
+verschoben/gelöscht, keinerlei Netz/Cloud.
 
 ## Tags & wie sich die App die SD-Karte merkt
 

@@ -24,8 +24,6 @@ struct RAWSelectApp: App {
             ContentView()
                 .environmentObject(app)
                 .environmentObject(settings)
-                .preferredColorScheme(settings.appearance.colorScheme)
-                .tint(settings.accentColor)
                 .frame(minWidth: 1040, minHeight: 660)
         }
         .windowToolbarStyle(.unified)
@@ -48,7 +46,6 @@ struct RAWSelectApp: App {
         Settings {
             SettingsView()
                 .environmentObject(settings)
-                .preferredColorScheme(settings.appearance.colorScheme)
         }
     }
 }

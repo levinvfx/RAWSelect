@@ -1,19 +1,18 @@
 import SwiftUI
 
-/// Native macOS Settings window (opened via RAW Select → Settings…, ⌘,).
+/// Native macOS Settings window (RAW Select → Settings…, ⌘,). Deliberately
+/// reduced to a small, curated set of options.
 struct SettingsView: View {
     var body: some View {
         TabView {
             GeneralSettingsTab().tabItem { Label("Allgemein", systemImage: "gearshape") }
             SourcesSettingsTab().tabItem { Label("Quellen", systemImage: "sdcard") }
-            ViewSettingsTab().tabItem { Label("Ansicht & Preview", systemImage: "photo") }
+            ViewSettingsTab().tabItem { Label("Ansicht", systemImage: "photo") }
             MarkSettingsTab().tabItem { Label("Markierungen", systemImage: "tag") }
-            ExportSettingsTab().tabItem { Label("Export & Dateien", systemImage: "square.and.arrow.up") }
-            PerformanceSettingsTab().tabItem { Label("Performance & Cache", systemImage: "speedometer") }
-            AppearanceSettingsTab().tabItem { Label("Darstellung", systemImage: "paintbrush") }
-            AdvancedSettingsTab().tabItem { Label("Erweitert", systemImage: "wrench.and.screwdriver") }
+            ExportSettingsTab().tabItem { Label("Export", systemImage: "square.and.arrow.up") }
+            AdvancedSettingsTab().tabItem { Label("Erweitert", systemImage: "slider.horizontal.3") }
         }
-        .frame(width: 580, height: 560)
+        .frame(width: 500, height: 440)
     }
 }
 
@@ -24,7 +23,6 @@ struct SettingToggle: View {
     let title: String
     var help: String? = nil
     @Binding var isOn: Bool
-    var disabled: Bool = false
 
     var body: some View {
         Toggle(isOn: $isOn) {
@@ -33,7 +31,6 @@ struct SettingToggle: View {
                 if let help { Text(help).font(.caption).foregroundStyle(.secondary) }
             }
         }
-        .disabled(disabled)
     }
 }
 
@@ -49,16 +46,5 @@ struct SettingPicker<T: Hashable, Content: View>: View {
             Picker(title, selection: $selection) { content() }
             if let help { Text(help).font(.caption).foregroundStyle(.secondary) }
         }
-    }
-}
-
-/// Static informational note row.
-struct SettingNote: View {
-    let text: String
-    var systemImage: String = "info.circle"
-    var body: some View {
-        Label(text, systemImage: systemImage)
-            .font(.caption)
-            .foregroundStyle(.secondary)
     }
 }

@@ -29,28 +29,15 @@ private struct LargePreview: View {
     @State private var isSharp = false
     @State private var metadata = PhotoMetadata()
 
-    // Perfect-preview target pixel size (screen-optimised, min Full HD).
-    private var perfectPixels: Int {
-        switch settings.perfectQuality {
-        case .fullHD: return 1920
-        case .uhd4k: return 3840
-        case .screen: return settings.respectScale ? PreviewConfig.loupeMaxPixel : 1920
-        }
-    }
-
-    private var instantInterpolation: Image.Interpolation {
-        switch settings.instantQuality { case .low: return .low; case .medium: return .medium; case .high: return .high }
-    }
-
     var body: some View {
         ZStack {
-            settings.previewBackground.color
+            Color(nsColor: .textBackgroundColor).opacity(0.4)
             if let image {
                 // Two-stage preview: never a spinner. Instant (soft) shows first,
                 // then Perfect swaps in directly (no fade) for fast browsing.
                 Image(nsImage: image)
                     .resizable()
-                    .interpolation(isSharp ? .high : instantInterpolation)
+                    .interpolation(isSharp ? .high : .medium)
                     .aspectRatio(contentMode: .fit)
                     .padding(16)
             }
@@ -69,15 +56,13 @@ private struct LargePreview: View {
         .task(id: group.id) {
             isSharp = false
             let loader = ThumbnailLoader.shared
-            // 1) Instant preview – quick embedded thumbnail (Settings: size/quality).
-            if settings.instantFirst,
-               let instant = await loader.thumbnail(for: group.previewURL, maxPixel: settings.instantSize.pixels) {
+            // 1) Instant preview – quick embedded thumbnail (size from Vorschau-Modus).
+            if let instant = await loader.thumbnail(for: group.previewURL, maxPixel: settings.instantPixels) {
                 if !isSharp { image = instant }
             }
-            // 2) Perfect preview – screen-optimised, min Full HD, from the camera's
-            //    embedded preview (full RAW decode isn't available on this system).
-            guard settings.perfectAuto || image == nil else { return }
-            if let perfect = await loader.thumbnail(for: group.previewURL, maxPixel: perfectPixels, fullQuality: false) {
+            // 2) Perfect preview – screen-optimised, from the camera's embedded
+            //    preview (full RAW decode isn't available on this system).
+            if let perfect = await loader.thumbnail(for: group.previewURL, maxPixel: settings.perfectPixels, fullQuality: false) {
                 image = perfect
                 isSharp = true
             }

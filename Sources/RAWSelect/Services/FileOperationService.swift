@@ -21,6 +21,7 @@ struct FileOperationService {
                         groups: [PhotoGroup],
                         targetRoot: URL,
                         includeSidecars: Bool,
+                        rawJpg: RawJpgExport = .both,
                         subfolder: (PhotoGroup) -> String? = { _ in nil },
                         conflict: ConflictMode = .rename,
                         progress: (Int, Int) -> Void,
@@ -29,8 +30,19 @@ struct FileOperationService {
         let fm = FileManager.default
         try fm.createDirectory(at: targetRoot, withIntermediateDirectories: true)
 
+        func imageFiles(_ g: PhotoGroup) -> [URL] {
+            switch rawJpg {
+            case .both: return g.files
+            case .rawOnly:
+                let r = g.files.filter { PhotoTypes.isRaw($0) }
+                return r.isEmpty ? g.files : r
+            case .jpgOnly:
+                let j = g.files.filter { ["jpg", "jpeg"].contains($0.pathExtension.lowercased()) }
+                return j.isEmpty ? g.files : j
+            }
+        }
         func filesToProcess(_ g: PhotoGroup) -> [URL] {
-            includeSidecars ? g.files + g.sidecars : g.files
+            includeSidecars ? imageFiles(g) + g.sidecars : imageFiles(g)
         }
 
         let totalFiles = groups.reduce(0) { $0 + filesToProcess($1).count }
