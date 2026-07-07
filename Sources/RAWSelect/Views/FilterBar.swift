@@ -10,6 +10,7 @@ struct FilterBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            Spacer(minLength: 0)
             HStack(spacing: 4) {
                 swatch(bucket: 0, color: nil).help("Alle ohne Markierung (\(app.unmarkedCount))")
                 ForEach(1...9, id: \.self) { mark in
@@ -24,7 +25,6 @@ struct FilterBar: View {
                     .overlay(RoundedRectangle(cornerRadius: 8)
                         .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
             )
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -41,6 +41,11 @@ struct FilterBar: View {
                 if color == nil {
                     Checkerboard().opacity(on ? 0.9 : 0.25)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
+                } else {
+                    Text("\(bucket)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(on ? .white : color!.opacity(0.85))
+                        .shadow(color: .black.opacity(on ? 0.35 : 0), radius: 1)
                 }
             }
             .frame(width: size, height: size)
