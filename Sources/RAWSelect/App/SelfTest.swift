@@ -77,7 +77,18 @@ enum SelfTest {
             check(!contents.contains(where: { $0.hasSuffix(".xmp") }), "no XMP copied when excluded")
         } catch { check(false, "copy(no xmp) threw: \(error.localizedDescription)") }
 
-        // 6. Originals protected
+        // 6. Tag filter on/off logic
+        var untagged = PhotoGroup(id: "u", directory: root, baseName: "u", files: [realJPG],
+                                  previewURL: realJPG, displayName: "u")
+        var marked5 = untagged; marked5.mark = 5
+        var filter = TagFilter()
+        check(filter.matches(untagged) && filter.matches(marked5), "default: everything shown")
+        filter.toggle(0)   // hide "Alle" (untagged)
+        check(!filter.matches(untagged) && filter.matches(marked5), "toggling 'Alle' hides only untagged")
+        filter.toggle(0); filter.toggle(5)   // show all again, then hide mark 5
+        check(filter.matches(untagged) && !filter.matches(marked5), "toggling mark 5 hides only mark-5 photos")
+
+        // 7. Originals protected
         check(fm.fileExists(atPath: fakeRAW.path), "source RAW untouched after copy")
 
         try? fm.removeItem(at: root)

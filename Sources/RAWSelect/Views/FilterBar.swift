@@ -1,71 +1,82 @@
 import SwiftUI
 
-/// Always-visible tag filter bar. Every bucket is shown by default; clicking a
-/// chip hides that bucket (chip greys out). "Alle" = photos without a mark,
-/// followed by colour marks 1–9.
+/// Compact Photo-Mechanic-style colour-swatch filter. Each swatch is an on/off
+/// switch: on = that group's photos are shown, off (dimmed) = hidden. The first
+/// (checkered) swatch is "Alle" = photos without any mark. All on by default.
 struct FilterBar: View {
     @EnvironmentObject var app: AppState
 
+    private let size: CGFloat = 22
+
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                chip(bucket: 0, title: "Alle", dot: nil, count: app.unmarkedCount)
-                    .help("Bilder ohne Markierung")
-
-                divider
-
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                swatch(bucket: 0, color: nil).help("Alle ohne Markierung (\(app.unmarkedCount))")
                 ForEach(1...9, id: \.self) { mark in
-                    chip(bucket: mark, title: "\(mark)", dot: MarkStyle.color(for: mark),
-                         count: app.markCounts[mark] ?? 0)
-                        .help("Markierung \(mark)")
+                    swatch(bucket: mark, color: MarkStyle.color(for: mark))
+                        .help("Markierung \(mark) (\(app.markCounts[mark] ?? 0))")
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 9)
+            .padding(5)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .overlay(RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
+            )
+            Spacer(minLength: 0)
         }
-        .background(.bar)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 
-    private var divider: some View {
-        Divider().frame(height: 20).padding(.horizontal, 2)
-    }
-
-    private func chip(bucket: Int, title: String, dot: Color?, count: Int) -> some View {
-        let shown = app.tagFilter.isShown(bucket)
+    private func swatch(bucket: Int, color: Color?) -> some View {
+        let on = app.tagFilter.isShown(bucket)
         return Button {
             app.tagFilter.toggle(bucket)
         } label: {
-            HStack(spacing: 6) {
-                if let dot {
-                    Circle().fill(shown ? dot : Color.secondary.opacity(0.4))
-                        .frame(width: 11, height: 11)
-                } else {
-                    Image(systemName: shown ? "circle.grid.2x2.fill" : "circle.grid.2x2")
-                        .font(.caption)
-                        .foregroundStyle(shown ? Color.primary : Color.secondary)
-                }
-                Text(title)
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(shown ? Color.primary : Color.secondary)
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(fill(color: color, on: on))
+                if color == nil {
+                    Checkerboard().opacity(on ? 0.9 : 0.25)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
             }
-            .padding(.horizontal, 11).padding(.vertical, 6)
-            .background(
-                Capsule().fill(shown
-                    ? Color(nsColor: .quaternaryLabelColor).opacity(0.55)
-                    : Color.clear)
-            )
+            .frame(width: size, height: size)
             .overlay(
-                Capsule().strokeBorder(Color(nsColor: .separatorColor),
-                                       lineWidth: shown ? 0 : 1)
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(borderColor(color: color, on: on), lineWidth: on ? 1.5 : 1)
             )
-            .opacity(shown ? 1 : 0.5)
-            .contentShape(Capsule())
+            .contentShape(RoundedRectangle(cornerRadius: 4))
         }
         .buttonStyle(.plain)
+    }
+
+    private func fill(color: Color?, on: Bool) -> Color {
+        if !on { return Color.black.opacity(0.32) }        // off = dark/empty
+        return color ?? Color(nsColor: .windowBackgroundColor)
+    }
+
+    private func borderColor(color: Color?, on: Bool) -> Color {
+        if on { return .white.opacity(0.7) }
+        return (color ?? .secondary).opacity(0.7)          // keep it identifiable when off
+    }
+}
+
+/// Small checkerboard used for the "no mark" swatch.
+private struct Checkerboard: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let n = 4
+            let s = size.width / CGFloat(n)
+            for r in 0..<n {
+                for c in 0..<n where (r + c) % 2 == 0 {
+                    let rect = CGRect(x: CGFloat(c) * s, y: CGFloat(r) * s, width: s, height: s)
+                    ctx.fill(Path(rect), with: .color(.gray.opacity(0.7)))
+                }
+            }
+        }
+        .background(Color.white.opacity(0.85))
     }
 }
