@@ -47,7 +47,6 @@ private struct LargePreview: View {
                     if group.mark != 0 { markPill }
                 }
                 Spacer()
-                rejectBar
             }
             .padding(16)
         }
@@ -102,22 +101,6 @@ private struct LargePreview: View {
         .frame(maxWidth: 280, alignment: .leading)
     }
 
-    @ViewBuilder
-    private var rejectBar: some View {
-        Button {
-            app.toggleReject()
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: group.reject ? "xmark.circle.fill" : "xmark.circle")
-                    .foregroundStyle(group.reject ? .red : .secondary)
-                Text(group.reject ? "Ausschuss" : "Als Ausschuss markieren")
-                    .font(.callout)
-            }
-            .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(.regularMaterial, in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 private struct Filmstrip: View {

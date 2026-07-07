@@ -64,7 +64,6 @@ final class AppState: ObservableObject {
         for g in groups where g.mark != 0 { counts[g.mark, default: 0] += 1 }
         return counts
     }
-    var rejectCount: Int { groups.filter { $0.reject }.count }
     var unmarkedCount: Int { groups.filter { !$0.hasState }.count }
     var markedCount: Int { groups.filter { $0.mark != 0 }.count }
 
@@ -125,7 +124,6 @@ final class AppState: ObservableObject {
                     groups[i].persistKey = key
                     if let state = savedMarks[key] {
                         groups[i].mark = state.mark
-                        groups[i].reject = state.reject
                     }
                 }
                 return groups
@@ -222,15 +220,6 @@ final class AppState: ObservableObject {
         }
     }
 
-    func toggleReject() {
-        let newValue = !(currentGroup?.reject ?? false)
-        mutateSelection({ $0.reject = newValue }) { n in
-            newValue
-                ? (n == 1 ? "Als Ausschuss markiert." : "\(n) Bilder als Ausschuss markiert.")
-                : (n == 1 ? "Ausschuss entfernt." : "Ausschuss von \(n) Bildern entfernt.")
-        }
-    }
-
     /// Applies `body` to every selected photo, persists, and keeps culling flowing
     /// by advancing to a neighbour if the photos left the current filter.
     private func mutateSelection(_ body: (inout PhotoGroup) -> Void, status: (Int) -> String) {
@@ -257,7 +246,7 @@ final class AppState: ObservableObject {
         guard let identity else { return }
         var states: [String: SessionStore.PhotoState] = [:]
         for g in groups where g.hasState {
-            states[g.persistKey] = SessionStore.PhotoState(mark: g.mark, reject: g.reject)
+            states[g.persistKey] = SessionStore.PhotoState(mark: g.mark)
         }
         SessionStore.save(identityID: identity.id, states: states)
     }
@@ -379,8 +368,6 @@ final class AppState: ObservableObject {
             switch scalar.value {
             case 48...57:                                   // digits 0–9 → colour mark
                 setMark(Int(scalar.value) - 48); return true
-            case UInt32(UInt8(ascii: "x")), UInt32(UInt8(ascii: "X")):
-                toggleReject(); return true
             case UInt32(UInt8(ascii: "i")), UInt32(UInt8(ascii: "I")):
                 toggleInfo(); return true
             case UInt32(UInt8(ascii: "f")), UInt32(UInt8(ascii: "F")):

@@ -48,9 +48,10 @@ swift run RAWSelect --selftest
 4. **Mehrere Bilder auswählen**: ⌘-Klick fügt einzeln hinzu, Shift-Klick wählt eine
    ganze Reihe, ⌘A wählt alle im aktuellen Filter. **1–9 markiert dann alle
    ausgewählten** Bilder gleichzeitig.
-5. Oben rechts über den **Filter-Button** (Trichter) ankreuzen, welche Tags angezeigt werden
-   (Mehrfachauswahl, Photo-Mechanic-Stil). Nichts angekreuzt = alle Bilder. Die Sidebar zeigt
-   nur die **Ordnerstruktur** – du bleibst im selben Ordner und filterst nur.
+5. Über die **Filterleiste** oben (immer sichtbar) Tags ein-/ausblenden: „Alle" (ohne Markierung)
+   und Markierungen 1–9 sind standardmässig alle an; klick auf einen Chip **blendet** diese Gruppe
+   **aus** (Chip wird ausgegraut). Die Sidebar zeigt nur die **Ordnerstruktur** – du bleibst im
+   selben Ordner und filterst nur.
 6. Auswahl treffen → **„Auswahl kopieren…“** → Zielordner wählen (im Dialog kannst
    du auch einen neuen Ordner anlegen). Wahl **„Bilder + XMP“** oder **„nur Bilder“**.
    Die Dateien landen **flach** im Zielordner.
@@ -62,7 +63,6 @@ swift run RAWSelect --selftest
 | **← / →** | vorheriges / nächstes Bild |
 | **Shift + ← / →** | Auswahl erweitern |
 | **1 – 9 / 0** | Farb-Markierung setzen / entfernen (ganze Auswahl) |
-| **X** | Ausschuss (Reject) umschalten |
 | **I** | EXIF-Info-Overlay ein/aus |
 | **F** | Vollbild ein/aus |
 | **Klick** | einzeln auswählen |
@@ -86,8 +86,7 @@ swift run RAWSelect --selftest
   beim Kopieren von der SD geholt).
 - Raster-Ansicht **und** grosse Loupe-Ansicht mit Filmstreifen (Umschalter oben).
 - **Mehrfachauswahl** (⌘/Shift/⌘A) – Bewerten und Kopieren gilt für die ganze Auswahl.
-- **Bewertungen**: Farb-Markierungen 1–9 und **Ausschuss (Reject)** – je mit eigenem Filter
-  in der Sidebar. Nur app-intern, nie in die Dateien geschrieben.
+- **Farb-Markierungen 1–9** – nur app-intern, nie in die Dateien geschrieben.
 - **EXIF-Info-Overlay** (Taste I): Kamera, Objektiv, Brennweite, Blende, Zeit, ISO, Datum.
 - **Ordner-Navigator** in der Sidebar: in einen Unterordner klicken zeigt sofort alle Bilder
   dieses Ordners (Filter springt auf „Alle Bilder") – gezielt nur einen Ordner sichten statt

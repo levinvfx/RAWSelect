@@ -106,12 +106,13 @@ struct DetailView: View {
                 Button("Bilder + XMP kopieren…") { app.copySelection(includeSidecars: true) }
                 Button("Nur Bilder kopieren (ohne XMP)…") { app.copySelection(includeSidecars: false) }
             } label: {
-                Label(copyLabel, systemImage: "doc.on.doc")
+                Label(copyLabel, systemImage: "doc.on.doc.fill")
             } primaryAction: {
                 app.copySelection(includeSidecars: true)
             }
             .menuStyle(.button)
-            .buttonStyle(.bordered)          // persistent lighter-gray highlight
+            .buttonStyle(.borderedProminent)   // stands out as the primary action
+            .tint(.accentColor)
             .disabled(app.selectionCount == 0)
             .help(app.selectionCount > 0
                   ? "\(app.selectionCount) ausgewählte Bilder in einen Ordner kopieren"
@@ -132,7 +133,7 @@ struct DetailView: View {
     }
 
     private var copyLabel: String {
-        app.selectionCount > 1 ? "\(app.selectionCount) kopieren…" : "Kopieren…"
+        app.selectionCount > 1 ? "\(app.selectionCount) Bilder kopieren…" : "Kopieren…"
     }
 }
 

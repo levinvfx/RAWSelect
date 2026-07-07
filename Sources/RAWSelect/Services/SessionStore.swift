@@ -11,8 +11,7 @@ struct SessionStore {
     /// Per-photo culling state, keyed by persistKey.
     struct PhotoState: Codable {
         var mark: Int = 0
-        var reject: Bool = false
-        var isDefault: Bool { mark == 0 && !reject }
+        var isDefault: Bool { mark == 0 }
     }
 
     struct SessionData: Codable {

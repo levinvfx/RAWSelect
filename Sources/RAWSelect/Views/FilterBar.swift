@@ -1,39 +1,23 @@
 import SwiftUI
 
-/// Always-visible, Photo-Mechanic-style tag filter bar above the grid. Click a
-/// chip to toggle whether that tag is shown. Nothing active = all photos.
+/// Always-visible tag filter bar. Every bucket is shown by default; clicking a
+/// chip hides that bucket (chip greys out). "Alle" = photos without a mark,
+/// followed by colour marks 1–9.
 struct FilterBar: View {
     @EnvironmentObject var app: AppState
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                chip(title: "Alle", systemImage: "square.grid.2x2",
-                     active: !app.tagFilter.isActive, tint: .accentColor) {
-                    app.tagFilter.reset()
-                }
-
-                divider
-
-                chip(title: "Unmarkiert", systemImage: "circle.dashed",
-                     count: app.unmarkedCount, active: app.tagFilter.unmarked, tint: .secondary) {
-                    app.tagFilter.unmarked.toggle()
-                }
-                chip(title: "Ausschuss", systemImage: "xmark.circle.fill",
-                     count: app.rejectCount, active: app.tagFilter.reject, tint: .red) {
-                    app.tagFilter.reject.toggle()
-                }
+                chip(bucket: 0, title: "Alle", dot: nil, count: app.unmarkedCount)
+                    .help("Bilder ohne Markierung")
 
                 divider
 
                 ForEach(1...9, id: \.self) { mark in
-                    chip(number: mark, dot: MarkStyle.color(for: mark),
-                         count: app.markCounts[mark] ?? 0,
-                         active: app.tagFilter.marks.contains(mark)) {
-                        if app.tagFilter.marks.contains(mark) { app.tagFilter.marks.remove(mark) }
-                        else { app.tagFilter.marks.insert(mark) }
-                    }
-                    .help("Markierung \(mark)")
+                    chip(bucket: mark, title: "\(mark)", dot: MarkStyle.color(for: mark),
+                         count: app.markCounts[mark] ?? 0)
+                        .help("Markierung \(mark)")
                 }
             }
             .padding(.horizontal, 16)
@@ -46,48 +30,42 @@ struct FilterBar: View {
         Divider().frame(height: 20).padding(.horizontal, 2)
     }
 
-    // Text/icon chip (Alle, Unmarkiert, Ausschuss).
-    private func chip(title: String, systemImage: String, count: Int = -1,
-                      active: Bool, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func chip(bucket: Int, title: String, dot: Color?, count: Int) -> some View {
+        let shown = app.tagFilter.isShown(bucket)
+        return Button {
+            app.tagFilter.toggle(bucket)
+        } label: {
             HStack(spacing: 6) {
-                Image(systemName: systemImage).foregroundStyle(active ? tint : .secondary)
+                if let dot {
+                    Circle().fill(shown ? dot : Color.secondary.opacity(0.4))
+                        .frame(width: 11, height: 11)
+                } else {
+                    Image(systemName: shown ? "circle.grid.2x2.fill" : "circle.grid.2x2")
+                        .font(.caption)
+                        .foregroundStyle(shown ? Color.primary : Color.secondary)
+                }
                 Text(title)
-                if count >= 0 { countBadge(count) }
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(shown ? Color.primary : Color.secondary)
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
             }
-            .font(.callout)
             .padding(.horizontal, 11).padding(.vertical, 6)
-            .background(chipBackground(active: active))
+            .background(
+                Capsule().fill(shown
+                    ? Color(nsColor: .quaternaryLabelColor).opacity(0.55)
+                    : Color.clear)
+            )
+            .overlay(
+                Capsule().strokeBorder(Color(nsColor: .separatorColor),
+                                       lineWidth: shown ? 0 : 1)
+            )
+            .opacity(shown ? 1 : 0.5)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-    }
-
-    // Compact numbered colour-mark chip.
-    private func chip(number: Int, dot: Color, count: Int,
-                      active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Circle().fill(dot).frame(width: 11, height: 11)
-                Text("\(number)").font(.callout.monospacedDigit())
-                if count > 0 { countBadge(count) }
-            }
-            .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(chipBackground(active: active, tint: dot))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func countBadge(_ count: Int) -> some View {
-        Text("\(count)")
-            .font(.caption2.monospacedDigit().weight(.medium))
-            .foregroundStyle(.secondary)
-    }
-
-    private func chipBackground(active: Bool, tint: Color = .accentColor) -> some View {
-        Capsule()
-            .fill(active ? tint.opacity(0.22) : Color(nsColor: .quaternaryLabelColor).opacity(0.4))
-            .overlay(Capsule().strokeBorder(active ? tint.opacity(0.9) : .clear, lineWidth: 1))
     }
 }

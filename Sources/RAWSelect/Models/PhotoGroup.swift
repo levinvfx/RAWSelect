@@ -30,8 +30,6 @@ struct PhotoGroup: Identifiable, Hashable {
 
     /// 0 = unmarked, 1…9 = colour mark.
     var mark: Int = 0
-    /// Marked as rejected / to be sorted out.
-    var reject: Bool = false
 
     /// Capture/modification date and total byte size, gathered during scanning
     /// (used for sorting and the status bar).
@@ -39,38 +37,37 @@ struct PhotoGroup: Identifiable, Hashable {
     var fileSize: Int = 0
 
     var isRaw: Bool { files.contains(where: { PhotoTypes.isRaw($0) }) }
-    var hasState: Bool { mark != 0 || reject }
+    var hasState: Bool { mark != 0 }
 
     static func == (lhs: PhotoGroup, rhs: PhotoGroup) -> Bool {
-        lhs.id == rhs.id && lhs.mark == rhs.mark && lhs.reject == rhs.reject && lhs.files == rhs.files
+        lhs.id == rhs.id && lhs.mark == rhs.mark && lhs.files == rhs.files
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
         hasher.combine(mark)
-        hasher.combine(reject)
     }
 }
 
-/// Photo-Mechanic-style multi-select tag filter (checkboxes for which tags to
-/// show). When nothing is ticked, all photos are shown.
+/// Photo-Mechanic-style tag filter. Every bucket is shown by default; clicking a
+/// chip hides that bucket. Bucket 0 = untagged ("Alle"), 1…9 = colour marks.
 struct TagFilter: Equatable {
-    var unmarked = false
-    var reject = false
-    var marks: Set<Int> = []
+    /// Buckets that are currently hidden (empty = show everything).
+    var hidden: Set<Int> = []
 
-    /// Whether any specific tag is being filtered (otherwise: show everything).
-    var isActive: Bool { unmarked || reject || !marks.isEmpty }
+    var isActive: Bool { !hidden.isEmpty }
 
     func matches(_ group: PhotoGroup) -> Bool {
-        guard isActive else { return true }
-        if unmarked && !group.hasState { return true }
-        if reject && group.reject { return true }
-        if group.mark != 0 && marks.contains(group.mark) { return true }
-        return false
+        !hidden.contains(group.mark)
     }
 
-    mutating func reset() { unmarked = false; reject = false; marks.removeAll() }
+    func isShown(_ bucket: Int) -> Bool { !hidden.contains(bucket) }
+
+    mutating func toggle(_ bucket: Int) {
+        if hidden.contains(bucket) { hidden.remove(bucket) } else { hidden.insert(bucket) }
+    }
+
+    mutating func reset() { hidden.removeAll() }
 }
 
 /// How the grid/filmstrip is ordered.
