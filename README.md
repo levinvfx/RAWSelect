@@ -42,42 +42,61 @@ swift run RAWSelect --selftest
 1. Links einen **Datenträger** wählen oder **„Ordner öffnen…“** (⌘O).
 2. Die App scannt rekursiv und zeigt alle Bilder im Raster.
 3. Mit **Pfeiltasten** navigieren, mit **1–9** markieren, **0** entfernt die Markierung.
-4. Über die **Filter** in der Sidebar nach Markierung sortieren.
-5. **„Markierte kopieren…“** → Zielordner wählen → landet automatisch in
-   `01_Mark_1 … 09_Mark_9`.
+4. **Mehrere Bilder auswählen**: ⌘-Klick fügt einzeln hinzu, Shift-Klick wählt eine
+   ganze Reihe, ⌘A wählt alle im aktuellen Filter. **1–9 markiert dann alle
+   ausgewählten** Bilder gleichzeitig.
+5. Über die **Filter** in der Sidebar nach Markierung sortieren.
+6. Auswahl treffen → **„Auswahl kopieren…“** → Zielordner wählen (im Dialog kannst
+   du auch einen neuen Ordner anlegen). Wahl **„Bilder + XMP“** oder **„nur Bilder“**.
+   Die Dateien landen **flach** im Zielordner.
 
 ## Tastaturkürzel
 
 | Taste | Aktion |
 |-------|--------|
 | **← / →** | vorheriges / nächstes Bild |
-| **1 – 9** | Markierung setzen |
+| **Shift + ← / →** | Auswahl erweitern |
+| **1 – 9** | Markierung setzen (auf ganze Auswahl) |
 | **0** | Markierung entfernen |
+| **Klick** | einzeln auswählen |
+| **⌘-Klick** | zur Auswahl hinzufügen/entfernen |
+| **Shift-Klick** | Reihe auswählen |
+| **⌘A** | alle im Filter auswählen |
 | **⌘O** | Ordner öffnen |
 | **⌘R** | im Finder anzeigen |
+| **Doppelklick** | grosse Vorschau |
 
 ## Funktionen
 
 - Erkennt externe Datenträger/SD-Karten unter `/Volumes` (live bei Ein-/Auswerfen).
 - Formate: `.ARW .CR2 .CR3 .NEF .RAF .DNG .JPG .JPEG .HEIC .PNG`.
 - **RAW + JPG desselben Fotos** werden zu einem Eintrag gruppiert: eine Markierung,
-  beide Dateien wandern beim Kopieren/Verschieben zusammen.
+  beide Dateien (und passende XMP-Sidecars) wandern beim Kopieren zusammen.
+- **XMP-Sidecars** (`IMG_0001.xmp` oder `IMG_0001.ARW.xmp`) werden erkannt und beim
+  Kopieren optional mitkopiert.
+- **Vorschau in ~720p HD**, effizient über die eingebettete Kamera-Preview – die
+  volle RAW-Datei wird dabei nie geladen (nur der Pfad gemerkt, das Original erst
+  beim Kopieren von der SD geholt).
 - Raster-Ansicht **und** grosse Loupe-Ansicht mit Filmstreifen (Umschalter oben).
+- **Mehrfachauswahl** (⌘/Shift/⌘A) – Markieren und Kopieren gilt für die ganze Auswahl.
 - Lazy geladene Thumbnails, Hintergrund-Decoding, Memory-Cache → bleibt bei
   1000–3000 Bildern flüssig, UI friert beim Scannen nicht ein.
-- **Kopieren** immer erlaubt; **Verschieben** nur von internen Platten – von
-  SD-Karten/externen Datenträgern ist es deaktiviert (Originalschutz) und
-  zusätzlich per Bestätigungsdialog abgesichert.
+- **Kopieren** der Auswahl **flach** in einen frei wählbaren Zielordner, wahlweise
+  mit oder ohne XMP. **Verschieben** nur von internen Platten – von SD-Karten/externen
+  Datenträgern deaktiviert (Originalschutz) und per Bestätigungsdialog abgesichert.
 - Dateikonflikte werden nie überschrieben, sondern `_1`, `_2` … angehängt.
 - Fortschrittsanzeige mit Abbrechen; klare Statusmeldungen
-  („1247 Bilder gefunden“, „32 Bilder kopiert“, „Keine markierten Bilder“).
+  („1247 Bilder gefunden“, „32 Bilder kopiert“, „Keine Bilder ausgewählt“).
 
-## Wo werden Markierungen gespeichert?
+## Tags & wie sich die App die SD-Karte merkt
 
-Zentral pro Ordner unter
-`~/Library/Application Support/RAW Select/Sessions/<hash>.json`.
-Die **Quelle wird nie beschrieben** – SD-Karte und RAW-Dateien bleiben unangetastet.
-Öffnest du denselben Ordner erneut, sind die Markierungen wieder da.
+- Markierungen (1–9) sind **rein app-intern** – sie werden **nie** in die Bilder oder
+  XMP geschrieben. Kopierte/verschobene Dateien tragen also **keine** App-Tags.
+- Gespeichert werden sie zentral unter
+  `~/Library/Application Support/RAW Select/Sessions/<hash>.json`.
+- Der Schlüssel basiert auf der **Volume-UUID** der Karte, nicht auf dem Mount-Pfad.
+  Deshalb erkennt die App eine SD-Karte nach **Auswerfen/Wiedereinstecken** wieder und
+  zeigt die Markierungen erneut an – **ohne je etwas auf die Karte zu schreiben**.
 
 ## Sicherheit
 

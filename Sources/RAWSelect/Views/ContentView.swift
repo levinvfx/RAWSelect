@@ -27,7 +27,7 @@ struct ContentView: View {
             Button("Verschieben", role: .destructive) { app.confirmMove() }
             Button("Abbrechen", role: .cancel) { app.cancelMove() }
         } message: {
-            Text("\(app.markedCount) Bilder werden aus dem Quellordner entfernt und in den Zielordner verschoben. Die Originale bleiben nicht am ursprünglichen Ort.")
+            Text("\(app.selectionCount) Bilder werden aus dem Quellordner entfernt und in den Zielordner verschoben. Die Originale bleiben nicht am ursprünglichen Ort.")
         }
     }
 }

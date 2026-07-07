@@ -5,10 +5,16 @@ import SwiftUI
 struct ThumbnailCell: View {
     let group: PhotoGroup
     let isSelected: Bool
+    var isCurrent: Bool = false
     var side: CGFloat = 150
     var showsCaption: Bool = true
 
     @State private var image: NSImage?
+
+    private var borderColor: Color {
+        if isSelected { return .accentColor }
+        return .clear
+    }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -34,9 +40,13 @@ struct ThumbnailCell: View {
                 }
             }
             .frame(width: side, height: side)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
+                    .strokeBorder(borderColor, lineWidth: isCurrent ? 4 : (isSelected ? 3 : 0))
             )
 
             if showsCaption {

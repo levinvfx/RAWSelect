@@ -16,7 +16,12 @@ struct StatusBar: View {
 
             Spacer()
 
-            if let group = app.selectedGroup {
+            if app.selectionCount > 1 {
+                Text("\(app.selectionCount) ausgewählt")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(Color.accentColor)
+                    .lineLimit(1)
+            } else if let group = app.currentGroup {
                 Text(group.displayName)
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -35,7 +40,7 @@ struct StatusBar: View {
 
     private var positionText: String {
         let list = app.filteredGroups
-        if let id = app.selectedID, let idx = list.firstIndex(where: { $0.id == id }) {
+        if let id = app.currentID, let idx = list.firstIndex(where: { $0.id == id }) {
             return "\(idx + 1) / \(list.count)"
         }
         return "\(list.count)"

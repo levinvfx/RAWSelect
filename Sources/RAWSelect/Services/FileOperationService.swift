@@ -1,51 +1,60 @@
 import Foundation
 
-/// Copies or moves marked photos into per-mark subfolders. Never overwrites:
-/// on a name clash it appends _1, _2, … Reports progress per file.
+/// Copies or moves a set of photos flat into a chosen target folder (like a
+/// classic culling app). Originals are read from disk only now – marks live in
+/// the app, never in the files, so copies carry no app tags. Never overwrites:
+/// on a name clash it appends _1, _2, …
 struct FileOperationService {
 
     enum Kind { case copy, move }
 
     struct Outcome {
         var photos: Int   // number of photo groups processed
-        var files: Int    // number of individual files copied/moved
+        var files: Int    // number of individual files copied/moved (incl. XMP)
     }
 
-    /// Performs the operation. `progress(completed, total)` is called on a
-    /// background thread; the caller marshals to the UI. `isCancelled` is polled
-    /// between files.
+    /// - Parameters:
+    ///   - groups: the photos to process (already the user's selection).
+    ///   - targetRoot: destination folder (files are placed directly inside).
+    ///   - includeSidecars: also copy/move matching .xmp files.
     static func perform(_ kind: Kind,
                         groups: [PhotoGroup],
                         targetRoot: URL,
+                        includeSidecars: Bool,
                         progress: (Int, Int) -> Void,
                         isCancelled: () -> Bool) throws -> Outcome {
 
-        let marked = groups.filter { $0.mark != 0 }
-        let totalFiles = marked.reduce(0) { $0 + $1.files.count }
         let fm = FileManager.default
+        try fm.createDirectory(at: targetRoot, withIntermediateDirectories: true)
 
+        func filesToProcess(_ g: PhotoGroup) -> [URL] {
+            includeSidecars ? g.files + g.sidecars : g.files
+        }
+
+        let totalFiles = groups.reduce(0) { $0 + filesToProcess($1).count }
         var completed = 0
         var photoCount = 0
         var fileCount = 0
         progress(0, totalFiles)
 
-        for group in marked {
+        for group in groups {
             if isCancelled() { break }
-            let subfolder = targetRoot.appendingPathComponent(MarkStyle.folderName(for: group.mark), isDirectory: true)
-            try fm.createDirectory(at: subfolder, withIntermediateDirectories: true)
+            var didProcessAny = false
 
-            for file in group.files {
+            for file in filesToProcess(group) {
                 if isCancelled() { break }
-                let destination = uniqueDestination(for: file.lastPathComponent, in: subfolder)
+                guard fm.fileExists(atPath: file.path) else { continue }
+                let destination = uniqueDestination(for: file.lastPathComponent, in: targetRoot)
                 switch kind {
                 case .copy: try fm.copyItem(at: file, to: destination)
                 case .move: try fm.moveItem(at: file, to: destination)
                 }
                 fileCount += 1
                 completed += 1
+                didProcessAny = true
                 progress(completed, totalFiles)
             }
-            photoCount += 1
+            if didProcessAny { photoCount += 1 }
         }
 
         return Outcome(photos: photoCount, files: fileCount)

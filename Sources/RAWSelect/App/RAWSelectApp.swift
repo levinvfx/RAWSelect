@@ -30,8 +30,12 @@ struct RAWSelectApp: App {
                 Button("Ordner öffnen…") { app.openFolderDialog() }
                     .keyboardShortcut("o", modifiers: .command)
             }
+            CommandGroup(after: .pasteboard) {
+                Button("Alle auswählen") { app.selectAllFiltered() }
+                    .keyboardShortcut("a", modifiers: .command)
+            }
             CommandGroup(after: .toolbar) {
-                Button("Im Finder anzeigen") { app.revealSelected() }
+                Button("Im Finder anzeigen") { app.revealCurrent() }
                     .keyboardShortcut("r", modifiers: .command)
             }
         }

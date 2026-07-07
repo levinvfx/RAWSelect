@@ -1,16 +1,16 @@
 import Foundation
 import CryptoKit
 
-/// Persists marks per scanned folder in
+/// Persists marks per source (identified by FolderIdentity) in
 /// ~/Library/Application Support/RAW Select/Sessions/<hash>.json.
 ///
 /// Marks are stored centrally and never written into the source folder, so an
-/// SD card is never modified. Keyed by the group's stable relative id.
+/// SD card is never modified. Keyed by the group's volume-relative persist key.
 struct SessionStore {
 
     struct SessionData: Codable {
-        var rootPath: String
-        var marks: [String: Int]   // groupID -> mark (1…9)
+        var identity: String
+        var marks: [String: Int]   // persistKey -> mark (1…9)
     }
 
     private static var directory: URL {
@@ -20,15 +20,14 @@ struct SessionStore {
         return dir
     }
 
-    private static func fileURL(for root: URL) -> URL {
-        let path = root.standardizedFileURL.path
-        let digest = SHA256.hash(data: Data(path.utf8))
+    private static func fileURL(for identityID: String) -> URL {
+        let digest = SHA256.hash(data: Data(identityID.utf8))
         let hex = digest.map { String(format: "%02x", $0) }.joined()
         return directory.appendingPathComponent("\(hex).json")
     }
 
-    static func load(root: URL) -> [String: Int] {
-        let url = fileURL(for: root)
+    static func load(identityID: String) -> [String: Int] {
+        let url = fileURL(for: identityID)
         guard let data = try? Data(contentsOf: url),
               let session = try? JSONDecoder().decode(SessionData.self, from: data) else {
             return [:]
@@ -36,10 +35,10 @@ struct SessionStore {
         return session.marks
     }
 
-    static func save(root: URL, marks: [String: Int]) {
+    static func save(identityID: String, marks: [String: Int]) {
         let nonZero = marks.filter { $0.value != 0 }
-        let session = SessionData(rootPath: root.standardizedFileURL.path, marks: nonZero)
-        let url = fileURL(for: root)
+        let session = SessionData(identity: identityID, marks: nonZero)
+        let url = fileURL(for: identityID)
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

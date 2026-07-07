@@ -10,14 +10,16 @@ struct ThumbnailGridView: View {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 18) {
                     ForEach(app.filteredGroups) { group in
-                        ThumbnailCell(group: group, isSelected: group.id == app.selectedID)
+                        ThumbnailCell(group: group,
+                                      isSelected: app.selectedIDs.contains(group.id),
+                                      isCurrent: group.id == app.currentID)
                             .id(group.id)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                app.select(group.id)
+                                app.click(group.id)
                             }
                             .simultaneousGesture(TapGesture(count: 2).onEnded {
-                                app.select(group.id)
+                                app.selectSingle(group.id)
                                 app.viewMode = .loupe
                             })
                     }
@@ -25,7 +27,7 @@ struct ThumbnailGridView: View {
                 .padding(20)
             }
             .background(Color(nsColor: .windowBackgroundColor))
-            .onChange(of: app.selectedID) { _, id in
+            .onChange(of: app.currentID) { _, id in
                 guard let id else { return }
                 withAnimation(.easeOut(duration: 0.15)) {
                     proxy.scrollTo(id, anchor: .center)

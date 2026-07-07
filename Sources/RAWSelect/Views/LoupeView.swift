@@ -6,7 +6,7 @@ struct LoupeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let group = app.selectedGroup {
+            if let group = app.currentGroup {
                 LargePreview(group: group)
                     .id(group.id)
             } else {
@@ -56,7 +56,9 @@ private struct LargePreview: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: group.id) {
-            image = await ThumbnailLoader.shared.thumbnail(for: group.previewURL, maxPixel: 2560)
+            // ~720p HD preview from the embedded/quick-preview image – fast and
+            // memory-light; the full-resolution original is never loaded here.
+            image = await ThumbnailLoader.shared.thumbnail(for: group.previewURL, maxPixel: 1280)
         }
     }
 }
@@ -70,18 +72,19 @@ private struct Filmstrip: View {
                 HStack(spacing: 10) {
                     ForEach(app.filteredGroups) { group in
                         ThumbnailCell(group: group,
-                                      isSelected: group.id == app.selectedID,
+                                      isSelected: app.selectedIDs.contains(group.id),
+                                      isCurrent: group.id == app.currentID,
                                       side: 84, showsCaption: false)
                             .id(group.id)
                             .contentShape(Rectangle())
-                            .onTapGesture { app.select(group.id) }
+                            .onTapGesture { app.click(group.id) }
                     }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
             }
             .background(Color(nsColor: .underPageBackgroundColor))
-            .onChange(of: app.selectedID) { _, id in
+            .onChange(of: app.currentID) { _, id in
                 guard let id else { return }
                 withAnimation(.easeOut(duration: 0.15)) {
                     proxy.scrollTo(id, anchor: .center)

@@ -2,7 +2,8 @@ import Foundation
 import AppKit
 
 /// Headless verification of the core workflow, runnable without the GUI:
-///   scan → RAW+JPG grouping → session save/load → copy with conflict handling.
+///   scan → RAW+JPG grouping → XMP sidecars → mark persistence (volume identity)
+///   → flat copy with/without XMP and conflict handling.
 /// Invoked via `RAWSelect --selftest`.
 enum SelfTest {
 
@@ -19,60 +20,68 @@ enum SelfTest {
         let sub = root.appendingPathComponent("day1")
         try? fm.createDirectory(at: sub, withIntermediateDirectories: true)
 
-        // A real PNG (so ImageIO thumbnailing has something valid to chew on)…
-        let realPNG = sub.appendingPathComponent("IMG_0001.JPG")
-        writePNG(to: realPNG, size: 64)
-        // …plus a fake RAW sibling (same base name -> should group together).
+        let realJPG = sub.appendingPathComponent("IMG_0001.JPG")
+        writePNG(to: realJPG, size: 64)
         let fakeRAW = sub.appendingPathComponent("IMG_0001.ARW")
         try? Data("fake-raw".utf8).write(to: fakeRAW)
-        // A standalone JPG and an unsupported file.
+        // Two common XMP naming styles for the same photo.
+        try? Data("<xmp/>".utf8).write(to: sub.appendingPathComponent("IMG_0001.xmp"))
+        try? Data("<xmp/>".utf8).write(to: sub.appendingPathComponent("IMG_0001.ARW.xmp"))
         writePNG(to: sub.appendingPathComponent("IMG_0002.JPG"), size: 48)
         try? Data("nope".utf8).write(to: sub.appendingPathComponent("notes.txt"))
 
-        // 1. Scan + grouping
+        // 1. Scan + grouping + sidecars
         let groups = PhotoScanner.scan(root: root)
-        check(groups.count == 2, "scan groups RAW+JPG into 2 photos (got \(groups.count))")
+        check(groups.count == 2, "scan groups into 2 photos (got \(groups.count))")
         let paired = groups.first { $0.baseName == "IMG_0001" }
         check(paired?.files.count == 2, "IMG_0001 pairs ARW+JPG (got \(paired?.files.count ?? 0))")
+        check(paired?.sidecars.count == 2, "both XMP sidecars attached (got \(paired?.sidecars.count ?? 0))")
         check(paired?.previewURL.pathExtension.lowercased() == "jpg", "preview prefers JPG over RAW")
         check(paired?.displayName.hasSuffix(".ARW") == true, "display name prefers RAW")
 
         // 2. Thumbnail from the real image
-        let thumb = ThumbnailLoader.makeThumbnail(url: realPNG, maxPixel: 128)
-        check(thumb != nil, "ImageIO produces a thumbnail")
+        check(ThumbnailLoader.makeThumbnail(url: realJPG, maxPixel: 1280) != nil, "ImageIO produces a preview")
 
-        // 3. Session save/load round-trip
-        SessionStore.save(root: root, marks: [paired!.id: 3])
-        let loaded = SessionStore.load(root: root)
-        check(loaded[paired!.id] == 3, "session persists mark 3 for the photo")
+        // 3. Mark persistence via volume identity
+        let identity = FolderIdentity(root: root)
+        let key = identity.persistKey(directory: paired!.directory, baseName: paired!.baseName)
+        SessionStore.save(identityID: identity.id, marks: [key: 3])
+        check(SessionStore.load(identityID: identity.id)[key] == 3, "mark persists under volume-identity key")
+        // Same physical volume, different subfolder opened later → still remembered.
+        let identity2 = FolderIdentity(root: sub)
+        let key2 = identity2.persistKey(directory: paired!.directory, baseName: paired!.baseName)
+        check(SessionStore.load(identityID: identity2.id)[key2] == 3, "mark survives opening a different subfolder")
 
-        // 4. Copy marked into per-mark subfolder, twice, to exercise conflicts
-        var marked = groups
-        for i in marked.indices where marked[i].id == paired!.id { marked[i].mark = 3 }
+        // 4. Flat copy WITH sidecars, twice, to exercise conflicts
         let target = root.appendingPathComponent("out")
-        try? fm.createDirectory(at: target, withIntermediateDirectories: true)
-
         do {
-            let first = try FileOperationService.perform(.copy, groups: marked, targetRoot: target,
-                                                         progress: { _, _ in }, isCancelled: { false })
-            let second = try FileOperationService.perform(.copy, groups: marked, targetRoot: target,
-                                                          progress: { _, _ in }, isCancelled: { false })
-            check(first.files == 2, "first copy writes 2 files")
-            let markDir = target.appendingPathComponent("03_Mark_3")
-            let contents = (try? fm.contentsOfDirectory(atPath: markDir.path)) ?? []
+            let first = try FileOperationService.perform(.copy, groups: [paired!], targetRoot: target,
+                                                         includeSidecars: true, progress: { _, _ in }, isCancelled: { false })
+            _ = try FileOperationService.perform(.copy, groups: [paired!], targetRoot: target,
+                                                 includeSidecars: true, progress: { _, _ in }, isCancelled: { false })
+            check(first.files == 4, "first copy writes 4 files (2 images + 2 xmp), got \(first.files)")
+            let contents = Set((try? fm.contentsOfDirectory(atPath: target.path)) ?? [])
             check(contents.contains("IMG_0001.ARW"), "original file kept its name")
             check(contents.contains("IMG_0001_1.ARW"), "conflict appended _1 instead of overwriting")
-            check(contents.count == 4, "no overwrite: 4 files after two copies (got \(contents.count))")
-            _ = second
-        } catch {
-            check(false, "copy threw: \(error.localizedDescription)")
-        }
+            check(contents.count == 8, "no overwrite: 8 files after two copies (got \(contents.count))")
+        } catch { check(false, "copy threw: \(error.localizedDescription)") }
 
-        // 5. Source files untouched (originals protected)
+        // 5. Flat copy WITHOUT sidecars
+        let target2 = root.appendingPathComponent("out_noxmp")
+        do {
+            let out = try FileOperationService.perform(.copy, groups: [paired!], targetRoot: target2,
+                                                       includeSidecars: false, progress: { _, _ in }, isCancelled: { false })
+            let contents = Set((try? fm.contentsOfDirectory(atPath: target2.path)) ?? [])
+            check(out.files == 2, "without XMP copies only the 2 images (got \(out.files))")
+            check(!contents.contains(where: { $0.hasSuffix(".xmp") }), "no XMP copied when excluded")
+        } catch { check(false, "copy(no xmp) threw: \(error.localizedDescription)") }
+
+        // 6. Originals protected
         check(fm.fileExists(atPath: fakeRAW.path), "source RAW untouched after copy")
 
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")
+        if failures > 0 { exit(1) }
     }
 
     private static func writePNG(to url: URL, size: Int) {
@@ -85,8 +94,6 @@ enum SelfTest {
         NSColor.systemBlue.setFill()
         NSRect(x: 0, y: 0, width: size, height: size).fill()
         ctx.flushGraphics()
-        if let data = rep.representation(using: .png, properties: [:]) {
-            try? data.write(to: url)
-        }
+        if let data = rep.representation(using: .png, properties: [:]) { try? data.write(to: url) }
     }
 }

@@ -12,14 +12,21 @@ struct PhotoGroup: Identifiable, Hashable {
     let directory: URL
     let baseName: String
 
-    /// All files belonging to this photo (e.g. the .ARW and the .JPG).
+    /// All image files belonging to this photo (e.g. the .ARW and the .JPG).
     var files: [URL]
+
+    /// XMP sidecar files that belong to this photo (matched by base name).
+    var sidecars: [URL] = []
 
     /// File used for on-screen thumbnail/preview (prefers a quick-preview format).
     let previewURL: URL
 
     /// File whose name we show to the user (prefers the RAW file if present).
     let displayName: String
+
+    /// Stable key used to persist the mark, independent of where the folder is
+    /// mounted (see FolderIdentity). Filled in by AppState after scanning.
+    var persistKey: String = ""
 
     /// 0 = unmarked, 1…9 = mark.
     var mark: Int = 0

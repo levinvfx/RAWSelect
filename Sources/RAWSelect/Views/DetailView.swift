@@ -54,28 +54,32 @@ struct DetailView: View {
 
         ToolbarItemGroup(placement: .primaryAction) {
             Button {
-                app.revealSelected()
+                app.revealCurrent()
             } label: {
                 Label("Im Finder anzeigen", systemImage: "arrow.up.forward.app")
             }
-            .disabled(app.selectedGroup == nil)
+            .disabled(app.currentGroup == nil)
+
+            Menu {
+                Button("Bilder + XMP kopieren…") { app.copySelection(includeSidecars: true) }
+                Button("Nur Bilder kopieren (ohne XMP)…") { app.copySelection(includeSidecars: false) }
+            } label: {
+                Label("Auswahl kopieren…", systemImage: "doc.on.doc")
+            } primaryAction: {
+                app.copySelection(includeSidecars: true)
+            }
+            .disabled(app.selectionCount == 0)
+            .help("Ausgewählte Bilder in einen Zielordner kopieren")
 
             Button {
-                app.copyMarked()
+                app.requestMoveSelection()
             } label: {
-                Label("Markierte kopieren…", systemImage: "doc.on.doc")
+                Label("Auswahl verschieben…", systemImage: "arrow.right.doc.on.clipboard")
             }
-            .disabled(app.markedCount == 0)
-
-            Button {
-                app.requestMoveMarked()
-            } label: {
-                Label("Markierte verschieben…", systemImage: "arrow.right.doc.on.clipboard")
-            }
-            .disabled(app.markedCount == 0 || app.sourceIsExternal)
+            .disabled(app.selectionCount == 0 || app.sourceIsExternal)
             .help(app.sourceIsExternal
                   ? "Verschieben ist von SD-Karten/externen Datenträgern deaktiviert."
-                  : "Markierte Bilder verschieben")
+                  : "Ausgewählte Bilder verschieben")
         }
     }
 }
