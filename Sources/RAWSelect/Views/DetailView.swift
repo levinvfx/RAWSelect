@@ -12,6 +12,9 @@ struct DetailView: View {
         }
         .toolbar { toolbarItems }
         .navigationTitle(app.rootURL?.lastPathComponent ?? AppInfo.name)
+        .sheet(isPresented: $app.showPhotoshopWizard) {
+            PhotoshopExportWizard()
+        }
     }
 
     @ViewBuilder
@@ -130,6 +133,14 @@ struct DetailView: View {
             .help(app.sourceIsExternal
                   ? "Verschieben ist von SD-Karten/externen Datenträgern deaktiviert."
                   : "Ausgewählte Bilder verschieben")
+
+            Button {
+                app.showPhotoshopWizard = true
+            } label: {
+                HStack(spacing: 5) { Text("JPEG"); PsBadge() }
+            }
+            .disabled(app.groups.isEmpty)
+            .help("Export JPEG with Photoshop")
         }
     }
 

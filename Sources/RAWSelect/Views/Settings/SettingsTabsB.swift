@@ -68,6 +68,13 @@ struct ExportSettingsTab: View {
                     ForEach(SmartExposureEV.allCases) { Text($0.label).tag($0) }
                 }
                 .disabled(!settings.photoshopExport || settings.smartExposure == .off)
+                SettingPicker(title: "Farbraum", selection: $settings.colorSpace) {
+                    ForEach(ColorSpaceChoice.allCases) { Text($0.label).tag($0) }
+                }
+                .disabled(!settings.photoshopExport)
+                SettingToggle(title: "Highlights schützen", isOn: $settings.protectHighlights)
+                SettingToggle(title: "Schatten schützen", isOn: $settings.protectShadows)
+                SettingToggle(title: "Korrektur vor Export anzeigen", isOn: $settings.showCorrectionBeforeExport)
             }
         }
         .formStyle(.grouped)
@@ -107,6 +114,8 @@ struct AdvancedSettingsTab: View {
                     Spacer()
                     Button("Auswählen…") { choosePreset() }
                 }
+                SettingToggle(title: "Photoshop nach Export schliessen", isOn: $settings.closePhotoshopAfter)
+                SettingToggle(title: "Temporäre Dateien nach Export löschen", isOn: $settings.deleteTempFiles)
             }
             Section {
                 Button("Cache leeren") { confirmClear = true }

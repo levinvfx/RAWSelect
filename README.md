@@ -129,6 +129,38 @@ System, Metadaten-Panel an). Photoshop-Export & Smart Exposure sind als Einstell
 **Sicherheit (fest, nicht abschaltbar):** RAW-Dateien werden nie verändert, SD-Karten nie
 verschoben/gelöscht, keinerlei Netz/Cloud.
 
+## Export JPEG mit Photoshop [Ps] + Smart Exposure
+
+Neben **Copy Originals** und **Move Originals** gibt es in der Toolbar den Button
+**„JPEG [Ps]"** — ein autonomer JPEG-Export über Adobe Photoshop / Camera Raw. Ein Klick
+öffnet den Export-Wizard.
+
+**Ablauf im Wizard:** Bilder wählen (aktuell / Auswahl / alle markierten / einzelne Markierung /
+alle sichtbaren) → optionales `.xmp`-Preset (Lightroom/Camera Raw) → Smart Exposure → JPEG
+(Qualität, Farbraum, Grösse, Nachschärfen) → Zielordner + Ordnerstruktur → Export mit Fortschritt.
+
+**Voraussetzung:** Adobe Photoshop muss **installiert und aktiviert** sein. RAW Select findet es
+automatisch (Bundle-ID `com.adobe.Photoshop`) oder du wählst es in den Einstellungen. Fehlt es,
+zeigt der Wizard einen klaren Hinweis. Photoshop startet sichtbar und rendert im Hintergrund —
+du musst nichts manuell in Photoshop bedienen.
+
+**Smart Exposure (komplett offline):** Analysiert jedes Bild **lokal** über Histogramm,
+Durchschnitts-/Median-Helligkeit und Shadow-/Highlight-Clipping und berechnet eine **sanfte**
+Belichtungskorrektur in EV (Aus / Sanft / Standard / Stark, Clamp ±0.3…±1.5 EV). Highlights/Schatten
+werden geschützt, absichtlich dunkle/helle Bilder respektiert. **Keine Cloud, keine AI-API, kein
+Internet.** Der Preset-Look bleibt erhalten – korrigiert wird nur die Helligkeit.
+
+**Sicherheit (fest):** Original-RAWs und deine Preset-/XMP-Dateien werden **nie** verändert. Der
+Export läuft in einem **temporären Arbeitsordner** (RAW-Kopie + temporäres Sidecar-XMP mit
+Preset + EV), der danach aufgeräumt wird. Bestehende XMP-Sidecars neben den Originalen bleiben
+unangetastet.
+
+**Limitationen (V1):** Die Photoshop-Automation nutzt ExtendScript (`do javascript`,
+`DialogModes.NO`). Wie ein Camera-Raw-Preset exakt greift, hängt von Photoshop-Version und
+Preset-Aufbau ab; bei ungewöhnlichen Presets kann eine Anpassung nötig sein. Abbrechen wirkt
+best-effort (Photoshop beendet ggf. das laufende Bild noch). Bei Problemen wird ein Export-Log im
+Zielordner gespeichert.
+
 ## Tags & wie sich die App die SD-Karte merkt
 
 - Markierungen (1–9) sind **rein app-intern** – sie werden **nie** in die Bilder oder

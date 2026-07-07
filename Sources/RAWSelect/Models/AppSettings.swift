@@ -28,9 +28,10 @@ enum SmartExposure: String, CaseIterable, Identifiable { case off, soft, standar
     var id: String { rawValue }
     var label: String { switch self { case .off: return "Aus"; case .soft: return "Sanft"; case .standard: return "Standard"; case .strong: return "Stark" } }
 }
-enum SmartExposureEV: String, CaseIterable, Identifiable { case ev03 = "0.3", ev07 = "0.7", ev10 = "1.0"
+enum SmartExposureEV: String, CaseIterable, Identifiable { case ev03 = "0.3", ev07 = "0.7", ev10 = "1.0", ev15 = "1.5"
     var id: String { rawValue }
     var label: String { "±\(rawValue) EV" }
+    var ev: Double { Double(rawValue) ?? 0.7 }
 }
 enum JPEGQuality: String, CaseIterable, Identifiable { case q80 = "80", q90 = "90", q100 = "100"
     var id: String { rawValue }
@@ -38,8 +39,10 @@ enum JPEGQuality: String, CaseIterable, Identifiable { case q80 = "80", q90 = "9
     var value: Int { Int(rawValue) ?? 90 }
 }
 
-// Internal enums kept for fixed code defaults (not shown in UI).
-enum ConflictMode { case rename, skip, ask, overwrite }
+enum ConflictMode: String, CaseIterable, Identifiable { case rename, skip, ask, overwrite
+    var id: String { rawValue }
+    var label: String { switch self { case .rename: return "Automatisch _1, _2, _3 anhängen"; case .skip: return "Überspringen"; case .ask: return "Jedes Mal fragen"; case .overwrite: return "Überschreiben" } }
+}
 
 // MARK: - Mark definitions
 
@@ -122,6 +125,36 @@ final class AppSettings: ObservableObject {
     var photoshopAutoDetect: Bool { get { b("rs.photoshopAutoDetect", true) } set { set("rs.photoshopAutoDetect", newValue) } }
     var photoshopPath: String { get { str("rs.photoshopPath", "") } set { set("rs.photoshopPath", newValue) } }
     var presetPath: String { get { str("rs.presetPath", "") } set { set("rs.presetPath", newValue) } }
+
+    // Photoshop JPEG export (wizard defaults + advanced)
+    var colorSpace: ColorSpaceChoice { get { en("rs.colorSpace", .sRGB) } set { setEnum("rs.colorSpace", newValue) } }
+    var exportSize: ExportSizeChoice { get { en("rs.exportSize", .original) } set { setEnum("rs.exportSize", newValue) } }
+    var customLongEdge: Double { get { dbl("rs.customLongEdge", 4000) } set { set("rs.customLongEdge", newValue) } }
+    var sharpening: SharpenChoice { get { en("rs.sharpening", .off) } set { setEnum("rs.sharpening", newValue) } }
+    var protectHighlights: Bool { get { b("rs.protectHighlights", true) } set { set("rs.protectHighlights", newValue) } }
+    var protectShadows: Bool { get { b("rs.protectShadows", true) } set { set("rs.protectShadows", newValue) } }
+    var respectIntentional: Bool { get { b("rs.respectIntentional", true) } set { set("rs.respectIntentional", newValue) } }
+    var showCorrectionBeforeExport: Bool { get { b("rs.showCorrectionBeforeExport", true) } set { set("rs.showCorrectionBeforeExport", newValue) } }
+    var closePhotoshopAfter: Bool { get { b("rs.closePhotoshopAfter", false) } set { set("rs.closePhotoshopAfter", newValue) } }
+    var stopOnError: Bool { get { b("rs.stopOnError", true) } set { set("rs.stopOnError", newValue) } }
+    var deleteTempFiles: Bool { get { b("rs.deleteTempFiles", true) } set { set("rs.deleteTempFiles", newValue) } }
+    var saveExportLog: Bool { get { b("rs.saveExportLog", true) } set { set("rs.saveExportLog", newValue) } }
+    var rememberPreset: Bool { get { b("rs.rememberPreset", true) } set { set("rs.rememberPreset", newValue) } }
+    var recentPresets: [String] { get { cod("rs.recentPresets", []) } set { setCod("rs.recentPresets", newValue) } }
+    var psFolderStructure: ExportFolderStructure { get { en("rs.psFolderStructure", .perMark) } set { setEnum("rs.psFolderStructure", newValue) } }
+    var psConflict: ConflictMode { get { en("rs.psConflict", .rename) } set { setEnum("rs.psConflict", newValue) } }
+    var lastPsExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
+
+    /// Photoshop JPEG quality (0…12) from the 80/90/100 setting.
+    var jpegQualityPS: Int { switch jpegQuality { case .q80: return 10; case .q90: return 11; case .q100: return 12 } }
+
+    /// Adds a preset to the recent list (most recent first, max 5).
+    func rememberRecentPreset(_ path: String) {
+        guard rememberPreset, !path.isEmpty else { return }
+        var list = recentPresets.filter { $0 != path }
+        list.insert(path, at: 0)
+        recentPresets = Array(list.prefix(5))
+    }
 
     // ───────── Fixed defaults (not shown in UI) ─────────
 

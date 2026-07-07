@@ -88,12 +88,45 @@ enum SelfTest {
         filter.toggle(0); filter.toggle(5)   // show all again, then hide mark 5
         check(filter.matches(untagged) && !filter.matches(marked5), "toggling mark 5 hides only mark-5 photos")
 
-        // 7. Originals protected
+        // 7. Smart Exposure (local histogram analysis)
+        let dark = sub.appendingPathComponent("dark.png"); writeGrayPNG(to: dark, size: 64, level: 40)
+        let bright = sub.appendingPathComponent("bright.png"); writeGrayPNG(to: bright, size: 64, level: 210)
+        let midGray = sub.appendingPathComponent("mid.png"); writeGrayPNG(to: midGray, size: 64, level: 118)
+        let cfg = SmartExposureAnalyzer.Config()
+        let rd = SmartExposureAnalyzer.analyze(url: dark, config: cfg)
+        let rb = SmartExposureAnalyzer.analyze(url: bright, config: cfg)
+        let rm = SmartExposureAnalyzer.analyze(url: midGray, config: cfg)
+        check(rd.clampedEV > 0.05, "dark image → positive EV (\(rd.evLabel))")
+        check(rb.clampedEV < -0.05, "bright image → negative EV (\(rb.evLabel))")
+        check(abs(rm.clampedEV) < 0.15, "mid-grey image → ~0 EV (\(rm.evLabel))")
+        check(abs(rd.clampedEV) <= cfg.maxEV + 0.001, "EV clamped to max")
+
+        // 8. XMP sidecar builder never needs the original; produces valid crs block
+        let xmp = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0.35)
+        check(xmp.contains("crs:Exposure2012=\"+0.35\""), "sidecar embeds exposure delta")
+
+        // 9. Photoshop detection
+        check(PhotoshopExportService.photoshopURL(preferredPath: "") != nil, "Photoshop found via bundle id")
+
+        // 10. Originals protected
         check(fm.fileExists(atPath: fakeRAW.path), "source RAW untouched after copy")
 
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")
         if failures > 0 { exit(1) }
+    }
+
+    private static func writeGrayPNG(to url: URL, size: Int, level: Int) {
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
+                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                   isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        let ctx = NSGraphicsContext(bitmapImageRep: rep)!
+        NSGraphicsContext.current = ctx
+        let g = CGFloat(level) / 255.0
+        NSColor(red: g, green: g, blue: g, alpha: 1).setFill()
+        NSRect(x: 0, y: 0, width: size, height: size).fill()
+        ctx.flushGraphics()
+        if let data = rep.representation(using: .png, properties: [:]) { try? data.write(to: url) }
     }
 
     private static func writePNG(to url: URL, size: Int) {

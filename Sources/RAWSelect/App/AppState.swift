@@ -32,6 +32,7 @@ final class AppState: ObservableObject {
 
     @Published var operation: OperationState?
     @Published var pendingMoveTarget: URL?
+    @Published var showPhotoshopWizard = false
 
     enum ViewMode: String, CaseIterable { case grid, loupe }
 
@@ -316,6 +317,24 @@ final class AppState: ObservableObject {
     func revealCurrent() {
         guard let g = currentGroup else { statusMessage = "Kein Bild ausgewählt."; return }
         FinderService.reveal(g.previewURL)
+    }
+    func revealFolder(_ url: URL) { FinderService.revealFolder(url) }
+
+    // MARK: Photoshop export helpers
+    /// Resolves an export image source to the matching photo groups.
+    func groups(for source: ExportImageSource) -> [PhotoGroup] {
+        switch source {
+        case .current: return currentGroup.map { [$0] } ?? []
+        case .selected: return selectedGroups
+        case .allMarked: return groups.filter { $0.mark != 0 }
+        case .mark(let n): return groups.filter { $0.mark == n }
+        case .filtered: return filteredGroups
+        }
+    }
+
+    /// File to develop for a group (RAW preferred for Photoshop).
+    func rawURL(for group: PhotoGroup) -> URL {
+        group.files.first { PhotoTypes.isRaw($0) } ?? group.previewURL
     }
 
     // MARK: Copy / Move (operate on the selection)
