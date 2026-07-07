@@ -122,10 +122,10 @@ swift run RAWSelect --selftest
 
 - Kein App-Icon (Standard-Systemicon).
 - Nur ad-hoc signiert → beim ersten Start ggf. Gatekeeper-Hinweis.
-- Die grosse Loupe-Vorschau wird scharf aus dem vollen Bild gerendert (an die
-  Display-Auflösung angepasst, mind. Full HD). Beim ersten Betrachten eines RAWs
-  dauert das minimal länger; danach ist es gecacht. Das Raster nutzt weiterhin
-  schnelle eingebettete Previews.
+- Die grosse Loupe-Vorschau nutzt die **eingebettete Kamera-Vorschau** (bei Sony
+  ~1616×1080, Full HD) – sofort scharf und schnell. Ein voller RAW-Decode für noch
+  höhere Auflösung / 100%-Zoom ist auf einem System mit nur den Command Line Tools
+  nicht verfügbar (dafür bräuchte es das volle Xcode inkl. RAW-Codec).
 - Ein Bild trägt genau **eine** Markierung (1–9), keine Mehrfach-Tags/Sterne.
 - Thumbnail-Cache ist In-Memory (kein Disk-Cache über Neustarts hinweg).
 
