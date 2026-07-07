@@ -122,18 +122,6 @@ struct DetailView: View {
 
         ToolbarItem(placement: .primaryAction) {
             Button {
-                app.requestMoveSelection()
-            } label: {
-                Label("Verschieben", systemImage: "arrow.right.doc.on.clipboard")
-            }
-            .disabled(app.selectionCount == 0 || app.sourceIsExternal)
-            .help(app.sourceIsExternal
-                  ? "Verschieben ist von SD-Karten/externen Datenträgern deaktiviert."
-                  : "Ausgewählte Originale verschieben")
-        }
-
-        ToolbarItem(placement: .primaryAction) {
-            Button {
                 app.revealCurrent()
             } label: {
                 Label("Im Finder anzeigen", systemImage: "arrow.up.forward.app")
