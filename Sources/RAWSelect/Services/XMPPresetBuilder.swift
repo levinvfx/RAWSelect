@@ -5,51 +5,36 @@ import Foundation
 /// original RAW/XMP are NEVER modified – output is written only into the temp folder.
 enum XMPPresetBuilder {
 
-    /// Returns sidecar XMP text for the given exposure delta, based on `presetURL`
+    /// Returns sidecar XMP text where the exposure is SET to `exposure` (absolute,
+    /// authoritative — the preset never controls brightness), based on `presetURL`
     /// if provided (otherwise a minimal default-develop sidecar).
-    static func sidecarXMP(presetURL: URL?, evDelta: Double) -> String {
+    static func sidecarXMP(presetURL: URL?, evDelta exposure: Double) -> String {
         if let presetURL, let text = try? String(contentsOf: presetURL, encoding: .utf8) {
-            return applyExposure(to: text, evDelta: evDelta)
+            return applyExposure(to: text, exposure: exposure)
         }
-        return minimalSidecar(evDelta: evDelta)
+        return minimalSidecar(evDelta: exposure)
     }
 
-    /// Adds `evDelta` to an existing crs:Exposure2012 value (attribute or element
-    /// form), or inserts one. Preserves everything else in the preset.
-    private static func applyExposure(to xmp: String, evDelta: Double) -> String {
-        guard abs(evDelta) > 0.001 else { return ensureHasSettings(xmp) }
+    /// Sets crs:Exposure2012 to the absolute `exposure` value (attribute or element
+    /// form), overriding any preset exposure, or inserts one. Everything else in the
+    /// preset (the "look") is preserved.
+    private static func applyExposure(to xmp: String, exposure: Double) -> String {
         var text = xmp
+        let val = String(format: "%+.2f", exposure)
 
-        // Attribute form: crs:Exposure2012="+0.10"
         if let range = text.range(of: #"crs:Exposure2012="([-+]?[0-9]*\.?[0-9]+)""#, options: .regularExpression) {
-            let match = String(text[range])
-            let current = Double(match.replacingOccurrences(of: "crs:Exposure2012=\"", with: "").replacingOccurrences(of: "\"", with: "")) ?? 0
-            let newVal = String(format: "crs:Exposure2012=\"%+.2f\"", current + evDelta)
-            text.replaceSubrange(range, with: newVal)
-            return ensureHasSettings(text)
+            text.replaceSubrange(range, with: "crs:Exposure2012=\"\(val)\"")
+            return text
         }
-        // Element form: <crs:Exposure2012>+0.10</crs:Exposure2012>
         if let range = text.range(of: #"<crs:Exposure2012>([-+]?[0-9]*\.?[0-9]+)</crs:Exposure2012>"#, options: .regularExpression) {
-            let match = String(text[range])
-            let inner = match.replacingOccurrences(of: "<crs:Exposure2012>", with: "").replacingOccurrences(of: "</crs:Exposure2012>", with: "")
-            let current = Double(inner) ?? 0
-            let newVal = String(format: "<crs:Exposure2012>%+.2f</crs:Exposure2012>", current + evDelta)
-            text.replaceSubrange(range, with: newVal)
-            return ensureHasSettings(text)
+            text.replaceSubrange(range, with: "<crs:Exposure2012>\(val)</crs:Exposure2012>")
+            return text
         }
-        // No exposure present: inject as attribute on the first rdf:Description.
         if let r = text.range(of: "<rdf:Description") {
-            let insertion = " crs:Exposure2012=\"\(String(format: "%+.2f", evDelta))\""
-            // Insert right after the tag name.
-            let afterTag = text.index(r.upperBound, offsetBy: 0)
-            text.insert(contentsOf: insertion, at: afterTag)
-            return ensureHasSettings(text)
+            text.insert(contentsOf: " crs:Exposure2012=\"\(val)\"", at: r.upperBound)
+            return text
         }
-        return minimalSidecar(evDelta: evDelta)
-    }
-
-    private static func ensureHasSettings(_ xmp: String) -> String {
-        xmp.contains("crs:HasSettings") ? xmp : xmp
+        return minimalSidecar(evDelta: exposure)
     }
 
     private static func minimalSidecar(evDelta: Double) -> String {

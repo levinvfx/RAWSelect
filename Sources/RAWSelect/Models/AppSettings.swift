@@ -113,6 +113,7 @@ final class AppSettings: ObservableObject {
     var rawJpgExport: RawJpgExport { get { en("rs.rawJpgExport", .both) } set { setEnum("rs.rawJpgExport", newValue) } }
     var photoshopExport: Bool { get { b("rs.photoshopExport", false) } set { set("rs.photoshopExport", newValue) } }
     var jpegQualityPercent: Double { get { dbl("rs.jpegQualityPercent", 100) } set { set("rs.jpegQualityPercent", newValue) } }
+    var exposureMode: ExposureMode { get { en("rs.exposureMode", .smart) } set { setEnum("rs.exposureMode", newValue) } }
     var smartExposure: SmartExposure { get { en("rs.smartExposure", .standard) } set { setEnum("rs.smartExposure", newValue) } }
     var smartExposureMax: SmartExposureEV { get { en("rs.smartExposureMax", .ev07) } set { setEnum("rs.smartExposureMax", newValue) } }
 
@@ -136,7 +137,7 @@ final class AppSettings: ObservableObject {
     var saveExportLog: Bool { get { b("rs.saveExportLog", true) } set { set("rs.saveExportLog", newValue) } }
     var rememberPreset: Bool { get { b("rs.rememberPreset", true) } set { set("rs.rememberPreset", newValue) } }
     var recentPresets: [String] { get { cod("rs.recentPresets", []) } set { setCod("rs.recentPresets", newValue) } }
-    var psFolderStructure: ExportFolderStructure { get { en("rs.psFolderStructure", .perMark) } set { setEnum("rs.psFolderStructure", newValue) } }
+    var psFolderStructure: ExportFolderStructure { get { en("rs.psFolderStructure", .single) } set { setEnum("rs.psFolderStructure", newValue) } }
     var psConflict: ConflictMode { get { en("rs.psConflict", .rename) } set { setEnum("rs.psConflict", newValue) } }
     var lastPsExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
 

@@ -61,14 +61,24 @@ struct SmartExposureResult: Identifiable {
 
 // MARK: - Export job
 
+enum ExposureMode: String, CaseIterable, Identifiable { case smart, manual
+    var id: String { rawValue }
+    var label: String { self == .smart ? "Smart Exposure" : "Manuelle Belichtung" }
+}
+
 /// Non-destructive per-image edit applied only for the export.
 struct ImageEdit: Equatable {
     /// Clockwise 90° steps: 0, 1, 2, 3.
     var rotation: Int = 0
-    /// Crop rectangle in normalised coordinates (0…1) of the ROTATED image; nil = full frame.
+    /// Fine straighten angle in degrees (clockwise), applied on top of `rotation`.
+    var straighten: Double = 0
+    /// Crop rectangle in normalised coordinates (0…1) of the rotated+straightened frame; nil = full.
     var crop: CGRect? = nil
+    /// Manual exposure (EV) chosen in the live preview; used when ExposureMode == .manual.
+    var exposure: Double = 0
 
-    var isIdentity: Bool { rotation == 0 && crop == nil }
+    var isIdentity: Bool { rotation == 0 && straighten == 0 && crop == nil && exposure == 0 }
+    var totalAngle: Double { Double(rotation) * 90 + straighten }
     mutating func rotateLeft() { rotation = (rotation + 3) % 4 }
     mutating func rotateRight() { rotation = (rotation + 1) % 4 }
 }
@@ -77,7 +87,7 @@ struct PhotoshopExportItem: Identifiable {
     var id: String { rawURL.path }
     let group: PhotoGroup
     let rawURL: URL          // the file to develop (RAW preferred)
-    var evDelta: Double = 0  // from Smart Exposure
+    var evDelta: Double = 0  // absolute exposure applied in ACR (Smart or Manual)
     var edit: ImageEdit = ImageEdit()
 }
 

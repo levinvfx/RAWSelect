@@ -193,7 +193,7 @@ struct PhotoshopExportService {
     private static func makeJSX(manifest: [(item: PhotoshopExportItem, raw: URL, out: URL, name: String)], config: Config, logURL: URL) -> String {
         let itemsJS = manifest.map { entry -> String in
             let e = entry.item.edit
-            let rot = (e.rotation % 4) * 90
+            let rot = e.totalAngle          // 90° steps + fine straighten, clockwise
             var s = "{raw:\"\(jsEscape(entry.raw.path))\",out:\"\(jsEscape(entry.out.path))\",name:\"\(jsEscape(entry.name))\",rot:\(rot)"
             if let c = e.crop {
                 s += ",hasCrop:true,cx:\(c.minX),cy:\(c.minY),cw:\(c.width),ch:\(c.height)"

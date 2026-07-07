@@ -13,12 +13,13 @@ struct PhotoshopExportWizard: View {
 
     // Step 1 – images
     enum Scope: Hashable { case current, selected, allMarked, filtered, tags }
-    @State private var scope: Scope = .allMarked
+    @State private var scope: Scope = .selected
     @State private var selectedTags: Set<Int> = []
     @State private var useJpgInstead = false
     // Step 2 – preset
     @State private var presetURL: URL?
-    // Step 3 – smart exposure
+    // Step 3 – exposure
+    @State private var exposureMode: ExposureMode = .smart
     @State private var strength: SmartExposure = .standard
     @State private var maxEV: SmartExposureEV = .ev07
     @State private var protectHi = true
@@ -134,27 +135,31 @@ struct PhotoshopExportWizard: View {
                         }
                     }
 
-                    card("Smart Exposure") {
-                        Picker("Stärke", selection: $strength) { ForEach(SmartExposure.allCases) { Text($0.label).tag($0) } }
-                        if strength != .off {
-                            Picker("Maximale Helligkeitskorrektur", selection: $maxEV) { ForEach(SmartExposureEV.allCases) { Text($0.label).tag($0) } }
-                            Toggle("Highlights schützen", isOn: $protectHi)
-                            Toggle("Schatten schützen", isOn: $protectLo)
-                            Toggle("Absichtlich dunkle/helle Bilder respektieren", isOn: $respectIntent)
-                            HStack {
-                                Button(analyzing ? "Analysiere…" : "Belichtung analysieren") { analyze() }.disabled(analyzing)
-                                Spacer()
+                    card("Belichtung") {
+                        Picker("Modus", selection: $exposureMode) { ForEach(ExposureMode.allCases) { Text($0.label).tag($0) } }
+                            .pickerStyle(.segmented)
+                        if exposureMode == .smart {
+                            Picker("Stärke", selection: $strength) { ForEach(SmartExposure.allCases) { Text($0.label).tag($0) } }
+                            if strength != .off {
+                                Picker("Maximale Helligkeitskorrektur", selection: $maxEV) { ForEach(SmartExposureEV.allCases) { Text($0.label).tag($0) } }
+                                Toggle("Highlights schützen", isOn: $protectHi)
+                                Toggle("Schatten schützen", isOn: $protectLo)
+                                Toggle("Absichtlich dunkle/helle Bilder respektieren", isOn: $respectIntent)
+                                HStack { Button(analyzing ? "Analysiere…" : "Belichtung analysieren") { analyze() }.disabled(analyzing); Spacer() }
+                                if !results.isEmpty { correctionTable }
                             }
-                            if !results.isEmpty { correctionTable }
+                            Text("Analysiert jedes Bild lokal über Histogramm/Helligkeit. Keine Cloud, keine AI, kein Internet.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text("Du stellst die Helligkeit pro Bild im nächsten Schritt (Zuschneiden & Export) mit Live-Vorschau ein (±3 EV).")
+                                .font(.callout).foregroundStyle(.secondary)
                         }
-                        Text("Analysiert jedes Bild lokal über Histogramm/Helligkeit. Keine Cloud, keine AI, kein Internet.")
-                            .font(.caption).foregroundStyle(.secondary)
                     }
 
                     card("JPEG") {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack { Text("Qualität"); Spacer(); Text("\(Int(quality))%").foregroundStyle(.secondary).monospacedDigit() }
-                            Slider(value: $quality, in: 0...100, step: 1)
+                            Slider(value: $quality, in: 10...100, step: 10)
                         }
                         Picker("Farbraum", selection: $colorSpace) { ForEach(ColorSpaceChoice.allCases) { Text($0.label).tag($0) } }
                         Picker("Grösse", selection: $exportSize) { ForEach(ExportSizeChoice.allCases) { Text($0.label).tag($0) } }
@@ -269,13 +274,13 @@ struct PhotoshopExportWizard: View {
         let group = items[min(cropIndex, items.count - 1)]
         return VStack(spacing: 14) {
             HStack {
-                Text("Zuschnitt — Bild \(cropIndex + 1) von \(items.count)").font(.headline)
+                Text("Bild vorbereiten — \(cropIndex + 1) von \(items.count)").font(.headline)
                 Spacer()
                 Text(group.displayName).font(.callout.monospaced()).foregroundStyle(.secondary).lineLimit(1)
             }
             .padding(.horizontal, 20).padding(.top, 16)
 
-            CropEditorView(previewURL: group.previewURL, edit: editBinding(for: group))
+            CropEditorView(previewURL: group.previewURL, edit: editBinding(for: group), exposureMode: exposureMode)
                 .padding(.horizontal, 20)
 
             Divider()
@@ -358,6 +363,7 @@ struct PhotoshopExportWizard: View {
     // MARK: Actions
 
     private func loadDefaults() {
+        exposureMode = settings.exposureMode
         strength = settings.smartExposure
         maxEV = settings.smartExposureMax
         protectHi = settings.protectHighlights
@@ -375,7 +381,7 @@ struct PhotoshopExportWizard: View {
             let u = URL(fileURLWithPath: settings.lastPsExportTarget)
             if FileManager.default.fileExists(atPath: u.path) { targetURL = u }
         }
-        if app.groups(for: .allMarked).isEmpty && app.currentGroup != nil { scope = .selected }
+        if app.selectedGroups.isEmpty { scope = app.groups.contains(where: { $0.mark != 0 }) ? .allMarked : .filtered }
     }
 
     private var analyzerConfig: SmartExposureAnalyzer.Config {
@@ -438,11 +444,14 @@ struct PhotoshopExportWizard: View {
 
         let items: [PhotoshopExportItem] = groups.map { g in
             let raw = useJpgInstead ? (g.files.first { ["jpg","jpeg"].contains($0.pathExtension.lowercased()) } ?? app.rawURL(for: g)) : app.rawURL(for: g)
+            let edit = edits[g.id] ?? ImageEdit()
             var ev = 0.0
-            if strength != .off {
+            if exposureMode == .manual {
+                ev = edit.exposure                       // manual, per-image, live preview
+            } else if strength != .off {
                 ev = existing[g.previewURL.path] ?? SmartExposureAnalyzer.analyze(url: g.previewURL, config: cfg).clampedEV
             }
-            return PhotoshopExportItem(group: g, rawURL: raw, evDelta: ev, edit: edits[g.id] ?? ImageEdit())
+            return PhotoshopExportItem(group: g, rawURL: raw, evDelta: ev, edit: edit)
         }
 
         let longEdge = exportSize.longEdge(custom: Int(customEdge)) ?? 0
