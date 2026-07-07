@@ -59,9 +59,10 @@ private struct LargePreview: View {
             if let tiny = await loader.thumbnail(for: group.previewURL, maxPixel: PreviewConfig.tinyMaxPixel) {
                 if !isSharp { image = tiny }
             }
-            // 2) Sharp version (prefetched for neighbours) swaps in when ready.
+            // 2) Sharp Full-HD version from the camera's embedded preview (full RAW
+            //    decode isn't available on this system). Swaps in when ready.
             if let sharp = await loader.thumbnail(for: group.previewURL,
-                                                  maxPixel: PreviewConfig.loupeMaxPixel, fullQuality: true) {
+                                                  maxPixel: PreviewConfig.loupeMaxPixel, fullQuality: false) {
                 image = sharp
                 isSharp = true
             }

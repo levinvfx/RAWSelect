@@ -199,7 +199,7 @@ final class AppState: ObservableObject {
         let upper = min(list.count - 1, idx + PreviewConfig.prefetchForward)
         let maxPixel = PreviewConfig.loupeMaxPixel
         for i in lower...upper where i != idx {
-            ThumbnailLoader.shared.prefetch(for: list[i].previewURL, maxPixel: maxPixel, fullQuality: true)
+            ThumbnailLoader.shared.prefetch(for: list[i].previewURL, maxPixel: maxPixel, fullQuality: false)
         }
     }
 
