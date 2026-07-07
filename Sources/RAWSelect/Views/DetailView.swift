@@ -88,13 +88,48 @@ struct DetailView: View {
                 Label("Info", systemImage: app.showInfo ? "info.circle.fill" : "info.circle")
             }
             .help("EXIF-Infos ein/aus (I)")
+        }
 
-            Button {
-                app.toggleFullscreen()
+        // Export actions, most important first so they never fall into overflow.
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button("Bilder + XMP kopieren…") { app.copySelection(includeSidecars: true) }
+                Button("Nur Bilder kopieren (ohne XMP)…") { app.copySelection(includeSidecars: false) }
             } label: {
-                Label("Vollbild", systemImage: "arrow.up.left.and.arrow.down.right")
+                Label("Kopieren", systemImage: "doc.on.doc")
             }
-            .help("Vollbild (F)")
+            .menuStyle(.button)
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+            .disabled(app.selectionCount == 0)
+            .help("Originale kopieren – Art im Menü wählen")
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                app.showPhotoshopWizard = true
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "wand.and.stars")
+                    Text("Export JPEG")
+                    PsBadge()
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(app.groups.isEmpty)
+            .help("Export JPEG mit Photoshop")
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                app.requestMoveSelection()
+            } label: {
+                Label("Verschieben", systemImage: "arrow.right.doc.on.clipboard")
+            }
+            .disabled(app.selectionCount == 0 || app.sourceIsExternal)
+            .help(app.sourceIsExternal
+                  ? "Verschieben ist von SD-Karten/externen Datenträgern deaktiviert."
+                  : "Ausgewählte Originale verschieben")
         }
 
         ToolbarItem(placement: .primaryAction) {
@@ -105,42 +140,6 @@ struct DetailView: View {
             }
             .disabled(app.currentGroup == nil)
             .help("Aktuelles Bild im Finder anzeigen (⌘R)")
-        }
-
-        ToolbarItem(placement: .primaryAction) {
-            Menu {
-                Button("Bilder + XMP kopieren…") { app.copySelection(includeSidecars: true) }
-                Button("Nur Bilder kopieren (ohne XMP)…") { app.copySelection(includeSidecars: false) }
-            } label: {
-                Label("Kopieren", systemImage: "doc.on.doc")
-            }
-            .menuStyle(.button)
-            .buttonStyle(.borderedProminent)   // clear blue button
-            .tint(.blue)
-            .disabled(app.selectionCount == 0)
-            .help(app.selectionCount > 0
-                  ? "\(app.selectionCount) ausgewählte Bilder kopieren – Art im Menü wählen"
-                  : "Ausgewählte Bilder kopieren")
-        }
-
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                app.requestMoveSelection()
-            } label: {
-                Label("Auswahl verschieben…", systemImage: "arrow.right.doc.on.clipboard")
-            }
-            .disabled(app.selectionCount == 0 || app.sourceIsExternal)
-            .help(app.sourceIsExternal
-                  ? "Verschieben ist von SD-Karten/externen Datenträgern deaktiviert."
-                  : "Ausgewählte Bilder verschieben")
-
-            Button {
-                app.showPhotoshopWizard = true
-            } label: {
-                HStack(spacing: 5) { Text("JPEG"); PsBadge() }
-            }
-            .disabled(app.groups.isEmpty)
-            .help("Export JPEG with Photoshop")
         }
     }
 
