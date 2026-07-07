@@ -103,11 +103,30 @@ struct PhotoshopExportService {
             try makeAppleScript(jsxURL: jsxURL).data(using: .utf8)?.write(to: scptURL)
 
             progress(0, manifest.count, manifest.first?.name ?? "", .rendering)
-            await runAndTrack(scriptURL: scptURL, logURL: logURL, total: manifest.count,
-                              progress: progress, isCancelled: isCancelled)
+            let (exitCode, stderr) = await runAndTrack(scriptURL: scptURL, logURL: logURL, total: manifest.count,
+                                                       progress: progress, isCancelled: isCancelled)
 
-            // Parse results from log.
-            let (success, failures) = parseLog(logURL, expected: manifest)
+            // Parse results from the Photoshop log.
+            let logText = (try? String(contentsOf: logURL, encoding: .utf8)) ?? ""
+            let ran = logText.contains("PROG ")
+            var success = 0
+            var failures: [ExportFailure] = []
+            for line in logText.split(separator: "\n") {
+                if line.hasPrefix("OK ") { success += 1 }
+                else if line.hasPrefix("ERR ") {
+                    let comps = String(line.dropFirst(4)).components(separatedBy: " || ")
+                    failures.append(ExportFailure(fileName: comps.first ?? "?", message: comps.count > 1 ? comps[1] : "Fehler"))
+                }
+            }
+            if !ran {
+                let lower = stderr.lowercased()
+                let permission = stderr.contains("-1743") || lower.contains("not authorized")
+                    || lower.contains("nicht berechtigt") || lower.contains("automation") || exitCode != 0
+                let msg = permission
+                    ? "RAW Select darf Photoshop (noch) nicht steuern.\n\nBitte in Systemeinstellungen → Datenschutz & Sicherheit → Automation den Eintrag „RAW Select“ → „Adobe Photoshop“ aktivieren und erneut exportieren."
+                    : "Photoshop hat das Skript nicht ausgeführt. Läuft Photoshop und ist es aktiviert?"
+                failures = [ExportFailure(fileName: "Photoshop-Automation", message: msg)]
+            }
 
             // Cleanup.
             var tempWarning: String?
@@ -230,18 +249,21 @@ struct PhotoshopExportService {
         """
     }
 
-    /// Runs osascript in the background and polls the log for progress.
+    /// Runs osascript in the background, polls the log for progress, and returns
+    /// the osascript exit code + stderr (used to detect permission problems).
     private static func runAndTrack(scriptURL: URL, logURL: URL, total: Int,
                                     progress: @escaping (Int, Int, String, ExportStage) -> Void,
-                                    isCancelled: @escaping () -> Bool) async {
+                                    isCancelled: @escaping () -> Bool) async -> (Int32, String) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         process.arguments = [scriptURL.path]
+        let errPipe = Pipe()
+        process.standardError = errPipe
         let done = CancellationToken()
 
         let runner = Task.detached {
             do { try process.run(); process.waitUntilExit() } catch { }
-            done.cancel()   // signal finished
+            done.cancel()
         }
 
         while !done.isCancelled {
@@ -252,6 +274,10 @@ struct PhotoshopExportService {
             try? await Task.sleep(nanoseconds: 400_000_000)
         }
         _ = await runner.value
+
+        let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderr = String(data: errData, encoding: .utf8) ?? ""
+        return (process.terminationStatus, stderr)
     }
 
     private static func lastProgress(logURL: URL) -> (Int, String)? {
@@ -264,23 +290,4 @@ struct PhotoshopExportService {
         return last
     }
 
-    private static func parseLog(_ logURL: URL, expected: [(raw: URL, out: URL, name: String)]) -> (Int, [ExportFailure]) {
-        guard let text = try? String(contentsOf: logURL, encoding: .utf8) else {
-            return (0, [ExportFailure(fileName: "—", message: "Kein Photoshop-Log – Automation evtl. fehlgeschlagen.")])
-        }
-        var success = 0
-        var failures: [ExportFailure] = []
-        for line in text.split(separator: "\n") {
-            if line.hasPrefix("OK ") { success += 1 }
-            else if line.hasPrefix("ERR ") {
-                let rest = String(line.dropFirst(4))
-                let comps = rest.components(separatedBy: " || ")
-                failures.append(ExportFailure(fileName: comps.first ?? "?", message: comps.count > 1 ? comps[1] : "Fehler"))
-            }
-        }
-        if success == 0 && failures.isEmpty {
-            failures.append(ExportFailure(fileName: "—", message: "Photoshop hat keine Bilder verarbeitet. Ist Photoshop aktiviert und läuft?"))
-        }
-        return (success, failures)
-    }
 }

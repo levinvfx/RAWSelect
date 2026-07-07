@@ -62,6 +62,7 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSAppleEventsUsageDescription</key><string>RAW Select steuert Adobe Photoshop, um ausgewählte RAW-Bilder als JPEG zu exportieren.</string>
 </dict>
 </plist>
 PLIST
