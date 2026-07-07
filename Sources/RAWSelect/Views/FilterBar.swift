@@ -12,6 +12,8 @@ struct FilterBar: View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
             HStack(spacing: 4) {
+                toggleAllButton
+                Divider().frame(height: size)
                 swatch(bucket: 0, color: nil).help("Alle ohne Markierung (\(app.unmarkedCount))")
                 ForEach(1...9, id: \.self) { mark in
                     swatch(bucket: mark, color: MarkStyle.color(for: mark))
@@ -28,6 +30,21 @@ struct FilterBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    private var toggleAllButton: some View {
+        let allShown = app.tagFilter.allShown
+        return Button {
+            app.tagFilter.setAll(shown: !allShown)
+        } label: {
+            Image(systemName: allShown ? "checkmark.square.fill" : "square")
+                .font(.system(size: 15))
+                .foregroundStyle(allShown ? Color.accentColor : .secondary)
+                .frame(width: size, height: size)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(allShown ? "Alle abwählen" : "Alle anwählen")
     }
 
     private func swatch(bucket: Int, color: Color?) -> some View {

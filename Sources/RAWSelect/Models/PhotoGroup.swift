@@ -55,7 +55,10 @@ struct TagFilter: Equatable {
     /// Buckets that are currently hidden (empty = show everything).
     var hidden: Set<Int> = []
 
+    static let allBuckets = Set(0...9)   // 0 = untagged, 1…9 = marks
+
     var isActive: Bool { !hidden.isEmpty }
+    var allShown: Bool { hidden.isEmpty }
 
     func matches(_ group: PhotoGroup) -> Bool {
         !hidden.contains(group.mark)
@@ -65,6 +68,10 @@ struct TagFilter: Equatable {
 
     mutating func toggle(_ bucket: Int) {
         if hidden.contains(bucket) { hidden.remove(bucket) } else { hidden.insert(bucket) }
+    }
+
+    mutating func setAll(shown: Bool) {
+        hidden = shown ? [] : TagFilter.allBuckets
     }
 
     mutating func reset() { hidden.removeAll() }
