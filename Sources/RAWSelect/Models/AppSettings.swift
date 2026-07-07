@@ -183,7 +183,7 @@ final class AppSettings: ObservableObject {
     var perfectAuto: Bool { get { b("rs.perfectAuto", true) } set { set("rs.perfectAuto", newValue) } }
     var perfectQuality: PerfectQuality { get { en("rs.perfectQuality", .screen) } set { setEnum("rs.perfectQuality", newValue) } }
     var respectScale: Bool { get { b("rs.respectScale", true) } set { set("rs.respectScale", newValue) } }
-    var smoothPreviewSwap: Bool { get { b("rs.smoothPreviewSwap", true) } set { set("rs.smoothPreviewSwap", newValue) } }
+    var smoothPreviewSwap: Bool { get { b("rs.smoothPreviewSwap", false) } set { set("rs.smoothPreviewSwap", newValue) } }
 
     // 4 – Markierungen
     var singleMarkPerPhoto: Bool { get { b("rs.singleMarkPerPhoto", true) } set { set("rs.singleMarkPerPhoto", newValue) } }

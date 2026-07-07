@@ -47,14 +47,12 @@ private struct LargePreview: View {
             settings.previewBackground.color
             if let image {
                 // Two-stage preview: never a spinner. Instant (soft) shows first,
-                // then Perfect swaps in – optionally with a soft crossfade.
+                // then Perfect swaps in directly (no fade) for fast browsing.
                 Image(nsImage: image)
                     .resizable()
                     .interpolation(isSharp ? .high : instantInterpolation)
                     .aspectRatio(contentMode: .fit)
                     .padding(16)
-                    .id(isSharp)
-                    .transition(settings.smoothPreviewSwap ? .opacity : .identity)
             }
 
             VStack {
@@ -80,11 +78,8 @@ private struct LargePreview: View {
             //    embedded preview (full RAW decode isn't available on this system).
             guard settings.perfectAuto || image == nil else { return }
             if let perfect = await loader.thumbnail(for: group.previewURL, maxPixel: perfectPixels, fullQuality: false) {
-                if settings.smoothPreviewSwap {
-                    withAnimation(.easeInOut(duration: 0.18)) { image = perfect; isSharp = true }
-                } else {
-                    image = perfect; isSharp = true
-                }
+                image = perfect
+                isSharp = true
             }
         }
         .task(id: group.id) {
