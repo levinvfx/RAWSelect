@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StatusBar: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var settings: AppSettings
 
     var body: some View {
         HStack(spacing: 12) {
@@ -48,7 +49,7 @@ struct StatusBar: View {
     private var sizeSlider: some View {
         HStack(spacing: 6) {
             Image(systemName: "photo").font(.caption2).foregroundStyle(.tertiary)
-            Slider(value: $app.thumbnailSize, in: 100...320)
+            Slider(value: $settings.thumbnailSize, in: 80...260)
                 .frame(width: 120)
                 .controlSize(.mini)
         }

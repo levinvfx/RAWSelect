@@ -17,11 +17,15 @@ enum EntryPoint {
 struct RAWSelectApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var app = AppState()
+    @StateObject private var settings = AppSettings.shared
 
     var body: some Scene {
         WindowGroup(AppInfo.name) {
             ContentView()
                 .environmentObject(app)
+                .environmentObject(settings)
+                .preferredColorScheme(settings.appearance.colorScheme)
+                .tint(settings.accentColor)
                 .frame(minWidth: 1040, minHeight: 660)
         }
         .windowToolbarStyle(.unified)
@@ -38,6 +42,13 @@ struct RAWSelectApp: App {
                 Button("Im Finder anzeigen") { app.revealCurrent() }
                     .keyboardShortcut("r", modifiers: .command)
             }
+        }
+
+        // Native macOS Settings window: RAW Select → Settings… (⌘,)
+        Settings {
+            SettingsView()
+                .environmentObject(settings)
+                .preferredColorScheme(settings.appearance.colorScheme)
         }
     }
 }

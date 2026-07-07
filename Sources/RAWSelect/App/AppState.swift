@@ -1,8 +1,13 @@
 import SwiftUI
 import AppKit
+import Combine
 
 @MainActor
 final class AppState: ObservableObject {
+
+    let settings = AppSettings.shared
+    private var cancellables = Set<AnyCancellable>()
+    private var lastSortSig = ""
 
     // MARK: Published state
     @Published var volumes: [VolumeInfo] = []
@@ -19,10 +24,8 @@ final class AppState: ObservableObject {
 
     @Published var viewMode: ViewMode = .grid { didSet { if viewMode == .loupe { prefetchAroundCurrent() } } }
 
-    @Published var sortOrder: SortOrder = .filename { didSet { applySort() } }
-    @Published var sortReversed: Bool = false { didSet { applySort() } }
-    @Published var thumbnailSize: Double = 160
-    @Published var showInfo: Bool = false
+    /// Runtime toggle for the EXIF overlay (default from settings.metadataPanel).
+    @Published var showInfo: Bool = AppSettings.shared.metadataPanel
 
     @Published var isScanning = false
     @Published var statusMessage = "Kein Ordner geöffnet."
@@ -72,6 +75,23 @@ final class AppState: ObservableObject {
         refreshVolumes()
         volumeScanner.startWatching { [weak self] in self?.refreshVolumes() }
         installKeyMonitor()
+        lastSortSig = sortSignature
+        ThumbnailLoader.shared.setMaxConcurrent(Int(settings.maxParallelJobs))
+        // React to settings changes that affect already-loaded content.
+        settings.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] in self?.settingsChanged() }
+            .store(in: &cancellables)
+    }
+
+    private var sortSignature: String { "\(settings.sortField.rawValue)|\(settings.sortReversed)" }
+
+    private func settingsChanged() {
+        if sortSignature != lastSortSig {
+            lastSortSig = sortSignature
+            applySort()
+        }
+        ThumbnailLoader.shared.setMaxConcurrent(Int(settings.maxParallelJobs))
     }
 
     func refreshVolumes() { volumes = VolumeScanner.externalVolumes() }
@@ -116,9 +136,18 @@ final class AppState: ObservableObject {
         self.identity = identity
         let savedMarks = SessionStore.load(identityID: identity.id)
 
+        // Capture scan-relevant settings on the main actor.
+        let allowed = Set(settings.enabledTypes.map { $0.lowercased() })
+        let recursive = settings.recursiveScan
+        let groupPairs = settings.groupRawJpg && settings.detectRawJpgPairs
+        let ignoreHidden = settings.ignoreHidden
+        let cameraOnly = settings.cameraFoldersOnly || settings.scanMode == .fast
+
         scanTask = Task {
             let found: [PhotoGroup] = await Task.detached(priority: .userInitiated) {
-                var groups = PhotoScanner.scan(root: url)
+                var groups = PhotoScanner.scan(root: url, allowedExtensions: allowed, recursive: recursive,
+                                               groupPairs: groupPairs, ignoreHidden: ignoreHidden,
+                                               cameraFoldersOnly: cameraOnly)
                 for i in groups.indices {
                     let key = identity.persistKey(directory: groups[i].directory, baseName: groups[i].baseName)
                     groups[i].persistKey = key
@@ -184,7 +213,12 @@ final class AppState: ObservableObject {
         let list = filteredGroups
         guard !list.isEmpty else { return }
         let current = list.firstIndex { $0.id == currentID } ?? (delta > 0 ? -1 : 0)
-        let next = min(max(current + delta, 0), list.count - 1)
+        var next = current + delta
+        if settings.wrapNavigation && !extend {
+            next = (next % list.count + list.count) % list.count   // wrap around
+        } else {
+            next = min(max(next, 0), list.count - 1)
+        }
         let id = list[next].id
         if extend { selectRange(to: id) } else { selectSingle(id) }
     }
@@ -192,11 +226,11 @@ final class AppState: ObservableObject {
     /// Warms the HD preview cache for the photos around the current one so that
     /// stepping through with the arrow keys has no load time.
     private func prefetchAroundCurrent() {
-        guard viewMode == .loupe, let id = currentID else { return }
+        guard viewMode == .loupe, settings.preloadPerfect, let id = currentID else { return }
         let list = filteredGroups
         guard let idx = list.firstIndex(where: { $0.id == id }) else { return }
-        let lower = max(0, idx - PreviewConfig.prefetchBackward)
-        let upper = min(list.count - 1, idx + PreviewConfig.prefetchForward)
+        let lower = max(0, idx - Int(settings.preloadBackward))
+        let upper = min(list.count - 1, idx + Int(settings.preloadForward))
         let maxPixel = PreviewConfig.loupeMaxPixel
         for i in lower...upper where i != idx {
             ThumbnailLoader.shared.prefetch(for: list[i].previewURL, maxPixel: maxPixel, fullQuality: false)
@@ -213,10 +247,16 @@ final class AppState: ObservableObject {
 
     // MARK: Rating / marking (applies to the whole selection)
     func setMark(_ mark: Int) {
+        let before = currentID
+        let single = selectedIDs.count <= 1
         mutateSelection({ $0.mark = mark }) { n in
             mark == 0
                 ? (n == 1 ? "Markierung entfernt." : "Markierung von \(n) Bildern entfernt.")
                 : (n == 1 ? "Markierung \(mark) gesetzt." : "Markierung \(mark) für \(n) Bilder gesetzt.")
+        }
+        // Auto-advance for fast culling (Settings → Markierungen).
+        if settings.autoAdvance && mark != 0 && single && currentID == before {
+            step(by: settings.advanceDirection == .next ? 1 : -1, extend: false)
         }
     }
 
@@ -252,15 +292,24 @@ final class AppState: ObservableObject {
     }
 
     // MARK: Sorting & view
-    private func applySort() {
-        let order = sortOrder
+    func applySort() {
+        let field = settings.sortField
         groups.sort { a, b in
-            switch order {
+            switch field {
             case .filename: return a.id.localizedStandardCompare(b.id) == .orderedAscending
-            case .date: return a.fileDate < b.fileDate
+            case .captureDate, .modifiedDate:
+                if a.fileDate != b.fileDate { return a.fileDate < b.fileDate }
+                return a.id.localizedStandardCompare(b.id) == .orderedAscending
+            case .mark:
+                if a.mark != b.mark { return a.mark < b.mark }
+                return a.id.localizedStandardCompare(b.id) == .orderedAscending
+            case .type:
+                let ea = a.previewURL.pathExtension.lowercased(), eb = b.previewURL.pathExtension.lowercased()
+                if ea != eb { return ea < eb }
+                return a.id.localizedStandardCompare(b.id) == .orderedAscending
             }
         }
-        if sortReversed { groups.reverse() }
+        if settings.sortReversed { groups.reverse() }
         reconcileSelection()
     }
 
@@ -302,8 +351,34 @@ final class AppState: ObservableObject {
     func cancelMove() { pendingMoveTarget = nil }
     func cancelOperation() { cancelToken?.cancel() }
 
+    /// Extra warning required before overwriting existing files.
+    private func confirmOverwrite() -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Vorhandene Dateien überschreiben?"
+        alert.informativeText = "Der Konfliktmodus steht auf „Überschreiben“. Gleichnamige Dateien im Zielordner werden ersetzt. Dies kann nicht rückgängig gemacht werden."
+        alert.addButton(withTitle: "Überschreiben")
+        alert.addButton(withTitle: "Abbrechen")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     private func runOperation(_ kind: FileOperationService.Kind, target: URL,
-                              groups snapshot: [PhotoGroup], includeSidecars: Bool) {
+                              groups selection: [PhotoGroup], includeSidecars: Bool) {
+        let useSubfolders = settings.exportSubfolders
+        // In mark-based export mode, optionally skip unmarked photos.
+        var snapshot = selection
+        if useSubfolders && settings.ignoreUnmarked {
+            snapshot = snapshot.filter { $0.mark != 0 }
+        }
+        guard !snapshot.isEmpty else { statusMessage = "Keine passenden Bilder für den Export."; return }
+
+        let conflict = settings.conflictMode
+        if conflict == .overwrite && !confirmOverwrite() { return }
+
+        let makeSubfolder: (PhotoGroup) -> String? = useSubfolders
+            ? { [settings] g in settings.exportFolderName(for: g.mark) }
+            : { _ in nil }
+
         let title = kind == .copy ? "Kopiere Bilder …" : "Verschiebe Bilder …"
         let token = CancellationToken()
         cancelToken = token
@@ -314,6 +389,7 @@ final class AppState: ObservableObject {
                 let outcome = try await Task.detached(priority: .userInitiated) { [weak self] in
                     try FileOperationService.perform(
                         kind, groups: snapshot, targetRoot: target, includeSidecars: includeSidecars,
+                        subfolder: makeSubfolder, conflict: conflict,
                         progress: { completed, total in
                             Task { @MainActor in
                                 self?.operation?.completed = completed
@@ -335,7 +411,7 @@ final class AppState: ObservableObject {
                     self.persistState()
                     self.reconcileSelection()
                 }
-                FinderService.revealFolder(target)
+                if self.settings.revealAfterExport { FinderService.revealFolder(target) }
             } catch {
                 self.operation = nil
                 self.statusMessage = "Fehler: \(error.localizedDescription)"
@@ -366,7 +442,10 @@ final class AppState: ObservableObject {
         if let chars = event.charactersIgnoringModifiers, chars.count == 1,
            let scalar = chars.unicodeScalars.first {
             switch scalar.value {
-            case 48...57:                                   // digits 0–9 → colour mark
+            case 48:                                        // 0 → clear mark
+                if settings.zeroClearsMark { setMark(0) }
+                return true
+            case 49...57:                                   // 1–9 → colour mark
                 setMark(Int(scalar.value) - 48); return true
             case UInt32(UInt8(ascii: "i")), UInt32(UInt8(ascii: "I")):
                 toggleInfo(); return true

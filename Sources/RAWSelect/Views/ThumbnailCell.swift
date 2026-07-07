@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// A single thumbnail in the grid or filmstrip. Loads its image lazily via the
-/// shared ThumbnailLoader and shows the file name + mark badge.
+/// shared ThumbnailLoader and shows the file name + mark/type badges.
 struct ThumbnailCell: View {
+    @EnvironmentObject var settings: AppSettings
     let group: PhotoGroup
     let isSelected: Bool
     var isCurrent: Bool = false
@@ -12,9 +13,15 @@ struct ThumbnailCell: View {
     @State private var image: NSImage?
     @State private var isSharp = false
 
-    private var borderColor: Color {
-        if isSelected { return .accentColor }
-        return .clear
+    private var borderColor: Color { isSelected ? .accentColor : .clear }
+
+    private var typeText: String? {
+        let raw = group.files.contains { PhotoTypes.isRaw($0) }
+        let jpg = group.files.contains { ["jpg", "jpeg"].contains($0.pathExtension.lowercased()) }
+        if raw && jpg { return "RAW+JPG" }
+        if raw { return "RAW" }
+        if jpg { return "JPG" }
+        return group.previewURL.pathExtension.uppercased()
     }
 
     var body: some View {
@@ -33,12 +40,8 @@ struct ThumbnailCell: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
 
-                if group.mark != 0 {
-                    markBadge
-                }
-                if group.isRaw {
-                    rawBadge
-                }
+                if group.mark != 0 && settings.showMarkBadge { markBadge }
+                if settings.showTypeBadge, let typeText { typeBadge(typeText) }
             }
             .frame(width: side, height: side)
             .background(
@@ -50,28 +53,38 @@ struct ThumbnailCell: View {
                     .strokeBorder(borderColor, lineWidth: isCurrent ? 4 : (isSelected ? 3 : 0))
             )
 
-            if showsCaption {
-                Text(group.displayName)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .frame(maxWidth: side)
+            if showsCaption && (settings.showFilename || settings.showDateUnderThumb) {
+                VStack(spacing: 1) {
+                    if settings.showFilename {
+                        Text(group.displayName)
+                            .font(.caption)
+                            .lineLimit(1).truncationMode(.middle)
+                            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    }
+                    if settings.showDateUnderThumb {
+                        Text(dateString).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: side)
             }
         }
         .task(id: group.id) {
             let loader = ThumbnailLoader.shared
-            // 1) Tiny version first (usually already warmed → instant).
             if let tiny = await loader.thumbnail(for: group.previewURL, maxPixel: PreviewConfig.tinyMaxPixel) {
                 if !isSharp { image = tiny }
             }
-            // 2) Sharp version upgrades in place when ready.
             let sharpPx = Int(side * PreviewConfig.gridSharpFactor)
             if let sharp = await loader.thumbnail(for: group.previewURL, maxPixel: sharpPx) {
                 image = sharp
                 isSharp = true
             }
         }
+    }
+
+    private var dateString: String {
+        guard group.fileDate != .distantPast else { return "" }
+        let f = DateFormatter(); f.dateFormat = "dd.MM.yy HH:mm"
+        return f.string(from: group.fileDate)
     }
 
     private var markBadge: some View {
@@ -82,7 +95,7 @@ struct ThumbnailCell: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.white)
                     .frame(width: 20, height: 20)
-                    .background(Circle().fill(MarkStyle.color(for: group.mark)))
+                    .background(Circle().fill(settings.markColor(group.mark)))
                     .overlay(Circle().strokeBorder(.white.opacity(0.85), lineWidth: 1))
                     .padding(6)
             }
@@ -90,15 +103,14 @@ struct ThumbnailCell: View {
         }
     }
 
-    private var rawBadge: some View {
+    private func typeBadge(_ text: String) -> some View {
         VStack {
             Spacer()
             HStack {
-                Text("RAW")
+                Text(text)
                     .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, 4).padding(.vertical, 2)
                     .background(Capsule().fill(.black.opacity(0.55)))
                     .padding(6)
                 Spacer()

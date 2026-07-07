@@ -4,22 +4,30 @@ import Foundation
 /// attaches matching XMP sidecar files. Runs off the main thread.
 struct PhotoScanner {
 
+    /// Camera folders preferred by the "fast / camera folders only" scan mode.
+    private static let cameraFolders: Set<String> = ["dcim", "private", "misc", "mp_root", "clips", "avf_info"]
+
     static func scan(root: URL,
+                     allowedExtensions: Set<String> = PhotoTypes.all,
+                     recursive: Bool = true,
+                     groupPairs: Bool = true,
+                     ignoreHidden: Bool = true,
+                     cameraFoldersOnly: Bool = false,
                      isCancelled: () -> Bool = { false },
                      onProgress: (Int) -> Void = { _ in }) -> [PhotoGroup] {
 
         let fm = FileManager.default
         let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey]
+        var options: FileManager.DirectoryEnumerationOptions = [.skipsPackageDescendants]
+        if ignoreHidden { options.insert(.skipsHiddenFiles) }
         guard let enumerator = fm.enumerator(
-            at: root,
-            includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            at: root, includingPropertiesForKeys: keys, options: options
         ) else { return [] }
 
-        // Bucket image files by "<relative dir>/<basename>" (lowercased) so that
-        // IMG_0001.ARW and IMG_0001.JPG land in the same bucket.
+        // Restrict to camera folders only if requested and such folders exist here.
+        let restrictToCamera = cameraFoldersOnly && hasCameraFolders(root)
+
         var buckets: [String: [URL]] = [:]
-        // XMP sidecars keyed by every base name they could belong to.
         var sidecars: [String: [URL]] = [:]
         var seen = 0
 
@@ -27,6 +35,14 @@ struct PhotoScanner {
             if isCancelled() { return [] }
             let ext = fileURL.pathExtension.lowercased()
             let relativeDir = relativePath(of: fileURL.deletingLastPathComponent(), from: root)
+
+            // Non-recursive: only files directly inside the root.
+            if !recursive && !relativeDir.isEmpty { continue }
+            // Camera-folders-only: first path component must be a camera folder.
+            if restrictToCamera {
+                let first = relativeDir.split(separator: "/").first.map(String.init)?.lowercased() ?? ""
+                if !cameraFolders.contains(first) { continue }
+            }
 
             if ext == "xmp" {
                 for base in sidecarBaseNames(for: fileURL) {
@@ -36,9 +52,11 @@ struct PhotoScanner {
                 continue
             }
 
-            guard PhotoTypes.all.contains(ext) else { continue }
+            guard allowedExtensions.contains(ext) else { continue }
             let base = fileURL.deletingPathExtension().lastPathComponent
-            let key = (relativeDir + "/" + base).lowercased()
+            // When pairing is off, keep each file separate by including the ext.
+            let key = groupPairs ? (relativeDir + "/" + base).lowercased()
+                                 : (relativeDir + "/" + base + "." + ext).lowercased()
             buckets[key, default: []].append(fileURL)
 
             seen += 1
@@ -100,6 +118,12 @@ struct PhotoScanner {
 
     private static func preferredDisplayName(from files: [URL]) -> String {
         (files.first(where: { PhotoTypes.isRaw($0) }) ?? files[0]).lastPathComponent
+    }
+
+    private static func hasCameraFolders(_ root: URL) -> Bool {
+        guard let items = try? FileManager.default.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { return false }
+        return items.contains { cameraFolders.contains($0.lastPathComponent.lowercased()) }
     }
 
     private static func relativePath(of url: URL, from root: URL) -> String {

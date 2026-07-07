@@ -77,8 +77,3 @@ struct TagFilter: Equatable {
     mutating func reset() { hidden.removeAll() }
 }
 
-/// How the grid/filmstrip is ordered.
-enum SortOrder: String, CaseIterable, Hashable {
-    case filename = "Dateiname"
-    case date = "Datum"
-}

@@ -2,9 +2,10 @@ import SwiftUI
 
 struct ThumbnailGridView: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var settings: AppSettings
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: app.thumbnailSize, maximum: app.thumbnailSize * 1.4), spacing: 16)]
+        [GridItem(.adaptive(minimum: settings.thumbnailSize, maximum: settings.thumbnailSize * 1.4), spacing: 16)]
     }
 
     var body: some View {
@@ -15,7 +16,7 @@ struct ThumbnailGridView: View {
                         ThumbnailCell(group: group,
                                       isSelected: app.selectedIDs.contains(group.id),
                                       isCurrent: group.id == app.currentID,
-                                      side: app.thumbnailSize)
+                                      side: settings.thumbnailSize)
                             .id(group.id)
                             .contentShape(Rectangle())
                             .onTapGesture {

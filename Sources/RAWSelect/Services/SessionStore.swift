@@ -41,6 +41,32 @@ struct SessionStore {
         return session.states
     }
 
+    /// Exports every stored session file into a single JSON bundle.
+    static func exportAll(to url: URL) -> Bool {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return false }
+        var bundle: [String: SessionData] = [:]
+        for f in files where f.pathExtension == "json" {
+            if let d = try? Data(contentsOf: f), let s = try? JSONDecoder().decode(SessionData.self, from: d) {
+                bundle[f.lastPathComponent] = s
+            }
+        }
+        guard let data = try? JSONEncoder().encode(bundle) else { return false }
+        return (try? data.write(to: url, options: .atomic)) != nil
+    }
+
+    /// Restores session files from a bundle created by `exportAll`.
+    static func importAll(from url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url),
+              let bundle = try? JSONDecoder().decode([String: SessionData].self, from: data) else { return false }
+        for (name, session) in bundle {
+            if let d = try? JSONEncoder().encode(session) {
+                try? d.write(to: directory.appendingPathComponent(name), options: .atomic)
+            }
+        }
+        return true
+    }
+
     static func save(identityID: String, states: [String: PhotoState]) {
         let nonDefault = states.filter { !$0.value.isDefault }
         let session = SessionData(identity: identityID, states: nonDefault)

@@ -54,6 +54,17 @@ final class ThumbnailLoader {
         for url in urls { prefetch(for: url, maxPixel: maxPixel, fullQuality: false) }
     }
 
+    /// Empties the in-memory cache (used by Settings → Cache jetzt leeren).
+    func clearCache() {
+        cache.removeAllObjects()
+        lock.lock(); inFlight.removeAll(); lock.unlock()
+    }
+
+    /// Sets the maximum number of concurrent decode jobs (Settings).
+    func setMaxConcurrent(_ n: Int) {
+        queue.maxConcurrentOperationCount = max(1, n)
+    }
+
     /// Async thumbnail/preview. Returns a cached image immediately if present;
     /// otherwise decodes on the background queue. Cancels if the Task is cancelled.
     ///

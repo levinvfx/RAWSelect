@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DetailView: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var settings: AppSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,8 +20,10 @@ struct DetailView: View {
             EmptyStateView()
         } else {
             VStack(spacing: 0) {
-                FilterBar()
-                Divider()
+                if settings.showMarkToolbar {
+                    FilterBar()
+                    Divider()
+                }
                 contentBody
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -67,10 +70,10 @@ struct DetailView: View {
 
         ToolbarItemGroup(placement: .automatic) {
             Menu {
-                Picker("Sortieren nach", selection: $app.sortOrder) {
-                    ForEach(SortOrder.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                Picker("Sortieren nach", selection: $settings.sortField) {
+                    ForEach(SortField.allCases) { Text($0.label).tag($0) }
                 }
-                Toggle("Umgekehrt", isOn: $app.sortReversed)
+                Toggle("Umgekehrt", isOn: $settings.sortReversed)
             } label: {
                 Label("Sortieren", systemImage: "arrow.up.arrow.down")
             }

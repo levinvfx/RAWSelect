@@ -102,6 +102,37 @@ swift run RAWSelect --selftest
 - Fortschrittsanzeige mit Abbrechen; klare Statusmeldungen
   („1247 Bilder gefunden“, „32 Bilder kopiert“, „Keine Bilder ausgewählt“).
 
+## Einstellungen (Settings)
+
+Öffnen wie bei jeder macOS-App: **RAW Select → Settings…** in der Menüleiste oder **⌘,**.
+Es öffnet sich ein **eigenes, natives Settings-Fenster** (kein Bereich in der Haupt-App) mit
+8 Tabs: Allgemein, Quellen, Ansicht & Preview, Markierungen, Export & Dateien, Performance &
+Cache, Darstellung, Erweitert. Alle Werte werden in `UserDefaults` gespeichert (bleiben nach
+Neustart erhalten) und haben sinnvolle Defaults ab dem ersten Start.
+
+**Wirken bereits live:**
+- Thumbnail-Grösse, Sortierung (Feld + umgekehrt), Dateiname/Datum/Typ-/Markierungs-Badge,
+  RAW+JPG-Gruppierung
+- Markierungsnamen & -farben (Badges, Filterleiste, Loupe, Export-Ordnernamen)
+- 2-Stufen-Preview: Instant-Grösse/-Qualität, Perfect automatisch/Qualität, weicher Wechsel
+- Preload voraus/zurück, „Perfect vorausladen“, max. parallele Jobs
+- Auto-Advance nach Markierung (+ Richtung), Taste 0 löscht, „am Ende wieder zum Anfang“
+- Filterleiste ein/aus, Metadaten-Panel, Erscheinungsbild (Hell/Dunkel/System), Akzentfarbe,
+  Preview-Hintergrund
+- Scan: Dateitypen, rekursiv, nur Kameraordner, versteckte Dateien ignorieren
+- Export: Unterordner pro Markierung + Ordnerformat, unmarkierte ignorieren, Konfliktmodus
+  (Umbenennen/Überspringen/Überschreiben mit Warnung), Zielordner danach öffnen
+- Cache jetzt leeren, Session exportieren/importieren, alle Settings zurücksetzen
+
+**Vorbereitet & gespeichert, aber noch nicht voll angeschlossen** (brechen nichts):
+Startverhalten/Session-Wiederherstellung, Fensterposition merken, SD-Auto-Öffnen & Hinweis,
+Abschluss-Benachrichtigung, 100%-Zoom (Taste Z), Disk-Cache-Grösse/-Alter/-Ort & Auto-Cleanup,
+Energiesparmodus, Color-Management-Schalter, XMP-Sidecar-Export, externe Standard-App.
+Diese Schalter sind bewusst nicht-destruktiv vorbereitet.
+
+**Sicherheit:** „In RAW schreiben“ und „RAW verändern“ sind fest deaktiviert. „Von SD
+verschieben/löschen“ sind standardmässig aus; Überschreiben nur mit zusätzlicher Warnung.
+
 ## Tags & wie sich die App die SD-Karte merkt
 
 - Markierungen (1–9) sind **rein app-intern** – sie werden **nie** in die Bilder oder

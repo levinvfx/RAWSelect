@@ -3,6 +3,7 @@ import SwiftUI
 /// Large preview of the selected photo with a filmstrip below.
 struct LoupeView: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var settings: AppSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,27 +23,43 @@ struct LoupeView: View {
 
 private struct LargePreview: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var settings: AppSettings
     let group: PhotoGroup
     @State private var image: NSImage?
     @State private var isSharp = false
     @State private var metadata = PhotoMetadata()
 
+    // Perfect-preview target pixel size (screen-optimised, min Full HD).
+    private var perfectPixels: Int {
+        switch settings.perfectQuality {
+        case .fullHD: return 1920
+        case .uhd4k: return 3840
+        case .screen: return settings.respectScale ? PreviewConfig.loupeMaxPixel : 1920
+        }
+    }
+
+    private var instantInterpolation: Image.Interpolation {
+        switch settings.instantQuality { case .low: return .low; case .medium: return .medium; case .high: return .high }
+    }
+
     var body: some View {
         ZStack {
-            Color(nsColor: .textBackgroundColor).opacity(0.4)
+            settings.previewBackground.color
             if let image {
-                // Never a spinner: show whatever is available (tiny upscaled or
-                // sharp). The sharp version swaps in automatically when ready.
+                // Two-stage preview: never a spinner. Instant (soft) shows first,
+                // then Perfect swaps in – optionally with a soft crossfade.
                 Image(nsImage: image)
                     .resizable()
-                    .interpolation(isSharp ? .high : .low)
+                    .interpolation(isSharp ? .high : instantInterpolation)
                     .aspectRatio(contentMode: .fit)
                     .padding(16)
+                    .id(isSharp)
+                    .transition(settings.smoothPreviewSwap ? .opacity : .identity)
             }
 
             VStack {
                 HStack(alignment: .top) {
-                    if app.showInfo { infoOverlay }
+                    if app.showInfo && settings.metadataPanel { infoOverlay }
                     Spacer()
                     if group.mark != 0 { markPill }
                 }
@@ -54,17 +71,20 @@ private struct LargePreview: View {
         .task(id: group.id) {
             isSharp = false
             let loader = ThumbnailLoader.shared
-            // 1) Tiny version first (pre-warmed for every photo → instant, blurry
-            //    when upscaled, but the surface never shows a loading state).
-            if let tiny = await loader.thumbnail(for: group.previewURL, maxPixel: PreviewConfig.tinyMaxPixel) {
-                if !isSharp { image = tiny }
+            // 1) Instant preview – quick embedded thumbnail (Settings: size/quality).
+            if settings.instantFirst,
+               let instant = await loader.thumbnail(for: group.previewURL, maxPixel: settings.instantSize.pixels) {
+                if !isSharp { image = instant }
             }
-            // 2) Sharp Full-HD version from the camera's embedded preview (full RAW
-            //    decode isn't available on this system). Swaps in when ready.
-            if let sharp = await loader.thumbnail(for: group.previewURL,
-                                                  maxPixel: PreviewConfig.loupeMaxPixel, fullQuality: false) {
-                image = sharp
-                isSharp = true
+            // 2) Perfect preview – screen-optimised, min Full HD, from the camera's
+            //    embedded preview (full RAW decode isn't available on this system).
+            guard settings.perfectAuto || image == nil else { return }
+            if let perfect = await loader.thumbnail(for: group.previewURL, maxPixel: perfectPixels, fullQuality: false) {
+                if settings.smoothPreviewSwap {
+                    withAnimation(.easeInOut(duration: 0.18)) { image = perfect; isSharp = true }
+                } else {
+                    image = perfect; isSharp = true
+                }
             }
         }
         .task(id: group.id) {
@@ -75,8 +95,8 @@ private struct LargePreview: View {
 
     private var markPill: some View {
         HStack(spacing: 6) {
-            Circle().fill(MarkStyle.color(for: group.mark)).frame(width: 12, height: 12)
-            Text("Markierung \(group.mark)").font(.callout.weight(.medium))
+            Circle().fill(settings.markColor(group.mark)).frame(width: 12, height: 12)
+            Text(settings.markName(group.mark)).font(.callout.weight(.medium))
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(.regularMaterial, in: Capsule())

@@ -21,6 +21,8 @@ struct FileOperationService {
                         groups: [PhotoGroup],
                         targetRoot: URL,
                         includeSidecars: Bool,
+                        subfolder: (PhotoGroup) -> String? = { _ in nil },
+                        conflict: ConflictMode = .rename,
                         progress: (Int, Int) -> Void,
                         isCancelled: () -> Bool) throws -> Outcome {
 
@@ -41,10 +43,26 @@ struct FileOperationService {
             if isCancelled() { break }
             var didProcessAny = false
 
+            let dir: URL
+            if let sub = subfolder(group), !sub.isEmpty {
+                dir = targetRoot.appendingPathComponent(sub, isDirectory: true)
+                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            } else {
+                dir = targetRoot
+            }
+
             for file in filesToProcess(group) {
                 if isCancelled() { break }
                 guard fm.fileExists(atPath: file.path) else { continue }
-                let destination = uniqueDestination(for: file.lastPathComponent, in: targetRoot)
+
+                var destination = dir.appendingPathComponent(file.lastPathComponent)
+                if fm.fileExists(atPath: destination.path) {
+                    switch conflict {
+                    case .skip: continue
+                    case .overwrite: try? fm.removeItem(at: destination)
+                    case .rename, .ask: destination = uniqueDestination(for: file.lastPathComponent, in: dir)
+                    }
+                }
                 switch kind {
                 case .copy: try fm.copyItem(at: file, to: destination)
                 case .move: try fm.moveItem(at: file, to: destination)

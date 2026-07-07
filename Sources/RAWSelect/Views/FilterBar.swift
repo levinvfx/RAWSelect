@@ -5,6 +5,7 @@ import SwiftUI
 /// (checkered) swatch is "Alle" = photos without any mark. All on by default.
 struct FilterBar: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var settings: AppSettings
 
     private let size: CGFloat = 22
 
@@ -16,8 +17,8 @@ struct FilterBar: View {
                 Divider().frame(height: size)
                 swatch(bucket: 0, color: nil).help("Alle ohne Markierung (\(app.unmarkedCount))")
                 ForEach(1...9, id: \.self) { mark in
-                    swatch(bucket: mark, color: MarkStyle.color(for: mark))
-                        .help("Markierung \(mark) (\(app.markCounts[mark] ?? 0))")
+                    swatch(bucket: mark, color: settings.markColor(mark))
+                        .help("\(settings.markName(mark)) (\(app.markCounts[mark] ?? 0))")
                 }
             }
             .padding(5)
