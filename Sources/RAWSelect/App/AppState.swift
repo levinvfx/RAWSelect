@@ -9,7 +9,7 @@ final class AppState: ObservableObject {
     @Published var rootURL: URL?
     @Published var browseRoot: URL?      // root of the sidebar folder navigator
     @Published var groups: [PhotoGroup] = []
-    @Published var filter: PhotoFilter = .all { didSet { reconcileSelection() } }
+    @Published var tagFilter = TagFilter() { didSet { reconcileSelection() } }
 
     /// All selected photos (multi-select). `currentID` is the "active" one shown
     /// in the loupe and used as the anchor for keyboard navigation.
@@ -46,7 +46,7 @@ final class AppState: ObservableObject {
     private var identity: FolderIdentity?
 
     // MARK: Derived
-    var filteredGroups: [PhotoGroup] { groups.filter { filter.matches($0) } }
+    var filteredGroups: [PhotoGroup] { groups.filter { tagFilter.matches($0) } }
 
     var currentGroup: PhotoGroup? {
         guard let id = currentID else { return nil }
@@ -98,7 +98,7 @@ final class AppState: ObservableObject {
     func open(_ url: URL, setBrowseRoot: Bool = true) {
         scanTask?.cancel()
         rootURL = url
-        filter = .all      // opening a folder always shows all images found in it
+        tagFilter.reset()  // opening a folder always shows all images found in it
         if setBrowseRoot {
             if url.isOnExternalVolume, let vol = try? url.resourceValues(forKeys: [.volumeURLKey]).volume {
                 browseRoot = vol

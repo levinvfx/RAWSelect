@@ -52,21 +52,25 @@ struct PhotoGroup: Identifiable, Hashable {
     }
 }
 
-/// Sidebar filter states.
-enum PhotoFilter: Hashable {
-    case all
-    case unmarked        // no colour mark, not rejected
-    case mark(Int)       // colour mark n
-    case reject          // rejected only
+/// Photo-Mechanic-style multi-select tag filter (checkboxes for which tags to
+/// show). When nothing is ticked, all photos are shown.
+struct TagFilter: Equatable {
+    var unmarked = false
+    var reject = false
+    var marks: Set<Int> = []
+
+    /// Whether any specific tag is being filtered (otherwise: show everything).
+    var isActive: Bool { unmarked || reject || !marks.isEmpty }
 
     func matches(_ group: PhotoGroup) -> Bool {
-        switch self {
-        case .all: return true
-        case .unmarked: return !group.hasState
-        case .mark(let n): return group.mark == n
-        case .reject: return group.reject
-        }
+        guard isActive else { return true }
+        if unmarked && !group.hasState { return true }
+        if reject && group.reject { return true }
+        if group.mark != 0 && marks.contains(group.mark) { return true }
+        return false
     }
+
+    mutating func reset() { unmarked = false; reject = false; marks.removeAll() }
 }
 
 /// How the grid/filmstrip is ordered.

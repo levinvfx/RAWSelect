@@ -48,7 +48,9 @@ swift run RAWSelect --selftest
 4. **Mehrere Bilder auswählen**: ⌘-Klick fügt einzeln hinzu, Shift-Klick wählt eine
    ganze Reihe, ⌘A wählt alle im aktuellen Filter. **1–9 markiert dann alle
    ausgewählten** Bilder gleichzeitig.
-5. Über die **Filter** in der Sidebar nach Markierung sortieren.
+5. Oben rechts über den **Filter-Button** (Trichter) ankreuzen, welche Tags angezeigt werden
+   (Mehrfachauswahl, Photo-Mechanic-Stil). Nichts angekreuzt = alle Bilder. Die Sidebar zeigt
+   nur die **Ordnerstruktur** – du bleibst im selben Ordner und filterst nur.
 6. Auswahl treffen → **„Auswahl kopieren…“** → Zielordner wählen (im Dialog kannst
    du auch einen neuen Ordner anlegen). Wahl **„Bilder + XMP“** oder **„nur Bilder“**.
    Die Dateien landen **flach** im Zielordner.

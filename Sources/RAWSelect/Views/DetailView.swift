@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DetailView: View {
     @EnvironmentObject var app: AppState
+    @State private var showFilter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -76,6 +77,20 @@ struct DetailView: View {
                 Label("Vollbild", systemImage: "arrow.up.left.and.arrow.down.right")
             }
             .help("Vollbild (F)")
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                showFilter.toggle()
+            } label: {
+                Label("Filter", systemImage: app.tagFilter.isActive
+                      ? "line.3.horizontal.decrease.circle.fill"
+                      : "line.3.horizontal.decrease.circle")
+            }
+            .help("Nach Tags filtern")
+            .popover(isPresented: $showFilter, arrowEdge: .bottom) {
+                TagFilterView().environmentObject(app).frame(width: 240)
+            }
         }
 
         ToolbarItemGroup(placement: .primaryAction) {

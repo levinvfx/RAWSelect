@@ -24,19 +24,20 @@ private struct LargePreview: View {
     @EnvironmentObject var app: AppState
     let group: PhotoGroup
     @State private var image: NSImage?
+    @State private var isSharp = false
     @State private var metadata = PhotoMetadata()
 
     var body: some View {
         ZStack {
             Color(nsColor: .textBackgroundColor).opacity(0.4)
             if let image {
+                // Never a spinner: show whatever is available (tiny upscaled or
+                // sharp). The sharp version swaps in automatically when ready.
                 Image(nsImage: image)
                     .resizable()
-                    .interpolation(.high)
+                    .interpolation(isSharp ? .high : .low)
                     .aspectRatio(contentMode: .fit)
                     .padding(16)
-            } else {
-                ProgressView()
             }
 
             VStack {
@@ -51,12 +52,20 @@ private struct LargePreview: View {
             .padding(16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Sharp preview rendered from the full image at a fixed target size, so
-        // prefetched neighbours share the same cache key and appear instantly.
         .task(id: group.id) {
-            image = await ThumbnailLoader.shared.thumbnail(for: group.previewURL,
-                                                           maxPixel: PreviewConfig.loupeMaxPixel,
-                                                           fullQuality: true)
+            isSharp = false
+            let loader = ThumbnailLoader.shared
+            // 1) Tiny version first (pre-warmed for every photo → instant, blurry
+            //    when upscaled, but the surface never shows a loading state).
+            if let tiny = await loader.thumbnail(for: group.previewURL, maxPixel: PreviewConfig.tinyMaxPixel) {
+                if !isSharp { image = tiny }
+            }
+            // 2) Sharp version (prefetched for neighbours) swaps in when ready.
+            if let sharp = await loader.thumbnail(for: group.previewURL,
+                                                  maxPixel: PreviewConfig.loupeMaxPixel, fullQuality: true) {
+                image = sharp
+                isSharp = true
+            }
         }
         .task(id: group.id) {
             let url = group.files.first ?? group.previewURL
