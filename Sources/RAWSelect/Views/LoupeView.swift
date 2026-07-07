@@ -25,41 +25,55 @@ private struct LargePreview: View {
     @State private var image: NSImage?
 
     var body: some View {
-        ZStack {
-            Color(nsColor: .textBackgroundColor).opacity(0.4)
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .interpolation(.high)
-                    .aspectRatio(contentMode: .fit)
-                    .padding(16)
-            } else {
-                ProgressView("Vorschau wird geladen…")
-            }
-
-            if group.mark != 0 {
-                VStack {
-                    HStack {
-                        Spacer()
-                        HStack(spacing: 6) {
-                            Circle().fill(MarkStyle.color(for: group.mark)).frame(width: 12, height: 12)
-                            Text("Markierung \(group.mark)")
-                                .font(.callout.weight(.medium))
-                        }
-                        .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(.regularMaterial, in: Capsule())
+        GeometryReader { geo in
+            let target = Self.targetPixels(for: geo.size)
+            ZStack {
+                Color(nsColor: .textBackgroundColor).opacity(0.4)
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .interpolation(.high)
+                        .aspectRatio(contentMode: .fit)
                         .padding(16)
+                } else {
+                    ProgressView("Vorschau wird geladen…")
+                }
+
+                if group.mark != 0 {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            HStack(spacing: 6) {
+                                Circle().fill(MarkStyle.color(for: group.mark)).frame(width: 12, height: 12)
+                                Text("Markierung \(group.mark)")
+                                    .font(.callout.weight(.medium))
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(.regularMaterial, in: Capsule())
+                            .padding(16)
+                        }
+                        Spacer()
                     }
-                    Spacer()
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Sharp preview rendered from the full image, matched to the display's
+            // pixel size (min Full HD). Only the currently viewed photo is decoded,
+            // and results are cached; copying still reads the original bytes.
+            .task(id: "\(group.id)|\(target)") {
+                image = await ThumbnailLoader.shared.thumbnail(for: group.previewURL,
+                                                               maxPixel: target, fullQuality: true)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task(id: group.id) {
-            // ~720p HD preview from the embedded/quick-preview image – fast and
-            // memory-light; the full-resolution original is never loaded here.
-            image = await ThumbnailLoader.shared.thumbnail(for: group.previewURL, maxPixel: 1280)
-        }
+    }
+
+    /// Long-edge pixel target for the preview area, bucketed to avoid reload churn
+    /// on small resizes, clamped to [1920, 4096].
+    static func targetPixels(for size: CGSize) -> Int {
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let longEdge = Int((max(size.width, size.height) * scale).rounded(.up))
+        let bucketed = ((longEdge + 199) / 200) * 200
+        return min(max(bucketed, 1920), 4096)
     }
 }
 

@@ -108,8 +108,10 @@ swift run RAWSelect --selftest
 
 - Kein App-Icon (Standard-Systemicon).
 - Nur ad-hoc signiert → beim ersten Start ggf. Gatekeeper-Hinweis.
-- Loupe-Preview nutzt die eingebettete RAW-Preview; deren Auflösung hängt von der
-  Kamera ab (keine volle RAW-Entwicklung – bewusst, wegen Tempo).
+- Die grosse Loupe-Vorschau wird scharf aus dem vollen Bild gerendert (an die
+  Display-Auflösung angepasst, mind. Full HD). Beim ersten Betrachten eines RAWs
+  dauert das minimal länger; danach ist es gecacht. Das Raster nutzt weiterhin
+  schnelle eingebettete Previews.
 - Ein Bild trägt genau **eine** Markierung (1–9), keine Mehrfach-Tags/Sterne.
 - Thumbnail-Cache ist In-Memory (kein Disk-Cache über Neustarts hinweg).
 
