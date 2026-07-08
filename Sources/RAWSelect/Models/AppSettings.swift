@@ -152,9 +152,10 @@ final class AppSettings: ObservableObject {
     var deleteTempFiles: Bool { get { b("rs.deleteTempFiles", true) } set { set("rs.deleteTempFiles", newValue) } }
     var rememberPreset: Bool { get { b("rs.rememberPreset", true) } set { set("rs.rememberPreset", newValue) } }
     var recentPresets: [String] { get { cod("rs.recentPresets", []) } set { setCod("rs.recentPresets", newValue) } }
-    var exportFolderStructure: ExportFolderStructure { get { en("rs.exportFolderStructure", .single) } set { setEnum("rs.exportFolderStructure", newValue) } }
-    var exportConflict: ConflictMode { get { en("rs.exportConflict", .rename) } set { setEnum("rs.exportConflict", newValue) } }
-    var lastExportTarget: String { get { str("rs.lastExportTarget", "") } set { set("rs.lastExportTarget", newValue) } }
+    // Storage keys kept as rs.ps* so existing user values (e.g. last target) survive.
+    var exportFolderStructure: ExportFolderStructure { get { en("rs.psFolderStructure", .single) } set { setEnum("rs.psFolderStructure", newValue) } }
+    var exportConflict: ConflictMode { get { en("rs.psConflict", .rename) } set { setEnum("rs.psConflict", newValue) } }
+    var lastExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
 
     /// Adds a preset to the recent list (most recent first, max 5).
     func rememberRecentPreset(_ path: String) {

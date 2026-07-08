@@ -22,10 +22,8 @@ final class AppState: ObservableObject {
     @Published var currentID: String? { didSet { prefetchAroundCurrent() } }
     private var anchorID: String?
 
-    @Published var viewMode: ViewMode = .grid { didSet { if viewMode == .loupe { prefetchAroundCurrent() } else { loupeZoom = false; focusMode = false } } }
+    @Published var viewMode: ViewMode = .grid { didSet { if viewMode == .loupe { prefetchAroundCurrent() } else { focusMode = false } } }
 
-    /// 100 % loupe zoom (space / click). Reset when leaving loupe.
-    @Published var loupeZoom = false
     /// Distraction-free viewing: hides filmstrip, filter bar and status bar.
     @Published var focusMode = false
 
@@ -472,13 +470,10 @@ final class AppState: ObservableObject {
         let browserIsKey = !showExportWizard && NSApp.keyWindow === NSApp.mainWindow
         if browserIsKey {
             switch event.keyCode {
-            case 49:                                          // Space → toggle 100 % zoom
-                if viewMode == .loupe { loupeZoom.toggle(); return true }
             case 36:                                          // Return → focused viewing
                 if viewMode == .loupe { focusMode.toggle(); return true }
                 if currentID != nil { viewMode = .loupe; return true }
-            case 53:                                          // Escape → leave focus / zoom / loupe
-                if loupeZoom { loupeZoom = false; return true }
+            case 53:                                          // Escape → leave focus / loupe
                 if focusMode { focusMode = false; return true }
                 if viewMode == .loupe { viewMode = .grid; return true }
             default: break

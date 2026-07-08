@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 /// Large preview of the selected photo with a filmstrip below.
 struct LoupeView: View {
@@ -34,26 +33,18 @@ private struct LargePreview: View {
     @State private var image: NSImage?
     @State private var isSharp = false
     @State private var metadata = PhotoMetadata()
-    @State private var zoomLevel: CGFloat = 2      // 1× = fit … maxZoom
-    private let maxZoom: CGFloat = 8
 
     var body: some View {
         ZStack {
             Color(nsColor: .textBackgroundColor).opacity(0.4)
             if let image {
-                if app.loupeZoom {
-                    // Native zoom: pinch/scroll magnifies at the cursor, scroll pans,
-                    // and the slider drives the level. Great for sharpness/focus checks.
-                    ZoomableImageView(image: image, zoom: $zoomLevel, maxZoom: maxZoom)
-                } else {
-                    // Two-stage preview: never a spinner. Instant (soft) shows first,
-                    // then Perfect swaps in directly (no fade) for fast browsing.
-                    Image(nsImage: image)
-                        .resizable()
-                        .interpolation(isSharp ? .high : .medium)
-                        .aspectRatio(contentMode: .fit)
-                        .padding(16)
-                }
+                // Two-stage preview: never a spinner. Instant (soft) shows first,
+                // then Perfect swaps in directly (no fade) for fast browsing.
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(isSharp ? .high : .medium)
+                    .aspectRatio(contentMode: .fit)
+                    .padding(16)
             }
 
             VStack {
@@ -63,13 +54,10 @@ private struct LargePreview: View {
                     if group.mark != 0 { markPill }
                 }
                 Spacer()
-                zoomControl
             }
             .padding(16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .onTapGesture { app.loupeZoom.toggle() }   // click image = zoom (space also works)
         .task(id: group.id) {
             let loader = ThumbnailLoader.shared
             // Size-aware plan: RAW → small embedded preview; small sharp JPEG/HEIC
@@ -119,33 +107,6 @@ private struct LargePreview: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(.regularMaterial, in: Capsule())
-    }
-
-    /// Bottom bar: a hint chip when fitted, a zoom slider when zoomed in.
-    @ViewBuilder private var zoomControl: some View {
-        HStack {
-            Spacer()
-            if app.loupeZoom {
-                HStack(spacing: 10) {
-                    Button { app.loupeZoom = false } label: { Image(systemName: "arrow.down.right.and.arrow.up.left") }
-                        .buttonStyle(.plain).help("Zoom beenden (Leertaste)")
-                    Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
-                    Slider(value: $zoomLevel, in: 1...maxZoom)
-                        .frame(width: 180)
-                    Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
-                    Text("\(Int(zoomLevel * 100)) %").font(.caption.monospacedDigit())
-                        .frame(width: 52, alignment: .trailing)
-                }
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(.regularMaterial, in: Capsule())
-            } else {
-                Label("Zoom", systemImage: "plus.magnifyingglass")
-                    .font(.caption.weight(.medium))
-                    .padding(.horizontal, 9).padding(.vertical, 5)
-                    .background(.regularMaterial, in: Capsule())
-                    .opacity(0.85)
-            }
-        }
     }
 
     private var infoOverlay: some View {
@@ -199,90 +160,5 @@ private struct Filmstrip: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Zoomable image (native magnification + scroll-to-pan + zoom at cursor)
-
-/// Wraps an `NSScrollView` so the loupe gets buttery, Apple-native zooming:
-/// pinch/scroll magnifies at the pointer, scrolling pans, and the SwiftUI slider
-/// drives the magnification (centred on the last cursor position).
-private struct ZoomableImageView: NSViewRepresentable {
-    let image: NSImage
-    @Binding var zoom: CGFloat
-    let maxZoom: CGFloat
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSScrollView()
-        scroll.hasVerticalScroller = false
-        scroll.hasHorizontalScroller = false
-        scroll.allowsMagnification = true
-        scroll.minMagnification = 1
-        scroll.maxMagnification = maxZoom
-        scroll.drawsBackground = false
-        scroll.contentView.postsBoundsChangedNotifications = true
-
-        let iv = TrackingImageView()
-        iv.image = image
-        iv.imageScaling = .scaleProportionallyUpOrDown
-        iv.imageAlignment = .alignCenter
-        iv.autoresizingMask = [.width, .height]
-        iv.onMouseMoved = { [weak coordinator = context.coordinator] p in coordinator?.lastMouse = p }
-        scroll.documentView = iv
-
-        context.coordinator.scroll = scroll
-        NotificationCenter.default.addObserver(context.coordinator,
-            selector: #selector(Coordinator.liveMagnifyEnded),
-            name: NSScrollView.didEndLiveMagnifyNotification, object: scroll)
-
-        DispatchQueue.main.async {
-            iv.frame = scroll.contentView.bounds
-            scroll.magnification = zoom
-        }
-        return scroll
-    }
-
-    func updateNSView(_ scroll: NSScrollView, context: Context) {
-        if let iv = scroll.documentView as? NSImageView, iv.image !== image { iv.image = image }
-        // Slider (or programmatic) change → magnify, centred on the pointer.
-        if abs(scroll.magnification - zoom) > 0.001 {
-            let center = context.coordinator.lastMouse
-                ?? CGPoint(x: scroll.contentView.bounds.midX, y: scroll.contentView.bounds.midY)
-            scroll.setMagnification(zoom, centeredAt: center)
-        }
-    }
-
-    final class Coordinator: NSObject {
-        let parent: ZoomableImageView
-        weak var scroll: NSScrollView?
-        var lastMouse: CGPoint?
-        init(_ parent: ZoomableImageView) { self.parent = parent }
-
-        @objc func liveMagnifyEnded() {
-            guard let scroll else { return }
-            parent.zoom = scroll.magnification
-        }
-    }
-}
-
-/// NSImageView that forwards mouse-move locations (in its own coordinates).
-private final class TrackingImageView: NSImageView {
-    var onMouseMoved: ((CGPoint) -> Void)?
-    private var tracking: NSTrackingArea?
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(rect: bounds,
-                                  options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
-                                  owner: self, userInfo: nil)
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        onMouseMoved?(convert(event.locationInWindow, from: nil))
     }
 }
