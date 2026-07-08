@@ -227,24 +227,40 @@ final class AppState: ObservableObject {
         if extend { selectRange(to: id) } else { selectSingle(id) }
     }
 
-    /// Warms the HD preview cache for the photos around the current one so that
-    /// stepping through with the arrow keys has no load time.
+    /// Warms the preview cache around the current photo so stepping through has no
+    /// load time. Two tiers: a WIDE soft (instant-size) buffer so even fast scrubbing
+    /// always finds a ready — if soft — frame, and a narrower sharp (HD) buffer for
+    /// the immediate neighbours. Warms closest-first so the very next image is ready
+    /// soonest.
     private func prefetchAroundCurrent() {
         guard viewMode == .loupe, settings.preloadPerfect, let id = currentID else { return }
         let list = filteredGroups
-        guard let idx = list.firstIndex(where: { $0.id == id }) else { return }
-        let lower = max(0, idx - Int(settings.preloadBackward))
-        let upper = min(list.count - 1, idx + Int(settings.preloadForward))
+        let count = list.count
+        guard let idx = list.firstIndex(where: { $0.id == id }), count > 1 else { return }
+        let loader = ThumbnailLoader.shared
         let target = settings.perfectPixels
         let instantPixel = settings.instantPixels
-        for i in lower...upper where i != idx {
-            let url = list[i].previewURL
-            // Instant size first (small, quick) so the sync cache path has a frame
-            // to paint immediately; the HD version follows via the size-aware plan
-            // (same key the loupe reads, so it's an instant cache hit).
-            ThumbnailLoader.shared.prefetch(for: url, maxPixel: instantPixel, fullQuality: false)
-            let plan = ThumbnailLoader.shared.previewPlan(for: url, targetLongEdge: target)
-            ThumbnailLoader.shared.prefetch(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
+
+        let sharpFwd = Int(settings.preloadForward)
+        let sharpBack = Int(settings.preloadBackward)
+        let softFwd = sharpFwd + 25          // much wider soft buffer (cheap to hold)
+        let softBack = sharpBack + 12
+        let maxOffset = max(softFwd, softBack)
+
+        for d in 1...maxOffset {
+            for dir in [1, -1] {             // forward first at each distance
+                let i = idx + d * dir
+                guard i >= 0, i < count else { continue }
+                let softLimit = dir > 0 ? softFwd : softBack
+                guard d <= softLimit else { continue }
+                let url = list[i].previewURL
+                loader.prefetch(for: url, maxPixel: instantPixel, fullQuality: false)
+                let sharpLimit = dir > 0 ? sharpFwd : sharpBack
+                if d <= sharpLimit {
+                    let plan = loader.previewPlan(for: url, targetLongEdge: target)
+                    loader.prefetch(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
+                }
+            }
         }
     }
 

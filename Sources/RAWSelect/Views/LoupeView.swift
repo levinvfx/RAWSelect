@@ -30,19 +30,35 @@ private struct LargePreview: View {
     @EnvironmentObject var app: AppState
     @EnvironmentObject var settings: AppSettings
     let group: PhotoGroup
-    @State private var image: NSImage?
-    @State private var isSharp = false
+    @State private var version = 0            // bumped when an async upgrade lands
+    @State private var lastGood: NSImage?     // last shown image → never a black frame
     @State private var metadata = PhotoMetadata()
 
+    /// Best preview available *right now*, read straight from the in-memory cache.
+    /// This is called synchronously from `body`, so switching photos NEVER waits on
+    /// a task and can never drop a frame. `warmTiny` pre-caches a tiny thumbnail for
+    /// every photo, so there is essentially always something to show instantly.
+    private func bestCached() -> (image: NSImage, sharp: Bool)? {
+        let loader = ThumbnailLoader.shared
+        let url = group.previewURL
+        let plan = loader.previewPlan(for: url, targetLongEdge: settings.perfectPixels)
+        if let p = loader.cached(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality) { return (p, true) }
+        if let i = loader.cached(for: url, maxPixel: settings.instantPixels) { return (i, false) }
+        if let t = loader.cached(for: url, maxPixel: PreviewConfig.tinyMaxPixel) { return (t, false) }
+        return nil
+    }
+
     var body: some View {
-        ZStack {
+        let _ = version                       // depend on `version` so upgrades re-render
+        let best = bestCached()
+        let display = best?.image ?? lastGood  // fall back to previous frame, never black
+        let sharp = best?.sharp ?? false
+        return ZStack {
             Color(nsColor: .textBackgroundColor).opacity(0.4)
-            if let image {
-                // Two-stage preview: never a spinner. Instant (soft) shows first,
-                // then Perfect swaps in directly (no fade) for fast browsing.
-                Image(nsImage: image)
+            if let display {
+                Image(nsImage: display)
                     .resizable()
-                    .interpolation(isSharp ? .high : .medium)
+                    .interpolation(sharp ? .high : .medium)
                     .aspectRatio(contentMode: .fit)
                     .padding(16)
             }
@@ -58,46 +74,31 @@ private struct LargePreview: View {
             .padding(16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task(id: group.id) {
-            let loader = ThumbnailLoader.shared
-            // Size-aware plan: RAW → small embedded preview; small sharp JPEG/HEIC
-            // → original, untouched; big files → downscaled. See ThumbnailLoader.
-            let plan = loader.previewPlan(for: group.previewURL, targetLongEdge: settings.perfectPixels)
-
-            // 1) SYNCHRONOUS cache read → paint the frame instantly, *before* any
-            //    await. Because it runs before a suspension point it still happens
-            //    even when this task is cancelled a moment later (holding ←/→). So
-            //    every already-cached image in the strip actually shows, like a
-            //    flip-book – no dropped in-between frames, no per-image lag.
-            if let perfect = loader.cached(for: group.previewURL, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality) {
-                image = perfect
-                isSharp = true
-                return
-            }
-            var shown = false
-            if let instant = loader.cached(for: group.previewURL, maxPixel: settings.instantPixels) {
-                image = instant
-                isSharp = false
-                shown = true
-            }
-
-            // 2) Not cached at HD yet: decode asynchronously. The previous frame
-            //    stays visible until the new one is ready (no black flash).
-            if !shown, let instant = await loader.thumbnail(for: group.previewURL, maxPixel: settings.instantPixels) {
-                image = instant
-                isSharp = false
-            }
-            // 3) Perfect preview per the plan (native & sharp for small files,
-            //    downscaled for big ones, embedded preview for RAW).
-            if let perfect = await loader.thumbnail(for: group.previewURL, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality) {
-                image = perfect
-                isSharp = true
-            }
-        }
+        .task(id: group.id) { await upgrade() }
         .task(id: group.id) {
             let url = group.files.first ?? group.previewURL
             metadata = await Task.detached { MetadataService.metadata(for: url) }.value
         }
+    }
+
+    /// Decodes the missing (sharper) tiers in the background and bumps `version`
+    /// so `body` re-reads the cache and swaps them in. The synchronous body read is
+    /// what guarantees the instant, frame-accurate display; this just improves it.
+    private func upgrade() async {
+        let loader = ThumbnailLoader.shared
+        let url = group.previewURL
+        let plan = loader.previewPlan(for: url, targetLongEdge: settings.perfectPixels)
+        // Remember whatever is on screen now as the no-black fallback.
+        if let b = bestCached() { lastGood = b.image }
+        // Already have the best tier → nothing to do.
+        if loader.cached(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality) != nil { return }
+        // Quick soft tier first (fast to decode), then the sharp one.
+        if loader.cached(for: url, maxPixel: settings.instantPixels) == nil {
+            _ = await loader.thumbnail(for: url, maxPixel: settings.instantPixels)
+            version &+= 1
+        }
+        _ = await loader.thumbnail(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
+        version &+= 1
     }
 
     private var markPill: some View {

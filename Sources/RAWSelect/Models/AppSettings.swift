@@ -18,7 +18,7 @@ enum PreviewMode: String, CaseIterable, Identifiable { case fast, balanced, qual
     var perfectPixels: Int { switch self { case .fast: return 1920; case .balanced: return 2048; case .quality: return 3840 } }
     var preloadForward: Int { switch self { case .fast: return 10; case .balanced: return 20; case .quality: return 30 } }
     var preloadBackward: Int { switch self { case .fast: return 5; case .balanced: return 10; case .quality: return 15 } }
-    var maxJobs: Int { switch self { case .fast: return 2; case .balanced: return 3; case .quality: return 4 } }
+    var maxJobs: Int { switch self { case .fast: return 4; case .balanced: return 6; case .quality: return 8 } }
 }
 enum RawJpgExport: String, CaseIterable, Identifiable { case both, rawOnly, jpgOnly
     var id: String { rawValue }
