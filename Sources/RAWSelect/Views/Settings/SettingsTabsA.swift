@@ -6,6 +6,13 @@ struct GeneralSettingsTab: View {
     @EnvironmentObject var settings: AppSettings
     var body: some View {
         Form {
+            Section("Darstellung") {
+                SettingPicker(title: "Erscheinungsbild",
+                              help: "Hell, Dunkel oder dem System folgen.",
+                              selection: $settings.appearance) {
+                    ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
+                }
+            }
             Section {
                 SettingToggle(title: "Letzte Session wiederherstellen",
                               help: "Öffnet den zuletzt verwendeten Ordner samt Markierungen wieder.",
@@ -49,13 +56,8 @@ struct ViewSettingsTab: View {
     var body: some View {
         Form {
             Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Thumbnail-Grösse")
-                        Spacer()
-                        Text(sizeLabel).foregroundStyle(.secondary)
-                    }
-                    Slider(value: $settings.thumbnailSize, in: 80...260, step: 4)
+                SettingPicker(title: "Thumbnail-Grösse", selection: $settings.thumbnailSizeChoice) {
+                    ForEach(ThumbnailSize.allCases) { Text($0.label).tag($0) }
                 }
                 SettingPicker(title: "Sortieren nach", selection: $settings.sortField) {
                     ForEach(SortField.allCases) { Text($0.label).tag($0) }
@@ -74,13 +76,5 @@ struct ViewSettingsTab: View {
             }
         }
         .formStyle(.grouped)
-    }
-
-    private var sizeLabel: String {
-        switch settings.thumbnailSize {
-        case ..<115: return "Klein"
-        case 115...170: return "Mittel"
-        default: return "Gross"
-        }
     }
 }

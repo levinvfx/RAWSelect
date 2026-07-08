@@ -46,6 +46,11 @@ else
     ICON_KEY=""
 fi
 
+# Brand logo (black + white variants) used by the Über/Credits tab and dark mode.
+for logo in assets/Logo-Schwarz.png assets/Logo-Weiss.png; do
+    [[ -f "$logo" ]] && cp "$logo" "${APP_DIR}/Contents/Resources/"
+done
+
 cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -62,7 +67,7 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>NSAppleEventsUsageDescription</key><string>RAW Select steuert Adobe Photoshop, um ausgewählte RAW-Bilder als JPEG zu exportieren.</string>
+    <key>NSAppleEventsUsageDescription</key><string>RAW Select steuert Adobe Lightroom Classic, um ausgewählte RAW-Bilder als JPEG zu exportieren.</string>
 </dict>
 </plist>
 PLIST

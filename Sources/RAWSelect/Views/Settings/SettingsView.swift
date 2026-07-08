@@ -11,6 +11,7 @@ struct SettingsView: View {
             MarkSettingsTab().tabItem { Label("Markierungen", systemImage: "tag") }
             ExportSettingsTab().tabItem { Label("Export", systemImage: "square.and.arrow.up") }
             AdvancedSettingsTab().tabItem { Label("Erweitert", systemImage: "slider.horizontal.3") }
+            CreditsSettingsTab().tabItem { Label("Über", systemImage: "info.circle") }
         }
         .frame(width: 500, height: 440)
     }

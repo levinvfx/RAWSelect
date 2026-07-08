@@ -105,10 +105,7 @@ enum SelfTest {
         let xmp = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0.35)
         check(xmp.contains("crs:Exposure2012=\"+0.35\""), "sidecar embeds exposure delta")
 
-        // 9. Photoshop detection
-        check(PhotoshopExportService.photoshopURL(preferredPath: "") != nil, "Photoshop found via bundle id")
-
-        // 10. Originals protected
+        // 9. Originals protected
         check(fm.fileExists(atPath: fakeRAW.path), "source RAW untouched after copy")
 
         try? fm.removeItem(at: root)

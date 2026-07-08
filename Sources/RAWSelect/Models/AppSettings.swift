@@ -34,6 +34,21 @@ enum SmartExposureEV: String, CaseIterable, Identifiable { case ev03 = "0.3", ev
     var ev: Double { Double(rawValue) ?? 0.7 }
 }
 
+/// Grid thumbnail size, reduced to three clear steps (default medium).
+enum ThumbnailSize: String, CaseIterable, Identifiable { case small, medium, large
+    var id: String { rawValue }
+    var label: String { switch self { case .small: return "Klein"; case .medium: return "Mittel"; case .large: return "Gross" } }
+    /// Base cell side in points.
+    var px: Double { switch self { case .small: return 110; case .medium: return 150; case .large: return 210 } }
+}
+
+/// App appearance, independent of the system setting.
+enum AppAppearance: String, CaseIterable, Identifiable { case system, light, dark
+    var id: String { rawValue }
+    var label: String { switch self { case .system: return "System"; case .light: return "Hell"; case .dark: return "Dunkel" } }
+    var colorScheme: ColorScheme? { switch self { case .system: return nil; case .light: return .light; case .dark: return .dark } }
+}
+
 enum ConflictMode: String, CaseIterable, Identifiable { case rename, skip, ask, overwrite
     var id: String { rawValue }
     var label: String { switch self { case .rename: return "Automatisch _1, _2, _3 anhängen"; case .skip: return "Überspringen"; case .ask: return "Jedes Mal fragen"; case .overwrite: return "Überschreiben" } }
@@ -48,15 +63,15 @@ struct MarkDefinition: Codable, Identifiable, Equatable {
     var color: Color { Color(hex: colorHex) }
 
     static let defaults: [MarkDefinition] = [
-        .init(id: 1, name: "Select",  colorHex: "#3B82F6"),
-        .init(id: 2, name: "Edit",    colorHex: "#F59E0B"),
-        .init(id: 3, name: "Client",  colorHex: "#34C759"),
-        .init(id: 4, name: "Social",  colorHex: "#FF2D9B"),
-        .init(id: 5, name: "Website", colorHex: "#30C0C6"),
-        .init(id: 6, name: "Maybe",   colorHex: "#FFD60A"),
-        .init(id: 7, name: "Story",   colorHex: "#7C4DFF"),
-        .init(id: 8, name: "Archive", colorHex: "#8E8E93"),
-        .init(id: 9, name: "Reject",  colorHex: "#FF3B30")
+        .init(id: 1, name: "Red",    colorHex: "#FF222A"),
+        .init(id: 2, name: "Yellow", colorHex: "#FBF056"),
+        .init(id: 3, name: "Green",  colorHex: "#00F656"),
+        .init(id: 4, name: "Blue",   colorHex: "#204EF5"),
+        .init(id: 5, name: "Purple", colorHex: "#F73FFA"),
+        .init(id: 6, name: "Cyan",   colorHex: "#00FFFF"),
+        .init(id: 7, name: "Brown",  colorHex: "#804000"),
+        .init(id: 8, name: "Black",  colorHex: "#282828"),
+        .init(id: 9, name: "White",  colorHex: "#F9FFEF")
     ]
 }
 
@@ -92,13 +107,17 @@ final class AppSettings: ObservableObject {
     var restoreSession: Bool { get { b("rs.restoreSession", true) } set { set("rs.restoreSession", newValue) } }
     var warnOnQuitDuringOp: Bool { get { b("rs.warnOnQuitDuringOp", true) } set { set("rs.warnOnQuitDuringOp", newValue) } }
     var completionNotification: Bool { get { b("rs.completionNotification", true) } set { set("rs.completionNotification", newValue) } }
+    /// Light/Dark/System appearance of the app itself.
+    var appearance: AppAppearance { get { en("rs.appearance", .system) } set { setEnum("rs.appearance", newValue) } }
 
     // Quellen
     var autoDetectVolumes: Bool { get { b("rs.autoDetectVolumes", true) } set { set("rs.autoDetectVolumes", newValue) } }
     var sdBehavior: SDBehavior { get { en("rs.sdBehavior", .notify) } set { setEnum("rs.sdBehavior", newValue) } }
 
     // Ansicht & Performance
-    var thumbnailSize: Double { get { dbl("rs.thumbnailSize", 128) } set { set("rs.thumbnailSize", newValue) } }
+    var thumbnailSizeChoice: ThumbnailSize { get { en("rs.thumbnailSizeChoice", .medium) } set { setEnum("rs.thumbnailSizeChoice", newValue) } }
+    /// Grid cell side in points, derived from the three-step size choice.
+    var thumbnailSize: Double { thumbnailSizeChoice.px }
     var sortField: SortField { get { en("rs.sortField", .filename) } set { setEnum("rs.sortField", newValue) } }
     var sortReversed: Bool { get { b("rs.sortReversed", false) } set { set("rs.sortReversed", newValue) } }
     var groupRawJpg: Bool { get { b("rs.groupRawJpg", true) } set { set("rs.groupRawJpg", newValue) } }
@@ -111,39 +130,31 @@ final class AppSettings: ObservableObject {
     // Export
     var revealAfterExport: Bool { get { b("rs.revealAfterExport", true) } set { set("rs.revealAfterExport", newValue) } }
     var rawJpgExport: RawJpgExport { get { en("rs.rawJpgExport", .both) } set { setEnum("rs.rawJpgExport", newValue) } }
-    var photoshopExport: Bool { get { b("rs.photoshopExport", false) } set { set("rs.photoshopExport", newValue) } }
     var jpegQualityPercent: Double { get { dbl("rs.jpegQualityPercent", 100) } set { set("rs.jpegQualityPercent", newValue) } }
     var exposureMode: ExposureMode { get { en("rs.exposureMode", .smart) } set { setEnum("rs.exposureMode", newValue) } }
     var smartExposure: SmartExposure { get { en("rs.smartExposure", .standard) } set { setEnum("rs.smartExposure", newValue) } }
     var smartExposureMax: SmartExposureEV { get { en("rs.smartExposureMax", .ev07) } set { setEnum("rs.smartExposureMax", newValue) } }
+    /// Noise reduction applied on export (off / Camera-Raw NR / Adobe AI Enhance).
+    var denoiseMode: DenoiseMode { get { en("rs.denoiseMode", .off) } set { setEnum("rs.denoiseMode", newValue) } }
+    /// Denoise strength 0…100 (default 50).
+    var aiDenoiseAmount: Double { get { dbl("rs.aiDenoiseAmount", 50) } set { set("rs.aiDenoiseAmount", newValue) } }
 
     // Erweitert
-    var photoshopAutoDetect: Bool { get { b("rs.photoshopAutoDetect", true) } set { set("rs.photoshopAutoDetect", newValue) } }
-    var photoshopPath: String { get { str("rs.photoshopPath", "") } set { set("rs.photoshopPath", newValue) } }
+    var lightroomPath: String { get { str("rs.lightroomPath", "") } set { set("rs.lightroomPath", newValue) } }
+    /// Auto-click Lightroom's "update AI model" / Enhance dialog during export (needs Accessibility permission).
+    var autoConfirmLightroomDialogs: Bool { get { b("rs.autoConfirmLightroomDialogs", true) } set { set("rs.autoConfirmLightroomDialogs", newValue) } }
     var presetPath: String { get { str("rs.presetPath", "") } set { set("rs.presetPath", newValue) } }
 
-    // Photoshop JPEG export (wizard defaults + advanced)
+    // JPEG export (wizard defaults + advanced)
     var colorSpace: ColorSpaceChoice { get { en("rs.colorSpace", .sRGB) } set { setEnum("rs.colorSpace", newValue) } }
     var exportSize: ExportSizeChoice { get { en("rs.exportSize", .original) } set { setEnum("rs.exportSize", newValue) } }
     var customLongEdge: Double { get { dbl("rs.customLongEdge", 4000) } set { set("rs.customLongEdge", newValue) } }
-    var sharpening: SharpenChoice { get { en("rs.sharpening", .off) } set { setEnum("rs.sharpening", newValue) } }
-    var protectHighlights: Bool { get { b("rs.protectHighlights", true) } set { set("rs.protectHighlights", newValue) } }
-    var protectShadows: Bool { get { b("rs.protectShadows", true) } set { set("rs.protectShadows", newValue) } }
-    var respectIntentional: Bool { get { b("rs.respectIntentional", true) } set { set("rs.respectIntentional", newValue) } }
-    var showCorrectionBeforeExport: Bool { get { b("rs.showCorrectionBeforeExport", true) } set { set("rs.showCorrectionBeforeExport", newValue) } }
-    var closePhotoshopAfter: Bool { get { b("rs.closePhotoshopAfter", false) } set { set("rs.closePhotoshopAfter", newValue) } }
-    var stopOnError: Bool { get { b("rs.stopOnError", true) } set { set("rs.stopOnError", newValue) } }
     var deleteTempFiles: Bool { get { b("rs.deleteTempFiles", true) } set { set("rs.deleteTempFiles", newValue) } }
-    var saveExportLog: Bool { get { b("rs.saveExportLog", true) } set { set("rs.saveExportLog", newValue) } }
     var rememberPreset: Bool { get { b("rs.rememberPreset", true) } set { set("rs.rememberPreset", newValue) } }
     var recentPresets: [String] { get { cod("rs.recentPresets", []) } set { setCod("rs.recentPresets", newValue) } }
-    var psFolderStructure: ExportFolderStructure { get { en("rs.psFolderStructure", .single) } set { setEnum("rs.psFolderStructure", newValue) } }
-    var psConflict: ConflictMode { get { en("rs.psConflict", .rename) } set { setEnum("rs.psConflict", newValue) } }
-    var lastPsExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
-
-    /// Photoshop JPEG quality (0…12) from the 0…100 percent setting.
-    var jpegQualityPS: Int { max(0, min(12, Int((jpegQualityPercent / 100 * 12).rounded()))) }
-    static func psQuality(fromPercent percent: Double) -> Int { max(0, min(12, Int((percent / 100 * 12).rounded()))) }
+    var exportFolderStructure: ExportFolderStructure { get { en("rs.exportFolderStructure", .single) } set { setEnum("rs.exportFolderStructure", newValue) } }
+    var exportConflict: ConflictMode { get { en("rs.exportConflict", .rename) } set { setEnum("rs.exportConflict", newValue) } }
+    var lastExportTarget: String { get { str("rs.lastExportTarget", "") } set { set("rs.lastExportTarget", newValue) } }
 
     /// Adds a preset to the recent list (most recent first, max 5).
     func rememberRecentPreset(_ path: String) {
@@ -204,8 +215,8 @@ final class AppSettings: ObservableObject {
         s.components(separatedBy: CharacterSet(charactersIn: "/:\\")).joined(separator: "-")
     }
 
-    /// Appearance follows the system automatically.
-    var systemColorScheme: ColorScheme? { nil }
+    /// Preferred color scheme for the whole app (nil = follow system).
+    var systemColorScheme: ColorScheme? { appearance.colorScheme }
 
     func resetAll() {
         objectWillChange.send()

@@ -7,13 +7,15 @@ struct DetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             content
-            Divider()
-            StatusBar()
+            if !app.focusMode {
+                Divider()
+                StatusBar()
+            }
         }
         .toolbar { toolbarItems }
         .navigationTitle(app.rootURL?.lastPathComponent ?? AppInfo.name)
-        .sheet(isPresented: $app.showPhotoshopWizard) {
-            PhotoshopExportWizard()
+        .sheet(isPresented: $app.showExportWizard) {
+            ExportWizard()
         }
     }
 
@@ -23,7 +25,7 @@ struct DetailView: View {
             EmptyStateView()
         } else {
             VStack(spacing: 0) {
-                if settings.showMarkToolbar {
+                if settings.showMarkToolbar && !app.focusMode {
                     FilterBar()
                     Divider()
                 }
@@ -100,24 +102,27 @@ struct DetailView: View {
             }
             .menuStyle(.button)
             .buttonStyle(.borderedProminent)
-            .tint(.blue)
+            .tint(.accentColor)
             .disabled(app.selectionCount == 0)
             .help("Originale kopieren – Art im Menü wählen")
         }
 
         ToolbarItem(placement: .primaryAction) {
             Button {
-                app.showPhotoshopWizard = true
+                app.showExportWizard = true
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "wand.and.stars")
                     Text("Export JPEG")
-                    PsBadge()
+                    Text("Lr")
+                        .font(.caption2.weight(.bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(Color(red: 0.10, green: 0.45, blue: 0.95)))
                 }
             }
             .buttonStyle(.bordered)
             .disabled(app.groups.isEmpty)
-            .help("Export JPEG mit Photoshop")
+            .help("Export JPEG mit Lightroom Classic")
         }
 
         ToolbarItem(placement: .primaryAction) {

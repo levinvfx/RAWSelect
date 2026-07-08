@@ -49,6 +49,27 @@ final class ThumbnailLoader {
         queue.addOperation(operation)
     }
 
+    /// Returns the already-cached image for this exact request, or nil. Never
+    /// decodes — used to paint a frame *synchronously* while fast-browsing, so
+    /// the image shows before any `await` suspension point (and therefore even
+    /// when the surrounding task is cancelled a moment later).
+    func cached(for url: URL, maxPixel: Int, fullQuality: Bool = false) -> NSImage? {
+        cache.object(forKey: key(url, maxPixel, fullQuality))
+    }
+
+    /// How a preview should be rendered for a file.
+    struct PreviewPlan: Equatable { let maxPixel: Int; let fullQuality: Bool }
+
+    /// Chooses how to render a preview. Deliberately does NO disk I/O so it is safe
+    /// to call on the main thread for every frame while fast-browsing:
+    ///  - RAW → the embedded camera preview, downscaled to the target (fast/light).
+    ///  - everything else → rendered from the actual image (`fullQuality`). Small
+    ///    files stay native & razor-sharp because ImageIO never upscales past the
+    ///    source; big files are downsampled to the target. No per-file header read.
+    func previewPlan(for url: URL, targetLongEdge: Int) -> PreviewPlan {
+        PreviewPlan(maxPixel: targetLongEdge, fullQuality: !PhotoTypes.isRaw(url))
+    }
+
     /// Warms tiny thumbnails for a whole folder at very low priority.
     func warmTiny(_ urls: [URL], maxPixel: Int) {
         for url in urls { prefetch(for: url, maxPixel: maxPixel, fullQuality: false) }

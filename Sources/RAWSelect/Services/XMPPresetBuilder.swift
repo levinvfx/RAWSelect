@@ -7,12 +7,17 @@ enum XMPPresetBuilder {
 
     /// Returns sidecar XMP text where the exposure is SET to `exposure` (absolute,
     /// authoritative — the preset never controls brightness), based on `presetURL`
-    /// if provided (otherwise a minimal default-develop sidecar).
-    static func sidecarXMP(presetURL: URL?, evDelta exposure: Double) -> String {
-        if let presetURL, let text = try? String(contentsOf: presetURL, encoding: .utf8) {
-            return applyExposure(to: text, exposure: exposure)
+    /// if provided (otherwise a minimal default-develop sidecar). When
+    /// `denoise` > 0, Camera-Raw noise reduction is written on top (0…100).
+    static func sidecarXMP(presetURL: URL?, evDelta exposure: Double, denoise: Double = 0) -> String {
+        var text: String
+        if let presetURL, let preset = try? String(contentsOf: presetURL, encoding: .utf8) {
+            text = applyExposure(to: preset, exposure: exposure)
+        } else {
+            text = minimalSidecar(evDelta: exposure)
         }
-        return minimalSidecar(evDelta: exposure)
+        if denoise > 0 { text = applyDenoise(to: text, amount: denoise) }
+        return text
     }
 
     /// Sets crs:Exposure2012 to the absolute `exposure` value (attribute or element
@@ -35,6 +40,37 @@ enum XMPPresetBuilder {
             return text
         }
         return minimalSidecar(evDelta: exposure)
+    }
+
+    /// Writes Camera-Raw noise reduction driven by a single 0…100 strength.
+    /// Existing NR attributes/elements from the preset are removed first so the
+    /// result stays valid XML (no duplicate keys). Applies to both engines'
+    /// render (Lightroom Classic's Camera Raw).
+    private static func applyDenoise(to xmp: String, amount: Double) -> String {
+        let a = max(0, min(100, amount))
+        let luminance = Int(a.rounded())
+        let color = Int(min(100, 25 + a * 0.5).rounded())   // gentle chroma NR alongside
+        var text = xmp
+
+        // Strip any preset-provided NR so we don't emit duplicate attributes.
+        let keys = ["LuminanceSmoothing", "LuminanceNoiseReductionDetail",
+                    "LuminanceNoiseReductionContrast", "ColorNoiseReduction",
+                    "ColorNoiseReductionDetail", "ColorNoiseReductionSmoothness"]
+        for k in keys {
+            text = text.replacingOccurrences(of: "\\s*crs:\(k)=\"[^\"]*\"", with: "", options: .regularExpression)
+            text = text.replacingOccurrences(of: "\\s*<crs:\(k)>[^<]*</crs:\(k)>", with: "", options: .regularExpression)
+        }
+
+        let attrs = " crs:LuminanceSmoothing=\"\(luminance)\""
+            + " crs:LuminanceNoiseReductionDetail=\"50\""
+            + " crs:LuminanceNoiseReductionContrast=\"0\""
+            + " crs:ColorNoiseReduction=\"\(color)\""
+            + " crs:ColorNoiseReductionDetail=\"50\""
+            + " crs:ColorNoiseReductionSmoothness=\"50\""
+        if let r = text.range(of: "<rdf:Description") {
+            text.insert(contentsOf: attrs, at: r.upperBound)
+        }
+        return text
     }
 
     private static func minimalSidecar(evDelta: Double) -> String {

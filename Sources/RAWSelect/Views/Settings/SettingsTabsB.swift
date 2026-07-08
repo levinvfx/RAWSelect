@@ -54,28 +54,34 @@ struct ExportSettingsTab: View {
                     ForEach(RawJpgExport.allCases) { Text($0.label).tag($0) }
                 }
             }
-            Section("Photoshop-Export (experimentell)") {
-                SettingToggle(title: "Export mit Photoshop aktivieren", isOn: $settings.photoshopExport)
+            Section("JPEG-Export mit Preset") {
+                Text("Lightroom Classic rendert die JPEGs und wendet Preset-Masken (KI-Motiv, Verläufe) an. Lightroom wird beim Export automatisch gestartet und muss das Plugin „RAW Select Bridge“ geladen haben.")
+                    .font(.caption).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack { Text("JPEG-Qualität"); Spacer(); Text("\(Int(settings.jpegQualityPercent))%").foregroundStyle(.secondary).monospacedDigit() }
                     Slider(value: $settings.jpegQualityPercent, in: 10...100, step: 10)
                 }
-                .disabled(!settings.photoshopExport)
-                SettingPicker(title: "Smart Exposure", selection: $settings.smartExposure) {
-                    ForEach(SmartExposure.allCases) { Text($0.label).tag($0) }
-                }
-                .disabled(!settings.photoshopExport)
-                SettingPicker(title: "Maximale Helligkeitskorrektur", selection: $settings.smartExposureMax) {
-                    ForEach(SmartExposureEV.allCases) { Text($0.label).tag($0) }
-                }
-                .disabled(!settings.photoshopExport || settings.smartExposure == .off)
                 SettingPicker(title: "Farbraum", selection: $settings.colorSpace) {
                     ForEach(ColorSpaceChoice.allCases) { Text($0.label).tag($0) }
                 }
-                .disabled(!settings.photoshopExport)
-                SettingToggle(title: "Highlights schützen", isOn: $settings.protectHighlights)
-                SettingToggle(title: "Schatten schützen", isOn: $settings.protectShadows)
-                SettingToggle(title: "Korrektur vor Export anzeigen", isOn: $settings.showCorrectionBeforeExport)
+                SettingPicker(title: "Entrauschen (Standard)",
+                              help: "Vorgabe für neue Exporte. „Adobe KI-Denoise“ nutzt Lightrooms echtes Enhance (langsamer); „Rauschreduzierung“ wirkt sofort.",
+                              selection: $settings.denoiseMode) {
+                    ForEach(DenoiseMode.allCases) { Text($0.label).tag($0) }
+                }
+                if settings.denoiseMode.isOn {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack { Text("Entrausch-Stärke"); Spacer(); Text("\(Int(settings.aiDenoiseAmount))").foregroundStyle(.secondary).monospacedDigit() }
+                        Slider(value: $settings.aiDenoiseAmount, in: 0...100, step: 5)
+                    }
+                }
+                Text("Die Helligkeit stellst du beim Export pro Bild manuell im „Zuschneiden & Belichten“-Schritt ein (wie in Lightroom, −5…+5).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Lightroom") {
+                SettingToggle(title: "KI-Dialoge automatisch bestätigen",
+                              help: "Klickt Lightrooms Nachfragen (Motiv-Modell aktualisieren, KI-Entrauschen/„Verbessern“) beim Export automatisch weg. Benötigt einmalig die Bedienungshilfen-Berechtigung.",
+                              isOn: $settings.autoConfirmLightroomDialogs)
             }
         }
         .formStyle(.grouped)
@@ -90,24 +96,25 @@ struct AdvancedSettingsTab: View {
     @State private var confirmClear = false
     @State private var status = ""
 
-    private var photoshopLabel: String {
-        settings.photoshopPath.isEmpty ? "Automatisch" : (settings.photoshopPath as NSString).lastPathComponent
-    }
     private var presetLabel: String {
         settings.presetPath.isEmpty ? "Keins gewählt" : (settings.presetPath as NSString).lastPathComponent
+    }
+    private var lightroomLabel: String {
+        settings.lightroomPath.isEmpty ? "Automatisch" : (settings.lightroomPath as NSString).lastPathComponent
     }
 
     var body: some View {
         Form {
-            Section("Photoshop") {
-                SettingToggle(title: "Photoshop automatisch finden", isOn: $settings.photoshopAutoDetect)
+            Section("Lightroom Classic") {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Photoshop"); Text(photoshopLabel).font(.caption).foregroundStyle(.secondary)
+                        Text("Lightroom Classic"); Text(lightroomLabel).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button("Manuell auswählen…") { choosePhotoshop() }
+                    Button("Manuell auswählen…") { chooseLightroom() }
                 }
+                Text("Für den Masken-Export muss in Lightroom das Plugin „RAW Select Bridge“ installiert und aktiv sein (Datei → Zusatzmodul-Manager).")
+                    .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Standard-Preset (.xmp)"); Text(presetLabel).font(.caption).foregroundStyle(.secondary)
@@ -115,7 +122,6 @@ struct AdvancedSettingsTab: View {
                     Spacer()
                     Button("Auswählen…") { choosePreset() }
                 }
-                SettingToggle(title: "Photoshop nach Export schliessen", isOn: $settings.closePhotoshopAfter)
                 SettingToggle(title: "Temporäre Dateien nach Export löschen", isOn: $settings.deleteTempFiles)
             }
             Section {
@@ -135,12 +141,12 @@ struct AdvancedSettingsTab: View {
         .formStyle(.grouped)
     }
 
-    private func choosePhotoshop() {
+    private func chooseLightroom() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = false
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        if panel.runModal() == .OK, let url = panel.url { settings.photoshopPath = url.path }
+        if panel.runModal() == .OK, let url = panel.url { settings.lightroomPath = url.path }
     }
     private func choosePreset() {
         let panel = NSOpenPanel()

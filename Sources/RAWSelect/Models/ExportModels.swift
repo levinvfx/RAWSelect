@@ -1,12 +1,12 @@
-import Foundation
+import SwiftUI
 
 // MARK: - Export option enums
 
 enum ColorSpaceChoice: String, CaseIterable, Identifiable { case sRGB, displayP3, adobeRGB
     var id: String { rawValue }
     var label: String { switch self { case .sRGB: return "sRGB"; case .displayP3: return "Display P3"; case .adobeRGB: return "Adobe RGB" } }
-    /// Profile name understood by Photoshop's convertProfile.
-    var psProfile: String { switch self { case .sRGB: return "sRGB IEC61966-2.1"; case .displayP3: return "Display P3"; case .adobeRGB: return "Adobe RGB (1998)" } }
+    /// Export colour space understood by Lightroom (no Display P3 → fall back to sRGB).
+    var lrColorSpace: String { switch self { case .sRGB, .displayP3: return "sRGB"; case .adobeRGB: return "AdobeRGB" } }
 }
 
 enum ExportSizeChoice: String, CaseIterable, Identifiable { case original, edge3000, edge4000, custom
@@ -16,13 +16,22 @@ enum ExportSizeChoice: String, CaseIterable, Identifiable { case original, edge3
     func longEdge(custom: Int) -> Int? { switch self { case .original: return nil; case .edge3000: return 3000; case .edge4000: return 4000; case .custom: return custom } }
 }
 
-enum SharpenChoice: String, CaseIterable, Identifiable { case off, soft, standard
+/// How noise reduction is applied on export.
+/// - noiseReduction: Camera-Raw luminance/chroma NR written to the sidecar
+///   (renders immediately, no extra compute).
+/// - aiEnhance: Adobe's real AI "Enhance → Denoise" (creates an enhanced DNG).
+///   Only reachable via Lightroom + the RAW Select bridge; slower than
+///   plain Camera-Raw noise reduction.
+enum DenoiseMode: String, CaseIterable, Identifiable { case off, noiseReduction, aiEnhance
     var id: String { rawValue }
-    var label: String { switch self { case .off: return "Aus"; case .soft: return "Sanft"; case .standard: return "Standard" } }
-    /// Unsharp-mask amount (%) / radius; 0 = none.
-    var amount: Double { switch self { case .off: return 0; case .soft: return 60; case .standard: return 100 } }
-    var radius: Double { switch self { case .off: return 0; case .soft: return 0.8; case .standard: return 1.2 } }
+    var label: String { switch self {
+        case .off: return "Aus"
+        case .noiseReduction: return "Rauschreduzierung"
+        case .aiEnhance: return "Adobe KI-Denoise (Enhance)" } }
+    var isOn: Bool { self != .off }
+    var usesEnhance: Bool { self == .aiEnhance }
 }
+
 
 enum ExportFolderStructure: String, CaseIterable, Identifiable { case single, perMark, mirror
     var id: String { rawValue }
@@ -83,7 +92,7 @@ struct ImageEdit: Equatable {
     mutating func rotateRight() { rotation = (rotation + 1) % 4 }
 }
 
-struct PhotoshopExportItem: Identifiable {
+struct ExportItem: Identifiable {
     var id: String { rawURL.path }
     let group: PhotoGroup
     let rawURL: URL          // the file to develop (RAW preferred)
@@ -95,7 +104,7 @@ enum ExportStage: String {
     case preparing = "Vorbereiten"
     case analyzing = "Belichtung analysieren"
     case applyingPreset = "Preset anwenden"
-    case rendering = "Rendern via Photoshop"
+    case rendering = "Rendern"
     case saving = "JPEG speichern"
     case done = "Fertig"
     case failed = "Fehlgeschlagen"

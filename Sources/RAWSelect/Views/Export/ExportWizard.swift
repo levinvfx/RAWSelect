@@ -1,9 +1,9 @@
 import SwiftUI
 import AppKit
 
-/// Clean, card-based configuration dialog for the Photoshop JPEG export, with a
+/// Clean, card-based configuration dialog for the Lightroom JPEG export, with a
 /// per-image crop/rotate step (batch-capable) before rendering.
-struct PhotoshopExportWizard: View {
+struct ExportWizard: View {
     @EnvironmentObject var app: AppState
     @EnvironmentObject var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
@@ -18,21 +18,14 @@ struct PhotoshopExportWizard: View {
     @State private var useJpgInstead = false
     // Step 2 – preset
     @State private var presetURL: URL?
-    // Step 3 – exposure
-    @State private var exposureMode: ExposureMode = .smart
-    @State private var strength: SmartExposure = .standard
-    @State private var maxEV: SmartExposureEV = .ev07
-    @State private var protectHi = true
-    @State private var protectLo = true
-    @State private var respectIntent = true
-    @State private var results: [SmartExposureResult] = []
-    @State private var analyzing = false
+    // Exposure is now purely manual, set per image in the crop step.
     // Step 4 – jpeg
     @State private var quality: Double = 100
     @State private var colorSpace: ColorSpaceChoice = .sRGB
     @State private var exportSize: ExportSizeChoice = .original
     @State private var customEdge: Double = 4000
-    @State private var sharpen: SharpenChoice = .off
+    @State private var denoiseMode: DenoiseMode = .off
+    @State private var denoiseAmount: Double = 50
     // Step 5 – target
     @State private var targetURL: URL?
     @State private var folderStructure: ExportFolderStructure = .perMark
@@ -62,7 +55,9 @@ struct PhotoshopExportWizard: View {
         case .tags: return app.groups.filter { selectedTags.contains($0.mark) }
         }
     }
-    private var photoshopAvailable: Bool { PhotoshopExportService.isAvailable(preferredPath: settings.photoshopPath) }
+    private var engineAvailable: Bool {
+        LightroomExportService.isAvailable(preferredPath: settings.lightroomPath)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -84,11 +79,19 @@ struct PhotoshopExportWizard: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            PsBadge()
-            Text("Export JPEG mit Photoshop").font(.title3.weight(.semibold))
+            lrBadge
+            Text("Export JPEG mit Lightroom Classic").font(.title3.weight(.semibold))
             Spacer()
         }
         .padding(.horizontal, 22).padding(.vertical, 16)
+    }
+
+    private var lrBadge: some View {
+        Text("Lr")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(width: 28, height: 28)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.10, green: 0.45, blue: 0.95)))
     }
 
     // MARK: Configure
@@ -97,7 +100,7 @@ struct PhotoshopExportWizard: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 16) {
-                    if !photoshopAvailable { psWarning }
+                    if !engineAvailable { engineWarning }
 
                     card("Bilder") {
                         Picker("Auswahl", selection: $scope) {
@@ -135,27 +138,6 @@ struct PhotoshopExportWizard: View {
                         }
                     }
 
-                    card("Belichtung") {
-                        Picker("Modus", selection: $exposureMode) { ForEach(ExposureMode.allCases) { Text($0.label).tag($0) } }
-                            .pickerStyle(.segmented)
-                        if exposureMode == .smart {
-                            Picker("Stärke", selection: $strength) { ForEach(SmartExposure.allCases) { Text($0.label).tag($0) } }
-                            if strength != .off {
-                                Picker("Maximale Helligkeitskorrektur", selection: $maxEV) { ForEach(SmartExposureEV.allCases) { Text($0.label).tag($0) } }
-                                Toggle("Highlights schützen", isOn: $protectHi)
-                                Toggle("Schatten schützen", isOn: $protectLo)
-                                Toggle("Absichtlich dunkle/helle Bilder respektieren", isOn: $respectIntent)
-                                HStack { Button(analyzing ? "Analysiere…" : "Belichtung analysieren") { analyze() }.disabled(analyzing); Spacer() }
-                                if !results.isEmpty { correctionTable }
-                            }
-                            Text("Analysiert jedes Bild lokal über Histogramm/Helligkeit. Keine Cloud, keine AI, kein Internet.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        } else {
-                            Text("Du stellst die Helligkeit pro Bild im nächsten Schritt (Zuschneiden & Export) mit Live-Vorschau ein (±3 EV).")
-                                .font(.callout).foregroundStyle(.secondary)
-                        }
-                    }
-
                     card("JPEG") {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack { Text("Qualität"); Spacer(); Text("\(Int(quality))%").foregroundStyle(.secondary).monospacedDigit() }
@@ -166,7 +148,30 @@ struct PhotoshopExportWizard: View {
                         if exportSize == .custom {
                             HStack { Text("Lange Kante"); TextField("px", value: $customEdge, format: .number).frame(width: 80); Text("px") }
                         }
-                        Picker("Nachschärfen", selection: $sharpen) { ForEach(SharpenChoice.allCases) { Text($0.label).tag($0) } }
+                    }
+
+                    card("Entrauschen") {
+                        Picker("Modus", selection: $denoiseMode) {
+                            ForEach(DenoiseMode.allCases) { Text($0.label).tag($0) }
+                        }
+                        if denoiseMode.isOn {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("Stärke")
+                                    Spacer()
+                                    Text("\(Int(denoiseAmount))").foregroundStyle(.secondary).monospacedDigit()
+                                }
+                                Slider(value: $denoiseAmount, in: 0...100, step: 5)
+                            }
+                        }
+                        if denoiseMode == .aiEnhance {
+                            Label("Echte Adobe-KI: Lightroom erzeugt eine entrauschte DNG. Dauert länger; KI-Dialoge werden automatisch bestätigt.",
+                                  systemImage: "info.circle")
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else if denoiseMode == .noiseReduction {
+                            Text("Camera-Raw-Rauschreduzierung – wirkt sofort, ohne Extra-Rechenzeit.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }
 
                     card("Ziel") {
@@ -187,9 +192,9 @@ struct PhotoshopExportWizard: View {
                 Button("Abbrechen") { dismiss() }
                 Spacer()
                 if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.red) }
-                Button("Direkt exportieren") { startExport(skipCrop: true) }
+                Button("Ohne Bearbeitung exportieren") { startExport(skipCrop: true) }
                     .disabled(!canExport)
-                Button("Zuschneiden & Export →") { startCropping() }
+                Button("Zuschneiden & Belichten →") { startCropping() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!canExport)
             }
@@ -226,33 +231,17 @@ struct PhotoshopExportWizard: View {
         }
     }
 
-    private var psWarning: some View {
+    private var engineWarning: some View {
         Label {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Photoshop wurde nicht gefunden.").font(.callout.weight(.medium))
-                Text("Bitte installiere Photoshop oder wähle die App in den Einstellungen aus.")
+                Text("Lightroom Classic wurde nicht gefunden.").font(.callout.weight(.medium))
+                Text("Bitte installiere Lightroom Classic oder wähle die App in den Einstellungen aus.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         } icon: { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.orange.opacity(0.12)))
-    }
-
-    private var correctionTable: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            ForEach(results.prefix(60)) { r in
-                HStack {
-                    Text(r.fileName).font(.caption.monospaced()).lineLimit(1)
-                    Spacer()
-                    Text(r.evLabel).font(.caption.monospacedDigit())
-                        .foregroundStyle(abs(r.clampedEV) < 0.02 ? .secondary : .primary)
-                }
-            }
-            if results.count > 60 { Text("… und \(results.count - 60) weitere").font(.caption2).foregroundStyle(.tertiary) }
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .quaternaryLabelColor).opacity(0.25)))
     }
 
     private func card(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {
@@ -265,7 +254,7 @@ struct PhotoshopExportWizard: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(nsColor: .controlBackgroundColor)))
     }
 
-    private var canExport: Bool { photoshopAvailable && !groupsToExport.isEmpty && targetURL != nil }
+    private var canExport: Bool { engineAvailable && !groupsToExport.isEmpty && targetURL != nil }
 
     // MARK: Cropping
 
@@ -280,7 +269,7 @@ struct PhotoshopExportWizard: View {
             }
             .padding(.horizontal, 20).padding(.top, 16)
 
-            CropEditorView(previewURL: group.previewURL, edit: editBinding(for: group), exposureMode: exposureMode)
+            CropEditorView(previewURL: group.previewURL, edit: editBinding(for: group))
                 .padding(.horizontal, 20)
 
             Divider()
@@ -311,9 +300,10 @@ struct PhotoshopExportWizard: View {
             Spacer()
             ProgressView(value: total > 0 ? Double(done) : 0, total: Double(max(total, 1))).frame(width: 340)
             Text(total > 0 ? "Exportiere \(min(done + 1, total)) von \(total)…" : "Vorbereiten…").font(.headline)
-            Text(stage.rawValue).font(.callout).foregroundStyle(.secondary)
+            Text(stage == .rendering ? "Rendern via Lightroom Classic" : stage.rawValue)
+                .font(.callout).foregroundStyle(.secondary)
             if !currentName.isEmpty { Text(currentName).font(.caption.monospaced()).foregroundStyle(.tertiary) }
-            Text("Photoshop wird als lokale Rendering-Engine verwendet. RAW-Dateien bleiben unverändert.")
+            Text("Lightroom Classic wird als lokale Rendering-Engine verwendet. RAW-Dateien bleiben unverändert.")
                 .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 380)
             Spacer()
             Button("Export abbrechen") { cancelToken.cancel() }.padding(.bottom, 16)
@@ -363,39 +353,20 @@ struct PhotoshopExportWizard: View {
     // MARK: Actions
 
     private func loadDefaults() {
-        exposureMode = settings.exposureMode
-        strength = settings.smartExposure
-        maxEV = settings.smartExposureMax
-        protectHi = settings.protectHighlights
-        protectLo = settings.protectShadows
-        respectIntent = settings.respectIntentional
         quality = settings.jpegQualityPercent
         colorSpace = settings.colorSpace
         exportSize = settings.exportSize
         customEdge = settings.customLongEdge
-        sharpen = settings.sharpening
-        folderStructure = settings.psFolderStructure
-        conflict = settings.psConflict
+        denoiseMode = settings.denoiseMode
+        denoiseAmount = settings.aiDenoiseAmount
+        folderStructure = settings.exportFolderStructure
+        conflict = settings.exportConflict
         if let p = settings.recentPresets.first, FileManager.default.fileExists(atPath: p) { presetURL = URL(fileURLWithPath: p) }
-        if !settings.lastPsExportTarget.isEmpty {
-            let u = URL(fileURLWithPath: settings.lastPsExportTarget)
+        if !settings.lastExportTarget.isEmpty {
+            let u = URL(fileURLWithPath: settings.lastExportTarget)
             if FileManager.default.fileExists(atPath: u.path) { targetURL = u }
         }
         if app.selectedGroups.isEmpty { scope = app.groups.contains(where: { $0.mark != 0 }) ? .allMarked : .filtered }
-    }
-
-    private var analyzerConfig: SmartExposureAnalyzer.Config {
-        .init(strength: strength, maxEV: maxEV.ev, protectHighlights: protectHi, protectShadows: protectLo, respectIntentional: respectIntent)
-    }
-
-    private func analyze() {
-        analyzing = true
-        let groups = groupsToExport
-        let cfg = analyzerConfig
-        Task.detached {
-            let res = groups.map { SmartExposureAnalyzer.analyze(url: $0.previewURL, config: cfg) }
-            await MainActor.run { results = res; analyzing = false }
-        }
     }
 
     private func choosePreset() {
@@ -427,7 +398,7 @@ struct PhotoshopExportWizard: View {
     }
 
     private func validate() -> Bool {
-        guard photoshopAvailable else { errorMessage = "Photoshop nicht gefunden."; return false }
+        guard engineAvailable else { errorMessage = "Lightroom Classic nicht gefunden."; return false }
         guard !groupsToExport.isEmpty else { errorMessage = "Keine Bilder für den Export gefunden."; return false }
         guard targetURL != nil else { errorMessage = "Bitte wähle einen Zielordner aus."; return false }
         return true
@@ -435,44 +406,41 @@ struct PhotoshopExportWizard: View {
 
     private func runExport() {
         guard let target = targetURL else { return }
-        settings.lastPsExportTarget = target.path
+        settings.lastExportTarget = target.path
+        settings.denoiseMode = denoiseMode
+        settings.aiDenoiseAmount = denoiseAmount
         if let p = presetURL { settings.rememberRecentPreset(p.path) }
 
         let groups = groupsToExport
-        let cfg = analyzerConfig
-        let existing = Dictionary(uniqueKeysWithValues: results.map { ($0.fileURL.path, $0.clampedEV) })
 
-        let items: [PhotoshopExportItem] = groups.map { g in
+        let items: [ExportItem] = groups.map { g in
             let raw = useJpgInstead ? (g.files.first { ["jpg","jpeg"].contains($0.pathExtension.lowercased()) } ?? app.rawURL(for: g)) : app.rawURL(for: g)
             let edit = edits[g.id] ?? ImageEdit()
-            var ev = 0.0
-            if exposureMode == .manual {
-                ev = edit.exposure                       // manual, per-image, live preview
-            } else if strength != .off {
-                ev = existing[g.previewURL.path] ?? SmartExposureAnalyzer.analyze(url: g.previewURL, config: cfg).clampedEV
-            }
-            return PhotoshopExportItem(group: g, rawURL: raw, evDelta: ev, edit: edit)
+            // Manual, per-image exposure set in the crop step (written 1:1 as Exposure2012).
+            return ExportItem(group: g, rawURL: raw, evDelta: edit.exposure, edit: edit)
         }
 
         let longEdge = exportSize.longEdge(custom: Int(customEdge)) ?? 0
-        let config = PhotoshopExportService.Config(
-            presetURL: presetURL, jpegQualityPS: AppSettings.psQuality(fromPercent: quality),
-            colorProfile: colorSpace.psProfile, longEdge: longEdge,
-            sharpenAmount: sharpen.amount, sharpenRadius: sharpen.radius,
-            targetRoot: target, folderStructure: folderStructure, sourceRoot: app.rootURL,
-            conflict: conflict, deleteTemp: settings.deleteTempFiles,
-            closePhotoshop: settings.closePhotoshopAfter, saveLog: settings.saveExportLog,
-            photoshopPath: settings.photoshopPath)
 
         phase = .running
         total = items.count; done = 0; attempted = items.count; stage = .preparing
 
+        let progressCB: (Int, Int, String, ExportStage) -> Void = { d, t, name, st in
+            Task { @MainActor in done = max(0, d - 1); total = t; currentName = name; stage = st }
+        }
+
+        let lrConfig = LightroomExportService.Config(
+            presetURL: presetURL, jpegQuality01: max(0.1, min(1.0, quality / 100.0)),
+            colorSpace: colorSpace.lrColorSpace, longEdge: longEdge,
+            targetRoot: target, folderStructure: folderStructure, sourceRoot: app.rootURL,
+            conflict: conflict, deleteTemp: settings.deleteTempFiles,
+            lightroomPath: settings.lightroomPath,
+            autoConfirmDialogs: settings.autoConfirmLightroomDialogs,
+            denoise: denoiseMode.isOn ? denoiseAmount : 0,
+            denoiseUseEnhance: denoiseMode.usesEnhance)
         Task {
-            let outcome = await PhotoshopExportService.export(
-                items: items, config: config,
-                progress: { d, t, name, st in
-                    Task { @MainActor in done = max(0, d - 1); total = t; currentName = name; stage = st }
-                },
+            let outcome = await LightroomExportService.export(
+                items: items, config: lrConfig, progress: progressCB,
                 isCancelled: { cancelToken.isCancelled })
             await MainActor.run {
                 successCount = outcome.success

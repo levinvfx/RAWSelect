@@ -4,6 +4,27 @@ import SwiftUI
 enum AppInfo {
     static let name = "RAW Select"
     static let version = "1.0"
+
+    // Credits / branding
+    static let author = "Levin Anneler"
+    static let brand = "levin.vfx"
+    static let instagramHandle = "levin.vfx"
+    static let instagramURL = URL(string: "https://instagram.com/levin.vfx")!
+    static let email = "levin@annelers.ch"
+    static var emailURL: URL { URL(string: "mailto:\(email)")! }
+}
+
+/// Loads the bundled brand logo (black on light, white on dark). Both variants
+/// ship in Contents/Resources; returns nil in a plain `swift run` (no bundle).
+enum AppAssets {
+    static func logo(dark: Bool) -> NSImage? {
+        let name = dark ? "Logo-Weiss" : "Logo-Schwarz"
+        if let url = Bundle.main.url(forResource: name, withExtension: "png"),
+           let img = NSImage(contentsOf: url) {
+            return img
+        }
+        return nil
+    }
 }
 
 /// Sizing for the large loupe preview. Sharp but a touch smaller than the full

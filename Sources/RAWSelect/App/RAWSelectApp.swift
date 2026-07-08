@@ -46,6 +46,7 @@ struct RAWSelectApp: App {
         Settings {
             SettingsView()
                 .environmentObject(settings)
+                .preferredColorScheme(settings.systemColorScheme)
         }
     }
 }

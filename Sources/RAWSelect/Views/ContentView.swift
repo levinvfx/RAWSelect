@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var settings: AppSettings
 
     var body: some View {
         NavigationSplitView {
@@ -10,6 +11,7 @@ struct ContentView: View {
         } detail: {
             DetailView()
         }
+        .preferredColorScheme(settings.systemColorScheme)
         .onAppear { app.start() }
         .overlay {
             if let op = app.operation {

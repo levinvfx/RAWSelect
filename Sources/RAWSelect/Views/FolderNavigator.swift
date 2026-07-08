@@ -22,6 +22,11 @@ private struct FolderRow: View {
     private var isCurrent: Bool {
         app.rootURL?.standardizedFileURL == url.standardizedFileURL
     }
+    /// True when the loaded folder lives somewhere below this one (path context).
+    private var isAncestorOfCurrent: Bool {
+        guard let root = app.rootURL?.standardizedFileURL else { return false }
+        return root.path.hasPrefix(url.standardizedFileURL.path + "/")
+    }
     private var canExpand: Bool { (children?.isEmpty == false) }
 
     var body: some View {
@@ -41,15 +46,38 @@ private struct FolderRow: View {
         .onAppear { if children == nil { loadChildren() } }
     }
 
+    private var iconName: String {
+        if isCurrent || isAncestorOfCurrent { return "folder.fill" }
+        return "folder"
+    }
+    private var iconColor: Color {
+        if isCurrent { return .white }
+        if isAncestorOfCurrent { return .accentColor }
+        return .secondary
+    }
+
     private var label: some View {
-        Label(url.lastPathComponent, systemImage: isCurrent ? "folder.fill" : "folder")
-            .foregroundStyle(isCurrent ? Color.accentColor : Color.primary)
-            .fontWeight(isCurrent ? .semibold : .regular)
-            .lineLimit(1)
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2) { app.open(url, setBrowseRoot: false) }   // load images
-            .onTapGesture(count: 1) { if canExpand { expanded.toggle() } }    // just navigate
-            .help("Doppelklick lädt die Bilder dieses Ordners")
+        HStack(spacing: 6) {
+            Image(systemName: iconName)
+                .foregroundStyle(iconColor)
+                .frame(width: 16)
+            Text(url.lastPathComponent)
+                .foregroundStyle(isCurrent ? Color.white : Color.primary)
+                .fontWeight(isCurrent || isAncestorOfCurrent ? .semibold : .regular)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isCurrent ? Color.accentColor
+                      : (isAncestorOfCurrent ? Color.accentColor.opacity(0.12) : Color.clear))
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { app.open(url, setBrowseRoot: false) }   // load images
+        .onTapGesture(count: 1) { if canExpand { expanded.toggle() } }    // just navigate
+        .help("Doppelklick lädt die Bilder dieses Ordners")
     }
 
     private func loadChildren() {

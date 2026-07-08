@@ -20,14 +20,14 @@ enum AspectPreset: String, CaseIterable, Identifiable {
 struct CropEditorView: View {
     let previewURL: URL
     @Binding var edit: ImageEdit
-    var exposureMode: ExposureMode = .smart
 
     @State private var baseCI: CIImage?
     @State private var displayImage: NSImage?
     @State private var cropNorm = CGRect(x: 0, y: 0, width: 1, height: 1)
     @State private var aspect: AspectPreset = .free
     @State private var portrait = false
-    @State private var locked = false
+    // Default: keep the original RAW aspect ratio locked (not free-form).
+    @State private var locked = true
 
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     private let full = CGRect(x: 0, y: 0, width: 1, height: 1)
@@ -46,6 +46,9 @@ struct CropEditorView: View {
 
     var body: some View {
         VStack(spacing: 12) {
+            // Crop tools live ABOVE the image (rotate / aspect / lock / reset).
+            topControls
+
             GeometryReader { geo in
                 ZStack {
                     if let img = displayImage {
@@ -61,42 +64,48 @@ struct CropEditorView: View {
             .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            controls
+            // Only the fine-adjust sliders live BELOW the image.
+            sliderControls
         }
         .task(id: previewURL) { await loadImage() }
         .onChange(of: cropNorm) { _, v in edit.crop = (v == full) ? nil : v }
     }
 
-    private var controls: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Button { rotate(-1) } label: { Image(systemName: "rotate.left") }
-                Button { rotate(1) } label: { Image(systemName: "rotate.right") }
-                Picker("", selection: $aspect) { ForEach(AspectPreset.allCases) { Text($0.label).tag($0) } }
-                    .frame(width: 90).labelsHidden()
-                    .onChange(of: aspect) { _, _ in applyAspect() }
-                Button { portrait.toggle(); applyAspect() } label: { Image(systemName: "rotate.right.fill") }
-                    .help("Hoch-/Querformat").disabled(aspect == .free)
-                Toggle(isOn: $locked) { Image(systemName: locked ? "lock.fill" : "lock.open") }
-                    .toggleStyle(.button).help("Seitenverhältnis sperren")
-                Spacer()
-                Button("Zurücksetzen") { cropNorm = full; aspect = .free; locked = false }
-                    .disabled(cropNorm == full && edit.straighten == 0)
-            }
-            .buttonStyle(.bordered)
+    private var topControls: some View {
+        HStack(spacing: 10) {
+            Button { rotate(-1) } label: { Image(systemName: "rotate.left") }
+            Button { rotate(1) } label: { Image(systemName: "rotate.right") }
+            Picker("", selection: $aspect) { ForEach(AspectPreset.allCases) { Text($0.label).tag($0) } }
+                .frame(width: 90).labelsHidden()
+                .onChange(of: aspect) { _, _ in applyAspect() }
+            Button { portrait.toggle(); applyAspect() } label: { Image(systemName: "rotate.right.fill") }
+                .help("Hoch-/Querformat").disabled(aspect == .free)
+            Toggle(isOn: $locked) { Image(systemName: locked ? "lock.fill" : "lock.open") }
+                .toggleStyle(.button).help("Seitenverhältnis sperren")
+            Spacer()
+            Button("Zurücksetzen") { cropNorm = full; aspect = .free; locked = true }
+                .disabled(cropNorm == full && edit.straighten == 0)
+        }
+        .buttonStyle(.bordered)
+    }
 
+    private var sliderControls: some View {
+        VStack(spacing: 10) {
             HStack(spacing: 10) {
                 Text("Gerade").foregroundStyle(.secondary)
                 Slider(value: Binding(get: { edit.straighten }, set: { edit.straighten = $0; updateDisplay() }), in: -15...15)
                 Text(String(format: "%+.1f°", edit.straighten)).monospacedDigit().frame(width: 52, alignment: .trailing)
             }
 
-            if exposureMode == .manual {
-                HStack(spacing: 10) {
-                    Image(systemName: "sun.max").foregroundStyle(.secondary)
-                    Slider(value: Binding(get: { edit.exposure }, set: { edit.exposure = $0; updateDisplay() }), in: -3...3)
-                    Text(String(format: "%+.2f EV", edit.exposure)).monospacedDigit().frame(width: 66, alignment: .trailing)
-                }
+            // Manuelle Belichtung – wie Lightrooms Exposure-Regler (−5…+5 Blenden).
+            // Der Wert wird 1:1 als crs:Exposure2012 exportiert (+1.0 = +1.00 in LR).
+            HStack(spacing: 10) {
+                Image(systemName: "sun.max").foregroundStyle(.secondary)
+                Slider(value: Binding(get: { edit.exposure }, set: { edit.exposure = $0; updateDisplay() }), in: -5...5)
+                Text(String(format: "%+.2f", edit.exposure)).monospacedDigit().frame(width: 52, alignment: .trailing)
+                Button("0") { edit.exposure = 0; updateDisplay() }
+                    .buttonStyle(.borderless).disabled(edit.exposure == 0)
+                    .help("Belichtung zurücksetzen")
             }
         }
     }
@@ -115,7 +124,8 @@ struct CropEditorView: View {
     private func updateDisplay() {
         guard let base = baseCI else { return }
         var ci = base
-        if exposureMode == .manual, edit.exposure != 0 {
+        if edit.exposure != 0 {
+            // Approximates Lightroom's stop-based Exposure for WYSIWYG preview.
             let f = CIFilter(name: "CIExposureAdjust")
             f?.setValue(ci, forKey: kCIInputImageKey)
             f?.setValue(edit.exposure, forKey: kCIInputEVKey)
@@ -252,7 +262,7 @@ private struct CropRectOverlay: View {
 
 extension NSImage {
     /// Rotated clockwise by an arbitrary angle, expanded to the bounding box
-    /// (matches Photoshop's rotateCanvas). Transparent corners for non-90° angles.
+    /// (expands to bounding box). Transparent corners for non-90° angles.
     func rotatedClockwise(byDegrees deg: Double) -> NSImage {
         if deg == 0 { return self }
         guard let cg = cgImage(forProposedRect: nil, context: nil, hints: nil) else { return self }

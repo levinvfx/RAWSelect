@@ -22,7 +22,12 @@ final class AppState: ObservableObject {
     @Published var currentID: String? { didSet { prefetchAroundCurrent() } }
     private var anchorID: String?
 
-    @Published var viewMode: ViewMode = .grid { didSet { if viewMode == .loupe { prefetchAroundCurrent() } } }
+    @Published var viewMode: ViewMode = .grid { didSet { if viewMode == .loupe { prefetchAroundCurrent() } else { loupeZoom = false; focusMode = false } } }
+
+    /// 100 % loupe zoom (space / click). Reset when leaving loupe.
+    @Published var loupeZoom = false
+    /// Distraction-free viewing: hides filmstrip, filter bar and status bar.
+    @Published var focusMode = false
 
     /// Runtime toggle for the EXIF overlay (default from settings.metadataPanel).
     @Published var showInfo: Bool = AppSettings.shared.metadataPanel
@@ -32,7 +37,7 @@ final class AppState: ObservableObject {
 
     @Published var operation: OperationState?
     @Published var pendingMoveTarget: URL?
-    @Published var showPhotoshopWizard = false
+    @Published var showExportWizard = false
 
     enum ViewMode: String, CaseIterable { case grid, loupe }
 
@@ -232,9 +237,16 @@ final class AppState: ObservableObject {
         guard let idx = list.firstIndex(where: { $0.id == id }) else { return }
         let lower = max(0, idx - Int(settings.preloadBackward))
         let upper = min(list.count - 1, idx + Int(settings.preloadForward))
-        let maxPixel = settings.perfectPixels
+        let target = settings.perfectPixels
+        let instantPixel = settings.instantPixels
         for i in lower...upper where i != idx {
-            ThumbnailLoader.shared.prefetch(for: list[i].previewURL, maxPixel: maxPixel, fullQuality: false)
+            let url = list[i].previewURL
+            // Instant size first (small, quick) so the sync cache path has a frame
+            // to paint immediately; the HD version follows via the size-aware plan
+            // (same key the loupe reads, so it's an instant cache hit).
+            ThumbnailLoader.shared.prefetch(for: url, maxPixel: instantPixel, fullQuality: false)
+            let plan = ThumbnailLoader.shared.previewPlan(for: url, targetLongEdge: target)
+            ThumbnailLoader.shared.prefetch(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
         }
     }
 
@@ -320,7 +332,7 @@ final class AppState: ObservableObject {
     }
     func revealFolder(_ url: URL) { FinderService.revealFolder(url) }
 
-    // MARK: Photoshop export helpers
+    // MARK: Export helpers
     /// Resolves an export image source to the matching photo groups.
     func groups(for source: ExportImageSource) -> [PhotoGroup] {
         switch source {
@@ -332,7 +344,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// File to develop for a group (RAW preferred for Photoshop).
+    /// File to develop for a group (RAW preferred).
     func rawURL(for group: PhotoGroup) -> URL {
         group.files.first { PhotoTypes.isRaw($0) } ?? group.previewURL
     }
@@ -453,6 +465,24 @@ final class AppState: ObservableObject {
         case 123: step(by: -1, extend: extend); return true   // ←
         case 124: step(by: 1, extend: extend); return true    // →
         default: break
+        }
+
+        // Space/Return/Escape only steer the browser window – never while the
+        // export wizard or the Settings window is up (would swallow their keys).
+        let browserIsKey = !showExportWizard && NSApp.keyWindow === NSApp.mainWindow
+        if browserIsKey {
+            switch event.keyCode {
+            case 49:                                          // Space → toggle 100 % zoom
+                if viewMode == .loupe { loupeZoom.toggle(); return true }
+            case 36:                                          // Return → focused viewing
+                if viewMode == .loupe { focusMode.toggle(); return true }
+                if currentID != nil { viewMode = .loupe; return true }
+            case 53:                                          // Escape → leave focus / zoom / loupe
+                if loupeZoom { loupeZoom = false; return true }
+                if focusMode { focusMode = false; return true }
+                if viewMode == .loupe { viewMode = .grid; return true }
+            default: break
+            }
         }
 
         if let chars = event.charactersIgnoringModifiers, chars.count == 1,
