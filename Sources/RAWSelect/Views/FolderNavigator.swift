@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// A lazily-loaded folder tree in the sidebar. Single click navigates (expands),
 /// double click loads that folder's images. Folders without subfolders can't be
@@ -18,6 +19,7 @@ private struct FolderRow: View {
 
     @State private var expanded = false
     @State private var children: [URL]?
+    @State private var hovering = false
 
     private var isCurrent: Bool {
         app.rootURL?.standardizedFileURL == url.standardizedFileURL
@@ -55,6 +57,14 @@ private struct FolderRow: View {
         if isAncestorOfCurrent { return .accentColor }
         return .secondary
     }
+    /// Background tint: selection wins, then path context, then a soft hover tint
+    /// so it's visible that a row is clickable.
+    private var rowFill: Color {
+        if isCurrent { return .accentColor }
+        if isAncestorOfCurrent { return .accentColor.opacity(0.12) }
+        if hovering { return Color.primary.opacity(0.08) }
+        return .clear
+    }
 
     private var label: some View {
         HStack(spacing: 6) {
@@ -69,12 +79,13 @@ private struct FolderRow: View {
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isCurrent ? Color.accentColor
-                      : (isAncestorOfCurrent ? Color.accentColor.opacity(0.12) : Color.clear))
-        )
+        .background(RoundedRectangle(cornerRadius: 6).fill(rowFill))
+        .animation(.easeOut(duration: 0.12), value: hovering)
         .contentShape(Rectangle())
+        .onHover { inside in
+            hovering = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
         .onTapGesture(count: 2) { app.open(url, setBrowseRoot: false) }   // load images
         .onTapGesture(count: 1) { if canExpand { expanded.toggle() } }    // just navigate
         .help("Doppelklick lädt die Bilder dieses Ordners")

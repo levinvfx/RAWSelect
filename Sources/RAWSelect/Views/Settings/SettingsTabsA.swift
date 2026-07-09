@@ -56,9 +56,9 @@ struct ViewSettingsTab: View {
     var body: some View {
         Form {
             Section {
-                SettingPicker(title: "Thumbnail-Grösse", selection: $settings.thumbnailSizeChoice) {
-                    ForEach(ThumbnailSize.allCases) { Text($0.label).tag($0) }
-                }
+                SettingSlider(title: "Thumbnail-Grösse",
+                              help: "Grösse der Kacheln im Raster. Auch unten in der Statusleiste direkt einstellbar.",
+                              value: $settings.thumbnailSize, range: 90...320) { "\(Int($0)) px" }
                 SettingPicker(title: "Sortieren nach", selection: $settings.sortField) {
                     ForEach(SortField.allCases) { Text($0.label).tag($0) }
                 }

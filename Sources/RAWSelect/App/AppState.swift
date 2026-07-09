@@ -19,7 +19,12 @@ final class AppState: ObservableObject {
     /// All selected photos (multi-select). `currentID` is the "active" one shown
     /// in the loupe and used as the anchor for keyboard navigation.
     @Published var selectedIDs: Set<String> = []
-    @Published var currentID: String? { didSet { prefetchAroundCurrent() } }
+    @Published var currentID: String? {
+        didSet {
+            prefetchAroundCurrent()
+            if oldValue != currentID { zoom.sliderActive = false }   // leaving a photo exits zoom mode
+        }
+    }
     private var anchorID: String?
 
     @Published var viewMode: ViewMode = .grid { didSet { if viewMode == .loupe { prefetchAroundCurrent() } else { focusMode = false } } }
@@ -37,12 +42,37 @@ final class AppState: ObservableObject {
     @Published var pendingMoveTarget: URL?
     @Published var showExportWizard = false
 
+    /// Transient confirmation/error banner shown at the bottom of the window.
+    @Published var toast: Toast?
+    /// Keyboard-shortcut cheat sheet (toggled with `?`).
+    @Published var showShortcuts = false
+
+    /// Pan/zoom state for the loupe, shared with `ZoomableImageView`.
+    let zoom = ZoomController()
+
     enum ViewMode: String, CaseIterable { case grid, loupe }
 
     struct OperationState {
         var title: String
         var completed: Int
         var total: Int
+    }
+
+    struct Toast: Identifiable, Equatable {
+        enum Kind: Equatable { case success, error, info }
+        let id = UUID()
+        var message: String
+        var kind: Kind = .success
+    }
+
+    /// Shows a transient toast that auto-dismisses (errors linger a bit longer).
+    func showToast(_ message: String, kind: Toast.Kind = .success) {
+        let t = Toast(message: message, kind: kind)
+        toast = t
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: kind == .error ? 4_500_000_000 : 2_600_000_000)
+            if self.toast?.id == t.id { self.toast = nil }
+        }
     }
 
     // MARK: Private
@@ -445,6 +475,7 @@ final class AppState: ObservableObject {
                 self.operation = nil
                 let verb = kind == .copy ? "kopiert" : "verschoben"
                 self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) \(verb)."
+                self.showToast("\(outcome.photos) Bilder \(verb).", kind: .success)
 
                 if kind == .move {
                     let movedIDs = Set(snapshot.map { $0.id })
@@ -457,6 +488,7 @@ final class AppState: ObservableObject {
             } catch {
                 self.operation = nil
                 self.statusMessage = "Fehler: \(error.localizedDescription)"
+                self.showToast("Fehler: \(error.localizedDescription)", kind: .error)
             }
         }
     }
@@ -473,6 +505,12 @@ final class AppState: ObservableObject {
         if event.modifierFlags.contains(.command) { return false }   // leave ⌘-shortcuts to menus
         if NSApp.keyWindow?.firstResponder is NSText { return false }
 
+        // While the shortcut cheat sheet is up, only Esc (close) is handled here.
+        if showShortcuts {
+            if event.keyCode == 53 { showShortcuts = false; return true }
+            return false
+        }
+
         let extend = event.modifierFlags.contains(.shift)
 
         switch event.keyCode {
@@ -484,12 +522,17 @@ final class AppState: ObservableObject {
         // Space/Return/Escape only steer the browser window – never while the
         // export wizard or the Settings window is up (would swallow their keys).
         let browserIsKey = !showExportWizard && NSApp.keyWindow === NSApp.mainWindow
+        if browserIsKey, event.characters == "?" { showShortcuts = true; return true }
         if browserIsKey {
             switch event.keyCode {
+            case 49:                                          // Space → toggle zoom mode (loupe only)
+                if viewMode == .loupe { zoom.setZoomMode(!zoom.sliderActive); return true }
             case 36:                                          // Return → focused viewing
                 if viewMode == .loupe { focusMode.toggle(); return true }
                 if currentID != nil { viewMode = .loupe; return true }
-            case 53:                                          // Escape → leave focus / loupe
+            case 53:                                          // Escape → leave zoom mode / reset zoom / leave loupe
+                if viewMode == .loupe && zoom.sliderActive { zoom.setZoomMode(false); return true }
+                if viewMode == .loupe && zoom.zoomed { zoom.fit(); return true }
                 if focusMode { focusMode = false; return true }
                 if viewMode == .loupe { viewMode = .grid; return true }
             default: break
@@ -508,6 +551,12 @@ final class AppState: ObservableObject {
                 toggleInfo(); return true
             case UInt32(UInt8(ascii: "f")), UInt32(UInt8(ascii: "F")):
                 toggleFullscreen(); return true
+            case UInt32(UInt8(ascii: "z")), UInt32(UInt8(ascii: "Z")):
+                if viewMode == .loupe { zoom.toggle100(); return true }
+            case UInt32(UInt8(ascii: "+")), UInt32(UInt8(ascii: "=")):
+                if viewMode == .loupe { zoom.zoomIn(); return true }
+            case UInt32(UInt8(ascii: "-")), UInt32(UInt8(ascii: "_")):
+                if viewMode == .loupe { zoom.zoomOut(); return true }
             default: break
             }
         }

@@ -11,14 +11,25 @@ struct FolderIdentity {
     let keyBase: URL
 
     init(root: URL) {
-        let keys: Set<URLResourceKey> = [.volumeUUIDStringKey, .volumeURLKey]
-        if let values = try? root.resourceValues(forKeys: keys),
-           let uuid = values.volumeUUIDString,
-           let volumeURL = values.volume {
-            self.id = "vol-" + uuid
+        let keys: Set<URLResourceKey> = [.volumeUUIDStringKey, .volumeURLKey,
+                                         .volumeNameKey, .volumeTotalCapacityKey]
+        let values = try? root.resourceValues(forKeys: keys)
+        if let volumeURL = values?.volume {
+            if let uuid = values?.volumeUUIDString, !uuid.isEmpty {
+                // Best case: a real volume UUID – survives re-mounting at any path.
+                self.id = "vol-" + uuid
+            } else {
+                // SD/exFAT/FAT cards frequently expose NO volume UUID. Instead of
+                // keying on the mount path (which changes to "Untitled 1" etc. on
+                // re-insert and loses the marks), build a stable fingerprint from
+                // immutable volume traits. Nothing is ever written to the card.
+                let name = values?.volumeName ?? volumeURL.lastPathComponent
+                let capacity = values?.volumeTotalCapacity ?? 0
+                self.id = "fp-\(name)-\(capacity)"
+            }
             self.keyBase = volumeURL
         } else {
-            // Fallback: identify by absolute path.
+            // Not a distinct volume (e.g. a plain folder on the internal disk).
             self.id = "path-" + root.standardizedFileURL.path
             self.keyBase = root
         }

@@ -34,14 +34,6 @@ enum SmartExposureEV: String, CaseIterable, Identifiable { case ev03 = "0.3", ev
     var ev: Double { Double(rawValue) ?? 0.7 }
 }
 
-/// Grid thumbnail size, reduced to three clear steps (default medium).
-enum ThumbnailSize: String, CaseIterable, Identifiable { case small, medium, large
-    var id: String { rawValue }
-    var label: String { switch self { case .small: return "Klein"; case .medium: return "Mittel"; case .large: return "Gross" } }
-    /// Base cell side in points.
-    var px: Double { switch self { case .small: return 110; case .medium: return 150; case .large: return 210 } }
-}
-
 /// App appearance, independent of the system setting.
 enum AppAppearance: String, CaseIterable, Identifiable { case system, light, dark
     var id: String { rawValue }
@@ -115,9 +107,12 @@ final class AppSettings: ObservableObject {
     var sdBehavior: SDBehavior { get { en("rs.sdBehavior", .notify) } set { setEnum("rs.sdBehavior", newValue) } }
 
     // Ansicht & Performance
-    var thumbnailSizeChoice: ThumbnailSize { get { en("rs.thumbnailSizeChoice", .medium) } set { setEnum("rs.thumbnailSizeChoice", newValue) } }
-    /// Grid cell side in points, derived from the three-step size choice.
-    var thumbnailSize: Double { thumbnailSizeChoice.px }
+    /// Grid thumbnail cell side in points – freely adjustable via the slider
+    /// (replaced the earlier three-step choice). Clamped to a sensible range.
+    var thumbnailSize: Double {
+        get { dbl("rs.thumbnailSizePx", 150) }
+        set { set("rs.thumbnailSizePx", min(max(newValue, 90), 320)) }
+    }
     var sortField: SortField { get { en("rs.sortField", .filename) } set { setEnum("rs.sortField", newValue) } }
     var sortReversed: Bool { get { b("rs.sortReversed", false) } set { set("rs.sortReversed", newValue) } }
     var groupRawJpg: Bool { get { b("rs.groupRawJpg", true) } set { set("rs.groupRawJpg", newValue) } }

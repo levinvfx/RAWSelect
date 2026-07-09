@@ -49,3 +49,24 @@ struct SettingPicker<T: Hashable, Content: View>: View {
         }
     }
 }
+
+/// A labelled slider with a live value readout and optional help line.
+struct SettingSlider: View {
+    let title: String
+    var help: String? = nil
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    var format: (Double) -> String = { "\(Int($0))" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(format(value)).foregroundStyle(.secondary).monospacedDigit()
+            }
+            Slider(value: $value, in: range)
+            if let help { Text(help).font(.caption).foregroundStyle(.secondary) }
+        }
+    }
+}

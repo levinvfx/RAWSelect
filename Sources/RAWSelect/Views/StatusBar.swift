@@ -47,16 +47,14 @@ struct StatusBar: View {
     }
 
     private var sizeSlider: some View {
-        Picker("", selection: $settings.thumbnailSizeChoice) {
-            Image(systemName: "square.grid.3x3").tag(ThumbnailSize.small)
-            Image(systemName: "square.grid.2x2").tag(ThumbnailSize.medium)
-            Image(systemName: "square").tag(ThumbnailSize.large)
+        HStack(spacing: 6) {
+            Image(systemName: "square.grid.3x3").font(.system(size: 10)).foregroundStyle(.tertiary)
+            Slider(value: $settings.thumbnailSize, in: 90...320)
+                .controlSize(.mini)
+                .frame(width: 120)
+            Image(systemName: "square.grid.2x2").font(.system(size: 13)).foregroundStyle(.tertiary)
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .controlSize(.small)
-        .frame(width: 108)
-        .help("Thumbnail-Grösse")
+        .help("Kachelgrösse")
     }
 
     private func sizeString(_ bytes: Int) -> String {

@@ -37,7 +37,9 @@ struct DetailView: View {
 
     @ViewBuilder
     private var contentBody: some View {
-        if app.filteredGroups.isEmpty {
+        if app.isScanning && app.groups.isEmpty {
+            ScanningView(name: app.rootURL?.lastPathComponent ?? "")
+        } else if app.filteredGroups.isEmpty {
             ContentUnavailableView(
                 app.groups.isEmpty ? "Keine Bilder gefunden" : "Nichts in diesem Filter",
                 systemImage: "photo",
@@ -155,6 +157,23 @@ private struct EmptyStateView: View {
             Button("Ordner öffnen…") { app.openFolderDialog() }
                 .controlSize(.large)
                 .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+/// Shown while a folder is being scanned and no images have arrived yet — so the
+/// grid never briefly flashes a false "Keine Bilder gefunden".
+private struct ScanningView: View {
+    let name: String
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView().controlSize(.large)
+            Text(name.isEmpty ? "Ordner wird gescannt…" : "\(name) wird gescannt…")
+                .font(.headline).foregroundStyle(.secondary)
+            Text("Bilder werden gesucht und gruppiert.")
+                .font(.callout).foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// Large preview of the selected photo with a filmstrip below.
 struct LoupeView: View {
@@ -33,6 +34,8 @@ private struct LargePreview: View {
     @State private var version = 0            // bumped when an async upgrade lands
     @State private var lastGood: NSImage?     // last shown image → never a black frame
     @State private var metadata = PhotoMetadata()
+    @State private var hiRes: NSImage?        // higher-res image loaded on zoom-in
+    @State private var hiResID: String?       // which photo hiRes belongs to
 
     /// Best preview available *right now*, read straight from the in-memory cache.
     /// This is called synchronously from `body`, so switching photos NEVER waits on
@@ -52,14 +55,12 @@ private struct LargePreview: View {
         let _ = version                       // depend on `version` so upgrades re-render
         let best = bestCached()
         let display = best?.image ?? lastGood  // fall back to previous frame, never black
-        let sharp = best?.sharp ?? false
         return ZStack {
-            Color(nsColor: .textBackgroundColor).opacity(0.4)
-            if let display {
-                Image(nsImage: display)
-                    .resizable()
-                    .interpolation(sharp ? .high : .medium)
-                    .aspectRatio(contentMode: .fit)
+            // Neutral dark surround like the crop editor – keeps the eye on the
+            // photo and stays consistent across the app.
+            Color(white: 0.11)
+            if let shown = (hiResID == group.id ? hiRes : nil) ?? display {
+                ZoomableImageView(imageID: group.id, image: shown, controller: app.zoom)
                     .padding(16)
             }
 
@@ -70,14 +71,50 @@ private struct LargePreview: View {
                     if group.mark != 0 { markPill }
                 }
                 Spacer()
+                HStack {
+                    Spacer()
+                    ZoomControls(zoom: app.zoom)
+                }
             }
             .padding(16)
+
+            // Zoom mode (space bar): vertical slider on the right.
+            if app.zoom.sliderActive {
+                HStack {
+                    Spacer()
+                    ZoomSlider(zoom: app.zoom)
+                }
+                .padding(.trailing, 20)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
         }
+        .animation(.easeOut(duration: 0.18), value: app.zoom.sliderActive)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: group.id) { await upgrade() }
         .task(id: group.id) {
             let url = group.files.first ?? group.previewURL
             metadata = await Task.detached { MetadataService.metadata(for: url) }.value
+        }
+        .onReceive(app.zoom.$zoomed) { zoomedIn in if zoomedIn { loadHiRes() } }
+    }
+
+    /// On first zoom-in, fetch a higher-resolution image so the zoom stays sharp
+    /// (full-res for JPG; for RAW only if a larger embedded preview exists). Loaded
+    /// once per photo, cached by ThumbnailLoader, swapped in without a visual jump.
+    private func loadHiRes() {
+        if hiResID == group.id, hiRes != nil { return }
+        let g = group
+        let target = settings.perfectPixels
+        Task {
+            let url = g.previewURL
+            let big = await ThumbnailLoader.shared.thumbnail(
+                for: url, maxPixel: 6000, fullQuality: !PhotoTypes.isRaw(url))
+            await MainActor.run {
+                guard g.id == group.id, let big else { return }
+                let px = max(big.representations.first?.pixelsWide ?? 0,
+                             big.representations.first?.pixelsHigh ?? 0)
+                if px > target + 8 { hiRes = big; hiResID = g.id }   // only swap if genuinely sharper
+            }
         }
     }
 
