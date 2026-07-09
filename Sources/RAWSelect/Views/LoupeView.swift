@@ -71,9 +71,12 @@ private struct LargePreview: View {
                     if group.mark != 0 { markPill }
                 }
                 Spacer()
-                HStack {
-                    Spacer()
-                    ZoomControls(zoom: app.zoom)
+                if app.zoom.zoomed && !app.zoom.sliderActive {
+                    HStack {
+                        Spacer()
+                        ZoomControls(zoom: app.zoom)
+                    }
+                    .transition(.opacity)
                 }
             }
             .padding(16)
@@ -89,6 +92,7 @@ private struct LargePreview: View {
             }
         }
         .animation(.easeOut(duration: 0.18), value: app.zoom.sliderActive)
+        .animation(.easeOut(duration: 0.15), value: app.zoom.zoomed)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: group.id) { await upgrade() }
         .task(id: group.id) {
@@ -190,7 +194,7 @@ private struct Filmstrip: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
             }
-            .background(Color(nsColor: .underPageBackgroundColor))
+            .background(Color(white: 0.14))   // neutral, consistent with the loupe surround
             .onChange(of: app.currentID) { _, id in
                 guard let id else { return }
                 withAnimation(.easeOut(duration: 0.12)) {

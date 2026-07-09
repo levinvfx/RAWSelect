@@ -28,11 +28,6 @@ enum SmartExposure: String, CaseIterable, Identifiable { case off, soft, standar
     var id: String { rawValue }
     var label: String { switch self { case .off: return "Aus"; case .soft: return "Sanft"; case .standard: return "Standard"; case .strong: return "Stark" } }
 }
-enum SmartExposureEV: String, CaseIterable, Identifiable { case ev03 = "0.3", ev07 = "0.7", ev10 = "1.0", ev15 = "1.5"
-    var id: String { rawValue }
-    var label: String { "±\(rawValue) EV" }
-    var ev: Double { Double(rawValue) ?? 0.7 }
-}
 
 /// App appearance, independent of the system setting.
 enum AppAppearance: String, CaseIterable, Identifiable { case system, light, dark
@@ -126,9 +121,6 @@ final class AppSettings: ObservableObject {
     var revealAfterExport: Bool { get { b("rs.revealAfterExport", true) } set { set("rs.revealAfterExport", newValue) } }
     var rawJpgExport: RawJpgExport { get { en("rs.rawJpgExport", .both) } set { setEnum("rs.rawJpgExport", newValue) } }
     var jpegQualityPercent: Double { get { dbl("rs.jpegQualityPercent", 100) } set { set("rs.jpegQualityPercent", newValue) } }
-    var exposureMode: ExposureMode { get { en("rs.exposureMode", .smart) } set { setEnum("rs.exposureMode", newValue) } }
-    var smartExposure: SmartExposure { get { en("rs.smartExposure", .standard) } set { setEnum("rs.smartExposure", newValue) } }
-    var smartExposureMax: SmartExposureEV { get { en("rs.smartExposureMax", .ev07) } set { setEnum("rs.smartExposureMax", newValue) } }
     /// Noise reduction applied on export (off / Camera-Raw NR / Adobe AI Enhance).
     var denoiseMode: DenoiseMode { get { en("rs.denoiseMode", .off) } set { setEnum("rs.denoiseMode", newValue) } }
     /// Denoise strength 0…100 (default 50).

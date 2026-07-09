@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Compact Photo-Mechanic-style colour-swatch filter. Each swatch is an on/off
 /// switch: on = that group's photos are shown, off (dimmed) = hidden. The first
@@ -15,10 +16,11 @@ struct FilterBar: View {
             HStack(spacing: 4) {
                 toggleAllButton
                 Divider().frame(height: size)
-                swatch(bucket: 0, color: nil).help("Alle ohne Markierung (\(app.unmarkedCount))")
+                swatch(bucket: 0, color: nil)
+                    .help("Ohne Markierung (\(app.unmarkedCount)) · ⌥-Klick: nur diese")
                 ForEach(1...9, id: \.self) { mark in
                     swatch(bucket: mark, color: settings.markColor(mark))
-                        .help("\(settings.markName(mark)) (\(app.markCounts[mark] ?? 0))")
+                        .help("\(settings.markName(mark)) (\(app.markCounts[mark] ?? 0)) · ⌥-Klick: nur diese")
                 }
             }
             .padding(5)
@@ -51,7 +53,8 @@ struct FilterBar: View {
     private func swatch(bucket: Int, color: Color?) -> some View {
         let on = app.tagFilter.isShown(bucket)
         return Button {
-            app.tagFilter.toggle(bucket)
+            if NSEvent.modifierFlags.contains(.option) { app.tagFilter.solo(bucket) }
+            else { app.tagFilter.toggle(bucket) }
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 4)

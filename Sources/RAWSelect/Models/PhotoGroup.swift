@@ -74,6 +74,13 @@ struct TagFilter: Equatable {
         hidden = shown ? [] : TagFilter.allBuckets
     }
 
+    /// Show only `bucket`, hiding all others. If it is already the only one
+    /// shown, restore everything — so a second solo-click toggles back.
+    mutating func solo(_ bucket: Int) {
+        let others = TagFilter.allBuckets.subtracting([bucket])
+        hidden = (hidden == others) ? [] : others
+    }
+
     mutating func reset() { hidden.removeAll() }
 }
 
