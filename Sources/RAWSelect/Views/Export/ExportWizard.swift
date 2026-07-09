@@ -24,8 +24,6 @@ struct ExportWizard: View {
     @State private var colorSpace: ColorSpaceChoice = .sRGB
     @State private var exportSize: ExportSizeChoice = .original
     @State private var customEdge: Double = 4000
-    @State private var denoiseMode: DenoiseMode = .off
-    @State private var denoiseAmount: Double = 50
     // Step 5 – target
     @State private var targetURL: URL?
     @State private var folderStructure: ExportFolderStructure = .perMark
@@ -147,30 +145,6 @@ struct ExportWizard: View {
                         Picker("Grösse", selection: $exportSize) { ForEach(ExportSizeChoice.allCases) { Text($0.label).tag($0) } }
                         if exportSize == .custom {
                             HStack { Text("Lange Kante"); TextField("px", value: $customEdge, format: .number).frame(width: 80); Text("px") }
-                        }
-                    }
-
-                    card("Entrauschen") {
-                        Picker("Modus", selection: $denoiseMode) {
-                            ForEach(DenoiseMode.allCases) { Text($0.label).tag($0) }
-                        }
-                        if denoiseMode.isOn {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text("Stärke")
-                                    Spacer()
-                                    Text("\(Int(denoiseAmount))").foregroundStyle(.secondary).monospacedDigit()
-                                }
-                                Slider(value: $denoiseAmount, in: 0...100, step: 5)
-                            }
-                        }
-                        if denoiseMode == .aiEnhance {
-                            Label("Echte Adobe-KI: Lightroom erzeugt eine entrauschte DNG. Dauert länger; KI-Dialoge werden automatisch bestätigt.",
-                                  systemImage: "info.circle")
-                                .font(.caption).foregroundStyle(.secondary)
-                        } else if denoiseMode == .noiseReduction {
-                            Text("Camera-Raw-Rauschreduzierung – wirkt sofort, ohne Extra-Rechenzeit.")
-                                .font(.caption).foregroundStyle(.secondary)
                         }
                     }
 
@@ -357,8 +331,6 @@ struct ExportWizard: View {
         colorSpace = settings.colorSpace
         exportSize = settings.exportSize
         customEdge = settings.customLongEdge
-        denoiseMode = settings.denoiseMode
-        denoiseAmount = settings.aiDenoiseAmount
         folderStructure = settings.exportFolderStructure
         conflict = settings.exportConflict
         if let p = settings.recentPresets.first, FileManager.default.fileExists(atPath: p) { presetURL = URL(fileURLWithPath: p) }
@@ -407,8 +379,6 @@ struct ExportWizard: View {
     private func runExport() {
         guard let target = targetURL else { return }
         settings.lastExportTarget = target.path
-        settings.denoiseMode = denoiseMode
-        settings.aiDenoiseAmount = denoiseAmount
         if let p = presetURL { settings.rememberRecentPreset(p.path) }
 
         let groups = groupsToExport
@@ -436,8 +406,8 @@ struct ExportWizard: View {
             conflict: conflict, deleteTemp: settings.deleteTempFiles,
             lightroomPath: settings.lightroomPath,
             autoConfirmDialogs: settings.autoConfirmLightroomDialogs,
-            denoise: denoiseMode.isOn ? denoiseAmount : 0,
-            denoiseUseEnhance: denoiseMode.usesEnhance)
+            denoise: 0,
+            denoiseUseEnhance: false)
         Task {
             let outcome = await LightroomExportService.export(
                 items: items, config: lrConfig, progress: progressCB,

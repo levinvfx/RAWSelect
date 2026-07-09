@@ -61,8 +61,11 @@ struct CropEditorView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .background(Color(nsColor: .textBackgroundColor).opacity(0.4))
+            // Neutral dark surround like Lightroom's crop workspace – keeps the
+            // eye on the photo regardless of app theme.
+            .background(Color(white: 0.11))
             .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1))
 
             // Only the fine-adjust sliders live BELOW the image.
             sliderControls
@@ -92,9 +95,12 @@ struct CropEditorView: View {
     private var sliderControls: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Text("Gerade").foregroundStyle(.secondary)
+                Image(systemName: "angle").foregroundStyle(.secondary).frame(width: 16)
                 Slider(value: Binding(get: { edit.straighten }, set: { edit.straighten = $0; updateDisplay() }), in: -15...15)
                 Text(String(format: "%+.1f°", edit.straighten)).monospacedDigit().frame(width: 52, alignment: .trailing)
+                Button("0") { edit.straighten = 0; updateDisplay() }
+                    .buttonStyle(.borderless).disabled(edit.straighten == 0)
+                    .help("Ausrichtung zurücksetzen")
             }
 
             // Manuelle Belichtung – wie Lightrooms Exposure-Regler (−5…+5 Blenden).
@@ -167,9 +173,11 @@ private struct CropRectOverlay: View {
     var aspectNorm: CGFloat?
     @State private var start: CGRect?
 
-    private enum Corner { case tl, tr, bl, br, move }
+    private enum Corner { case tl, tr, bl, br, top, bottom, left, right, move }
     private let minSize: CGFloat = 0.06
-    private let handle: CGFloat = 16
+    private let bracketLen: CGFloat = 20      // L-shaped corner arm length
+    private let bracketWidth: CGFloat = 3
+    private let hitSlop: CGFloat = 30         // invisible drag target around a handle
 
     private var screenRect: CGRect {
         CGRect(x: imageFrame.minX + cropNorm.minX * imageFrame.width,
@@ -179,8 +187,11 @@ private struct CropRectOverlay: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Rectangle().fill(.black.opacity(0.5))
+        let dragging = start != nil
+        return ZStack(alignment: .topLeading) {
+            // Dim everything outside the crop rectangle. Darkens a touch while
+            // dragging to emphasise the framed area (Lightroom behaviour).
+            Rectangle().fill(.black.opacity(dragging ? 0.6 : 0.45))
                 .frame(width: imageFrame.width, height: imageFrame.height)
                 .position(x: imageFrame.midX, y: imageFrame.midY)
                 .mask(
@@ -192,29 +203,85 @@ private struct CropRectOverlay: View {
                     })
                 .allowsHitTesting(false)
 
-            // rule-of-thirds
-            ForEach(1..<3) { i in
-                Rectangle().fill(.white.opacity(0.35)).frame(width: 0.5, height: screenRect.height)
-                    .position(x: screenRect.minX + screenRect.width * CGFloat(i) / 3, y: screenRect.midY).allowsHitTesting(false)
-                Rectangle().fill(.white.opacity(0.35)).frame(width: screenRect.width, height: 0.5)
-                    .position(x: screenRect.midX, y: screenRect.minY + screenRect.height * CGFloat(i) / 3).allowsHitTesting(false)
-            }
+            // Rule-of-thirds grid. Thin lines with a faint dark shadow so they
+            // stay visible over bright skies; brighter while actively dragging.
+            gridLines(opacity: dragging ? 0.55 : 0.3)
 
-            Rectangle().strokeBorder(.white, lineWidth: 1.5)
+            // Frame border: subtle dark halo under a thin white line for contrast.
+            Rectangle().strokeBorder(.black.opacity(0.35), lineWidth: 3)
+                .frame(width: screenRect.width, height: screenRect.height)
+                .position(x: screenRect.midX, y: screenRect.midY)
+                .allowsHitTesting(false)
+            Rectangle().strokeBorder(.white.opacity(0.9), lineWidth: 1)
                 .frame(width: screenRect.width, height: screenRect.height)
                 .position(x: screenRect.midX, y: screenRect.midY)
                 .contentShape(Rectangle()).gesture(drag(.move))
 
-            corner(.tl, CGPoint(x: screenRect.minX, y: screenRect.minY))
-            corner(.tr, CGPoint(x: screenRect.maxX, y: screenRect.minY))
-            corner(.bl, CGPoint(x: screenRect.minX, y: screenRect.maxY))
-            corner(.br, CGPoint(x: screenRect.maxX, y: screenRect.maxY))
+            // Edge handles (mid-side bars) then corner brackets on top.
+            edgeHandle(.top,    CGPoint(x: screenRect.midX, y: screenRect.minY), horizontal: true)
+            edgeHandle(.bottom, CGPoint(x: screenRect.midX, y: screenRect.maxY), horizontal: true)
+            edgeHandle(.left,   CGPoint(x: screenRect.minX, y: screenRect.midY), horizontal: false)
+            edgeHandle(.right,  CGPoint(x: screenRect.maxX, y: screenRect.midY), horizontal: false)
+
+            cornerBracket(.tl, CGPoint(x: screenRect.minX, y: screenRect.minY))
+            cornerBracket(.tr, CGPoint(x: screenRect.maxX, y: screenRect.minY))
+            cornerBracket(.bl, CGPoint(x: screenRect.minX, y: screenRect.maxY))
+            cornerBracket(.br, CGPoint(x: screenRect.maxX, y: screenRect.maxY))
         }
     }
 
-    private func corner(_ c: Corner, _ p: CGPoint) -> some View {
-        Circle().fill(.white).frame(width: handle, height: handle).shadow(radius: 1)
-            .position(x: p.x, y: p.y).gesture(drag(c))
+    private func gridLines(opacity: Double) -> some View {
+        ForEach(1..<3) { i in
+            let x = screenRect.minX + screenRect.width * CGFloat(i) / 3
+            let y = screenRect.minY + screenRect.height * CGFloat(i) / 3
+            Group {
+                Rectangle().fill(.white.opacity(opacity)).frame(width: 0.75, height: screenRect.height)
+                    .position(x: x, y: screenRect.midY)
+                Rectangle().fill(.white.opacity(opacity)).frame(width: screenRect.width, height: 0.75)
+                    .position(x: screenRect.midX, y: y)
+            }
+            .shadow(color: .black.opacity(0.3), radius: 0.5)
+            .allowsHitTesting(false)
+        }
+    }
+
+    // L-shaped corner handle whose vertex sits exactly on the crop corner.
+    private func cornerBracket(_ c: Corner, _ p: CGPoint) -> some View {
+        let len = bracketLen
+        // Offset the frame so the L's vertex lands on point `p`.
+        let cx: CGFloat = (c == .tl || c == .bl) ? p.x + len / 2 : p.x - len / 2
+        let cy: CGFloat = (c == .tl || c == .tr) ? p.y + len / 2 : p.y - len / 2
+        return ZStack {
+            CornerBracket(corner: c)
+                .stroke(.white, style: StrokeStyle(lineWidth: bracketWidth, lineCap: .round))
+                .frame(width: len, height: len)
+                .shadow(color: .black.opacity(0.5), radius: 1)
+                .position(x: cx, y: cy)
+                .allowsHitTesting(false)
+            hitTarget(size: len + hitSlop, at: p, for: c)
+        }
+    }
+
+    // Mid-edge handle: a small rounded bar centred on `p`.
+    private func edgeHandle(_ c: Corner, _ p: CGPoint, horizontal: Bool) -> some View {
+        let long: CGFloat = 26, short: CGFloat = 4
+        return ZStack {
+            RoundedRectangle(cornerRadius: short / 2).fill(.white)
+                .frame(width: horizontal ? long : short, height: horizontal ? short : long)
+                .shadow(color: .black.opacity(0.5), radius: 1)
+                .position(x: p.x, y: p.y)
+                .allowsHitTesting(false)
+            hitTarget(size: long + hitSlop, at: p, for: c)
+        }
+    }
+
+    // Invisible, generously sized drag target centred on a handle point.
+    private func hitTarget(size: CGFloat, at p: CGPoint, for c: Corner) -> some View {
+        Color.clear
+            .frame(width: size, height: size)
+            .contentShape(Rectangle())
+            .position(x: p.x, y: p.y)
+            .gesture(drag(c))
     }
 
     private func drag(_ c: Corner) -> some Gesture {
@@ -250,6 +317,26 @@ private struct CropRectOverlay: View {
                     var my = min(max(s.minY + minSize, s.maxY + dy), 1)
                     if let a = aspectNorm { my = s.minY + (mx - s.minX) / a }
                     r = CGRect(x: s.minX, y: s.minY, width: mx - s.minX, height: my - s.minY)
+                case .left:
+                    let nx = min(max(0, s.minX + dx), s.maxX - minSize)
+                    let w = s.maxX - nx
+                    if let a = aspectNorm { let h = w / a; r = CGRect(x: nx, y: s.midY - h / 2, width: w, height: h) }
+                    else { r = CGRect(x: nx, y: s.minY, width: w, height: s.height) }
+                case .right:
+                    let mx = min(max(s.minX + minSize, s.maxX + dx), 1)
+                    let w = mx - s.minX
+                    if let a = aspectNorm { let h = w / a; r = CGRect(x: s.minX, y: s.midY - h / 2, width: w, height: h) }
+                    else { r = CGRect(x: s.minX, y: s.minY, width: w, height: s.height) }
+                case .top:
+                    let ny = min(max(0, s.minY + dy), s.maxY - minSize)
+                    let h = s.maxY - ny
+                    if let a = aspectNorm { let w = h * a; r = CGRect(x: s.midX - w / 2, y: ny, width: w, height: h) }
+                    else { r = CGRect(x: s.minX, y: ny, width: s.width, height: h) }
+                case .bottom:
+                    let my = min(max(s.minY + minSize, s.maxY + dy), 1)
+                    let h = my - s.minY
+                    if let a = aspectNorm { let w = h * a; r = CGRect(x: s.midX - w / 2, y: s.minY, width: w, height: h) }
+                    else { r = CGRect(x: s.minX, y: s.minY, width: s.width, height: h) }
                 }
                 // Clamp inside [0,1].
                 if r.minX >= 0, r.minY >= 0, r.maxX <= 1, r.maxY <= 1, r.width >= minSize, r.height >= minSize {
@@ -257,6 +344,24 @@ private struct CropRectOverlay: View {
                 }
             }
             .onEnded { _ in start = nil }
+    }
+
+    /// L-shaped path for a corner handle, drawn in a `len × len` box with its
+    /// vertex at the box corner matching `corner`.
+    private struct CornerBracket: Shape {
+        let corner: Corner
+        func path(in rect: CGRect) -> Path {
+            let x0 = rect.minX, y0 = rect.minY, x1 = rect.maxX, y1 = rect.maxY
+            var p = Path()
+            switch corner {
+            case .tl: p.move(to: CGPoint(x: x0, y: y1)); p.addLine(to: CGPoint(x: x0, y: y0)); p.addLine(to: CGPoint(x: x1, y: y0))
+            case .tr: p.move(to: CGPoint(x: x0, y: y0)); p.addLine(to: CGPoint(x: x1, y: y0)); p.addLine(to: CGPoint(x: x1, y: y1))
+            case .bl: p.move(to: CGPoint(x: x0, y: y0)); p.addLine(to: CGPoint(x: x0, y: y1)); p.addLine(to: CGPoint(x: x1, y: y1))
+            case .br: p.move(to: CGPoint(x: x1, y: y0)); p.addLine(to: CGPoint(x: x1, y: y1)); p.addLine(to: CGPoint(x: x0, y: y1))
+            default: break
+            }
+            return p
+        }
     }
 }
 
