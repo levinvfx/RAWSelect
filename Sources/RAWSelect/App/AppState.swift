@@ -516,6 +516,7 @@ final class AppState: ObservableObject {
         switch event.keyCode {
         case 123: step(by: -1, extend: extend); return true   // ←
         case 124: step(by: 1, extend: extend); return true    // →
+        case 10:  setMark(0); return true                     // § (ISO-Taste links der 1) → Markierung entfernen
         default: break
         }
 
@@ -545,6 +546,8 @@ final class AppState: ObservableObject {
             case 48:                                        // 0 → clear mark
                 if settings.zeroClearsMark { setMark(0) }
                 return true
+            case 0xA7, 0xB0:                                // § / ° (Taste links der 1, CH-Layout) → Markierung entfernen
+                setMark(0); return true
             case 49...57:                                   // 1–9 → colour mark
                 setMark(Int(scalar.value) - 48); return true
             case UInt32(UInt8(ascii: "i")), UInt32(UInt8(ascii: "I")):
