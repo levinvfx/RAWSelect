@@ -361,11 +361,16 @@ struct LightroomExportService {
 
     private static func resolveOutput(base: String, in dir: URL, conflict: ConflictMode, used: inout Set<String>) -> URL? {
         let first = dir.appendingPathComponent("\(base).jpg")
-        let exists = FileManager.default.fileExists(atPath: first.path) || used.contains(first.path)
-        if !exists { return first }
+        let onDisk = FileManager.default.fileExists(atPath: first.path)
+        let inBatch = used.contains(first.path)
+        if !onDisk && !inBatch { return first }
         switch conflict {
         case .skip: return nil
-        case .overwrite: return first
+        case .overwrite:
+            // Overwrite a pre-existing file on disk, but NEVER clobber our own
+            // just-written batch output (same basename twice in one export).
+            if !inBatch { return first }
+            fallthrough
         case .rename, .ask:
             var i = 1
             while true {
