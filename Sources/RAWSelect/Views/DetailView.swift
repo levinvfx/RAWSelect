@@ -166,6 +166,7 @@ private struct EmptyStateView: View {
 /// Shown while a folder is being scanned and no images have arrived yet — so the
 /// grid never briefly flashes a false "Keine Bilder gefunden".
 private struct ScanningView: View {
+    @EnvironmentObject var app: AppState
     let name: String
     var body: some View {
         VStack(spacing: 14) {
@@ -174,6 +175,9 @@ private struct ScanningView: View {
                 .font(.headline).foregroundStyle(.secondary)
             Text("Bilder werden gesucht und gruppiert.")
                 .font(.callout).foregroundStyle(.tertiary)
+            Button("Abbrechen") { app.cancelScan() }
+                .keyboardShortcut(.cancelAction)
+                .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))

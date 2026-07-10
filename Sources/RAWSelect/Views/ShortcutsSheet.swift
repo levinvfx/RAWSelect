@@ -8,6 +8,7 @@ struct ShortcutsSheet: View {
     private let rows: [(String, String)] = [
         ("1 – 9",      "Farbmarkierung setzen"),
         ("0  /  §",    "Markierung entfernen"),
+        ("⌘Z",         "Markierung rückgängig"),
         ("← / →",      "Vorheriges / nächstes Bild"),
         ("⇧ ← / →",    "Auswahl erweitern"),
         ("Return",     "Grosse Ansicht · dann Fokusmodus"),

@@ -78,6 +78,7 @@ final class AppState: ObservableObject {
     // MARK: Private
     private let volumeScanner = VolumeScanner()
     private var scanTask: Task<Void, Never>?
+    private var scanCancelToken: CancellationToken?
     private var cancelToken: CancellationToken?
     private var keyMonitor: Any?
     private var identity: FolderIdentity?
@@ -133,6 +134,7 @@ final class AppState: ObservableObject {
     /// Show a volume/folder in the sidebar navigator WITHOUT scanning it. Images
     /// are only loaded when the user double-clicks a (sub)folder.
     func browse(_ url: URL) {
+        scanCancelToken?.cancel()
         scanTask?.cancel()
         browseRoot = url
         rootURL = nil
@@ -143,12 +145,23 @@ final class AppState: ObservableObject {
         statusMessage = "Ordner in der Seitenleiste doppelklicken, um die Bilder zu laden."
     }
 
+    /// Abort an in-progress scan (large folders / slow network volumes).
+    func cancelScan() {
+        guard isScanning else { return }
+        scanCancelToken?.cancel()
+        scanCancelToken?.cancel()
+        scanTask?.cancel()
+        isScanning = false
+        statusMessage = "Scan abgebrochen."
+    }
+
     // MARK: Opening / scanning
     func openFolderDialog() {
         if let url = FinderService.chooseFolder(title: "Ordner oder SD-Karte öffnen") { open(url) }
     }
 
     func open(_ url: URL, setBrowseRoot: Bool = true) {
+        scanCancelToken?.cancel()
         scanTask?.cancel()
         rootURL = url
         tagFilter.reset()  // opening a folder always shows all images found in it
@@ -177,11 +190,14 @@ final class AppState: ObservableObject {
         let ignoreHidden = settings.ignoreHidden
         let cameraOnly = settings.cameraFoldersOnly
 
+        let token = CancellationToken()
+        scanCancelToken = token
         scanTask = Task {
             let found: [PhotoGroup] = await Task.detached(priority: .userInitiated) {
                 var groups = PhotoScanner.scan(root: url, allowedExtensions: allowed, recursive: recursive,
                                                groupPairs: groupPairs, ignoreHidden: ignoreHidden,
-                                               cameraFoldersOnly: cameraOnly)
+                                               cameraFoldersOnly: cameraOnly,
+                                               isCancelled: { token.isCancelled })
                 for i in groups.indices {
                     let key = identity.persistKey(directory: groups[i].directory, baseName: groups[i].baseName)
                     groups[i].persistKey = key
@@ -192,7 +208,7 @@ final class AppState: ObservableObject {
                 return groups
             }.value
 
-            if Task.isCancelled { return }
+            if Task.isCancelled || token.isCancelled { self.isScanning = false; return }
             self.groups = found
             self.applySort()
             self.isScanning = false
@@ -319,11 +335,29 @@ final class AppState: ObservableObject {
 
     /// Applies `body` to every selected photo, persists, and keeps culling flowing
     /// by advancing to a neighbour if the photos left the current filter.
+    // MARK: Mark undo (⌘Z)
+    private var markUndoStack: [[String: Int]] = []
+
+    private func pushUndo(_ ids: Set<String>) {
+        let snap = Dictionary(uniqueKeysWithValues: groups.filter { ids.contains($0.id) }.map { ($0.id, $0.mark) })
+        markUndoStack.append(snap)
+        if markUndoStack.count > 50 { markUndoStack.removeFirst() }
+    }
+
+    func undoMark() {
+        guard let snap = markUndoStack.popLast() else { return }
+        for i in groups.indices { if let m = snap[groups[i].id] { groups[i].mark = m } }
+        persistState()
+        reconcileSelection()
+        statusMessage = "Markierung rückgängig gemacht."
+    }
+
     private func mutateSelection(_ body: (inout PhotoGroup) -> Void, status: (Int) -> String) {
         let targets = selectedIDs.isEmpty ? Set([currentID].compactMap { $0 }) : selectedIDs
         guard !targets.isEmpty else { return }
 
         let anchorPos = filteredGroups.firstIndex { $0.id == currentID }
+        pushUndo(targets)
         for i in groups.indices where targets.contains(groups[i].id) { body(&groups[i]) }
         persistState()
         statusMessage = status(targets.count)
@@ -509,6 +543,13 @@ final class AppState: ObservableObject {
     }
 
     private func handle(_ event: NSEvent) -> Bool {
+        // ⌘Z undoes the last marking — only in the browser (not Settings/sheets/text fields).
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           event.charactersIgnoringModifiers == "z",
+           !showExportWizard, NSApp.keyWindow === NSApp.mainWindow,
+           !(NSApp.keyWindow?.firstResponder is NSText) {
+            undoMark(); return true
+        }
         if event.modifierFlags.contains(.command) { return false }   // leave ⌘-shortcuts to menus
         if NSApp.keyWindow?.firstResponder is NSText { return false }
 
