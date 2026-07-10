@@ -112,7 +112,8 @@ struct LightroomExportService {
                 let tempRaw = inDir.appendingPathComponent("\(base0).\(ext)")
                 try fm.copyItem(at: item.rawURL, to: tempRaw)
                 let sidecar = inDir.appendingPathComponent("\(base0).xmp")
-                let xmp = XMPPresetBuilder.sidecarXMP(presetURL: config.presetURL, evDelta: item.evDelta, denoise: config.denoise)
+                let xmp = XMPPresetBuilder.sidecarXMP(presetURL: config.presetURL, evDelta: item.evDelta,
+                                                      edit: item.edit, denoise: config.denoise)
                 try xmp.data(using: .utf8)?.write(to: sidecar)
 
                 let dir = outputDir(for: item.group, config: config, item: item)

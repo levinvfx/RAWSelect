@@ -86,7 +86,32 @@ struct ImageEdit: Equatable {
     /// Manual exposure (EV) chosen in the live preview; used when ExposureMode == .manual.
     var exposure: Double = 0
 
-    var isIdentity: Bool { rotation == 0 && straighten == 0 && crop == nil && exposure == 0 }
+    // MARK: Develop (Camera-Raw "Basic" panel)
+    // All are adjustments around 0 = "no override": only non-zero values are written
+    // to the Camera-Raw sidecar, so an applied preset's look stays intact. The live
+    // preview is a CoreImage approximation; the true render happens in Adobe on export.
+    var contrast: Double = 0     // -100…100 → crs:Contrast2012
+    var highlights: Double = 0   // -100…100 → crs:Highlights2012
+    var shadows: Double = 0      // -100…100 → crs:Shadows2012
+    var whites: Double = 0       // -100…100 → crs:Whites2012
+    var blacks: Double = 0       // -100…100 → crs:Blacks2012
+    var temp: Double = 0         // -100…100 → crs:IncrementalTemperature (relative WB)
+    var tint: Double = 0         // -100…100 → crs:IncrementalTint
+    var vibrance: Double = 0     // -100…100 → crs:Vibrance
+    var saturation: Double = 0   // -100…100 → crs:Saturation
+    var clarity: Double = 0      // -100…100 → crs:Clarity2012
+    var sharpness: Double = 0    //    0…150 → crs:Sharpness (0 = leave preset default)
+
+    /// True when no Basic-panel develop adjustment (besides exposure) is set.
+    var developIsZero: Bool {
+        contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
+            && temp == 0 && tint == 0 && vibrance == 0 && saturation == 0
+            && clarity == 0 && sharpness == 0
+    }
+
+    var isIdentity: Bool {
+        rotation == 0 && straighten == 0 && crop == nil && exposure == 0 && developIsZero
+    }
     var totalAngle: Double { Double(rotation) * 90 + straighten }
     mutating func rotateLeft() { rotation = (rotation + 3) % 4 }
     mutating func rotateRight() { rotation = (rotation + 1) % 4 }

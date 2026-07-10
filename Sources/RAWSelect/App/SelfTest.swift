@@ -147,7 +147,18 @@ enum SelfTest {
             check(out.files == 2 && c.count == 2, "overwrite keeps both same-named batch photos (got \(c.count) files)")
         } catch { check(false, "clash copy threw: \(error.localizedDescription)") }
 
-        // 14) Update version comparison handles multi-digit + differing lengths.
+        // 14) Develop adjustments map to Camera-Raw sidecar attributes (non-zero only).
+        var dev = ImageEdit()
+        dev.contrast = 40; dev.temp = -25; dev.sharpness = 60; dev.highlights = -100
+        let devXMP = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0, edit: dev)
+        check(devXMP.contains("crs:Contrast2012=\"40\""), "Contrast2012 written")
+        check(devXMP.contains("crs:IncrementalTemperature=\"-25\""), "IncrementalTemperature written")
+        check(devXMP.contains("crs:Sharpness=\"60\""), "Sharpness written")
+        check(devXMP.contains("crs:Highlights2012=\"-100\""), "Highlights2012 written")
+        check(!devXMP.contains("crs:Blacks2012"), "zero adjustment (Blacks) NOT written")
+        check(ImageEdit().isIdentity && !dev.isIdentity, "develop breaks isIdentity")
+
+        // 15) Update version comparison handles multi-digit + differing lengths.
         check(UpdateService.isNewer("1.3", than: "1.2"), "1.3 > 1.2")
         check(UpdateService.isNewer("1.10", than: "1.9"), "1.10 > 1.9 (numeric, not lexical)")
         check(UpdateService.isNewer("2", than: "1.9"), "2 > 1.9")

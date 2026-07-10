@@ -9,14 +9,47 @@ enum XMPPresetBuilder {
     /// authoritative — the preset never controls brightness), based on `presetURL`
     /// if provided (otherwise a minimal default-develop sidecar). When
     /// `denoise` > 0, Camera-Raw noise reduction is written on top (0…100).
-    static func sidecarXMP(presetURL: URL?, evDelta exposure: Double, denoise: Double = 0) -> String {
+    static func sidecarXMP(presetURL: URL?, evDelta exposure: Double,
+                           edit: ImageEdit? = nil, denoise: Double = 0) -> String {
         var text: String
         if let presetURL, let preset = try? String(contentsOf: presetURL, encoding: .utf8) {
             text = applyExposure(to: preset, exposure: exposure)
         } else {
             text = minimalSidecar(evDelta: exposure)
         }
+        if let edit { text = applyDevelop(to: text, edit: edit) }
         if denoise > 0 { text = applyDenoise(to: text, amount: denoise) }
+        return text
+    }
+
+    /// Injects the Basic-panel develop adjustments as Camera-Raw attributes, for
+    /// every non-zero value (exposure is handled separately via `evDelta`). Any
+    /// same-named preset attribute is stripped first so the XML stays valid.
+    private static func applyDevelop(to xmp: String, edit: ImageEdit) -> String {
+        var attrs: [(String, Double)] = []
+        func add(_ key: String, _ v: Double) { if v != 0 { attrs.append((key, v)) } }
+        add("Contrast2012", edit.contrast)
+        add("Highlights2012", edit.highlights)
+        add("Shadows2012", edit.shadows)
+        add("Whites2012", edit.whites)
+        add("Blacks2012", edit.blacks)
+        add("IncrementalTemperature", edit.temp)
+        add("IncrementalTint", edit.tint)
+        add("Vibrance", edit.vibrance)
+        add("Saturation", edit.saturation)
+        add("Clarity2012", edit.clarity)
+        add("Sharpness", edit.sharpness)
+        guard !attrs.isEmpty else { return xmp }
+
+        var text = xmp
+        for (k, _) in attrs {
+            text = text.replacingOccurrences(of: "\\s*crs:\(k)=\"[^\"]*\"", with: "", options: .regularExpression)
+            text = text.replacingOccurrences(of: "\\s*<crs:\(k)>[^<]*</crs:\(k)>", with: "", options: .regularExpression)
+        }
+        let ins = attrs.map { " crs:\($0.0)=\"\(Int($0.1.rounded()))\"" }.joined()
+        if let r = text.range(of: "<rdf:Description") {
+            text.insert(contentsOf: ins, at: r.upperBound)
+        }
         return text
     }
 

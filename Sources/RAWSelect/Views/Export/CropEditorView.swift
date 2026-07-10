@@ -18,6 +18,8 @@ enum AspectPreset: String, CaseIterable, Identifiable {
 /// Which part of the crop a drag/hover targets.
 fileprivate enum CropZone: Equatable { case tl, tr, bl, br, top, bottom, left, right, move, rotate }
 
+fileprivate enum EditorTab: String, CaseIterable { case crop = "Zuschneiden", develop = "Entwickeln" }
+
 /// Lightroom-style crop: the image stays fixed, the crop **grid** shrinks. Corner
 /// & edge handles resize the grid (anchored on the opposite side), dragging inside
 /// moves the grid, dragging in the **margin outside** rotates the whole image.
@@ -33,6 +35,7 @@ struct CropEditorView: View {
     @State private var portrait = false
     @State private var locked = true                 // default: original aspect
 
+    @State private var editorTab: EditorTab = .crop
     @State private var dragZone: CropZone?
     @State private var startCrop: CGRect?
     @State private var startStraighten: Double = 0
@@ -72,12 +75,17 @@ struct CropEditorView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            topControls
+            Picker("", selection: $editorTab) {
+                ForEach(EditorTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260)
+
+            if editorTab == .crop { topControls }
             GeometryReader { geo in workspace(in: geo.size) }
                 .background(Color(white: 0.11))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1))
-            sliderControls
+            if editorTab == .crop { sliderControls } else { developControls }
         }
         .task(id: previewURL) { await loadImage() }
         .onChange(of: cropNorm) { _, v in edit.crop = (v == full) ? nil : v }
@@ -88,26 +96,29 @@ struct CropEditorView: View {
         if let img = displayImage {
             let frame = fittedRect(imageSize: img.size, in: c)
             let showRotate = hoveredZone == .rotate || dragZone == .rotate
+            let cropping = editorTab == .crop
             ZStack {
                 Image(nsImage: img).resizable()
                     .frame(width: frame.width, height: frame.height)
                     .position(x: frame.midX, y: frame.midY)
 
-                CropVisual(cropNorm: cropNorm, imageFrame: frame, hovered: hoveredZone)
-                    .allowsHitTesting(false)
+                if cropping {
+                    CropVisual(cropNorm: cropNorm, imageFrame: frame, hovered: hoveredZone)
+                        .allowsHitTesting(false)
 
-                if showRotate {
-                    rotateHint.position(x: frame.midX, y: frame.maxY - 24).allowsHitTesting(false)
+                    if showRotate {
+                        rotateHint.position(x: frame.midX, y: frame.maxY - 24).allowsHitTesting(false)
+                    }
                 }
             }
             .frame(width: c.width, height: c.height)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { dragChanged($0, frame: frame) }
+                    .onChanged { if cropping { dragChanged($0, frame: frame) } }
                     .onEnded { _ in dragZone = nil; startCrop = nil }
             )
-            .onContinuousHover { hover($0, frame: frame) }
+            .onContinuousHover { if cropping { hover($0, frame: frame) } }
             .animation(.easeOut(duration: 0.15), value: showRotate)
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -317,6 +328,74 @@ struct CropEditorView: View {
         }
     }
 
+    // MARK: Develop panel
+
+    private var developControls: some View {
+        VStack(spacing: 6) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 7) {
+                    devHeader("Weissabgleich")
+                    devSlider("Temperatur", $edit.temp, -100...100)
+                    devSlider("Tönung", $edit.tint, -100...100)
+                    devHeader("Ton")
+                    devSlider("Belichtung", $edit.exposure, -5...5, format: "%+.2f")
+                    devSlider("Kontrast", $edit.contrast, -100...100)
+                    devSlider("Lichter", $edit.highlights, -100...100)
+                    devSlider("Tiefen", $edit.shadows, -100...100)
+                    devSlider("Weiss", $edit.whites, -100...100)
+                    devSlider("Schwarz", $edit.blacks, -100...100)
+                    devHeader("Präsenz")
+                    devSlider("Klarheit", $edit.clarity, -100...100)
+                    devSlider("Dynamik", $edit.vibrance, -100...100)
+                    devSlider("Sättigung", $edit.saturation, -100...100)
+                    devHeader("Schärfe")
+                    devSlider("Schärfe", $edit.sharpness, 0...150, format: "%.0f")
+                }
+                .padding(.trailing, 6)
+            }
+            .frame(maxHeight: 230)
+
+            HStack {
+                Text("Live-Vorschau ist eine Annäherung – finale Entwicklung durch Adobe beim Export.")
+                    .font(.caption2).foregroundStyle(.tertiary)
+                Spacer()
+                Button("Entwicklung zurücksetzen") { resetDevelop() }
+                    .buttonStyle(.borderless).controlSize(.small)
+                    .disabled(edit.developIsZero && edit.exposure == 0)
+            }
+        }
+    }
+
+    private func devHeader(_ t: String) -> some View {
+        Text(t.uppercased())
+            .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+            .padding(.top, 2)
+    }
+
+    private func devSlider(_ label: String, _ value: Binding<Double>,
+                           _ range: ClosedRange<Double>, format: String = "%+.0f") -> some View {
+        let neutral: Double = range.lowerBound < 0 ? 0 : range.lowerBound
+        return HStack(spacing: 10) {
+            Text(label).font(.callout).frame(width: 92, alignment: .leading)
+            Slider(value: Binding(get: { value.wrappedValue },
+                                  set: { value.wrappedValue = $0; updateDisplay() }), in: range)
+            Text(String(format: format, value.wrappedValue))
+                .font(.callout.monospacedDigit()).frame(width: 46, alignment: .trailing)
+            Button { value.wrappedValue = neutral; updateDisplay() } label: {
+                Image(systemName: "arrow.uturn.backward")
+            }
+            .buttonStyle(.borderless).controlSize(.small)
+            .disabled(value.wrappedValue == neutral)
+        }
+    }
+
+    private func resetDevelop() {
+        edit.exposure = 0; edit.contrast = 0; edit.highlights = 0; edit.shadows = 0
+        edit.whites = 0; edit.blacks = 0; edit.temp = 0; edit.tint = 0
+        edit.vibrance = 0; edit.saturation = 0; edit.clarity = 0; edit.sharpness = 0
+        updateDisplay()
+    }
+
     // MARK: Actions & pipeline
 
     private func rotate90(_ dir: Int) {
@@ -354,13 +433,7 @@ struct CropEditorView: View {
 
     private func updateDisplay() {
         guard let base = baseCI else { return }
-        var ci = base
-        if edit.exposure != 0 {
-            let f = CIFilter(name: "CIExposureAdjust")
-            f?.setValue(ci, forKey: kCIInputImageKey)
-            f?.setValue(edit.exposure, forKey: kCIInputEVKey)
-            ci = f?.outputImage ?? ci
-        }
+        let ci = DevelopEngine.apply(edit, to: base)
         guard let cg = ciContext.createCGImage(ci, from: ci.extent) else { return }
         let ns = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
         displayImage = ns.rotatedClockwise(byDegrees: edit.totalAngle)
