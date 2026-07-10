@@ -172,7 +172,8 @@ struct CropEditorView: View {
         case .move:
             r.origin.x = min(max(0, s.minX + dx), 1 - s.width)
             r.origin.y = min(max(0, s.minY + dy), 1 - s.height)
-            cropNorm = r; return
+            if cropInsideContent(r) { cropNorm = r }
+            return
         case .tl:
             let nx = min(max(0, s.minX + dx), s.maxX - minSize)
             var ny = min(max(0, s.minY + dy), s.maxY - minSize)
@@ -215,8 +216,44 @@ struct CropEditorView: View {
             else { r = CGRect(x: s.minX, y: s.minY, width: s.width, height: h) }
         case .rotate: return
         }
-        if r.minX >= 0, r.minY >= 0, r.maxX <= 1, r.maxY <= 1, r.width >= minSize, r.height >= minSize {
+        if r.minX >= 0, r.minY >= 0, r.maxX <= 1, r.maxY <= 1, r.width >= minSize, r.height >= minSize,
+           cropInsideContent(r) {
             cropNorm = r
+        }
+    }
+
+    /// True if `crop` (normalised on the rotated display bounding box) stays inside
+    /// the real image content — i.e. never touches the transparent corners that a
+    /// straighten angle creates. Always true when there is no straighten.
+    private func cropInsideContent(_ crop: CGRect) -> Bool {
+        guard let img = displayImage, let base = baseCI else { return true }
+        let phi = edit.straighten * .pi / 180
+        if abs(phi) < 0.0002 { return true }
+        let bb = img.size
+        let odd = edit.rotation % 2 != 0
+        let w1 = odd ? base.extent.height : base.extent.width      // content size after 90° steps
+        let h1 = odd ? base.extent.width  : base.extent.height
+        let c = cos(phi), s = sin(phi)
+        for (nx, ny) in [(crop.minX, crop.minY), (crop.maxX, crop.minY),
+                         (crop.minX, crop.maxY), (crop.maxX, crop.maxY)] {
+            let px = (nx - 0.5) * bb.width, py = (ny - 0.5) * bb.height
+            let qx = px * c + py * s, qy = -px * s + py * c        // un-rotate into content frame
+            if abs(qx) > w1 / 2 + 0.5 || abs(qy) > h1 / 2 + 0.5 { return false }
+        }
+        return true
+    }
+
+    /// After a straighten change, shrink the crop around its centre until it fits
+    /// inside the rotated content (so the export never bakes transparent wedges).
+    private func constrainCropToContent() {
+        guard !cropInsideContent(cropNorm) else { return }
+        let cx = cropNorm.midX, cy = cropNorm.midY
+        var scale: CGFloat = 1
+        while scale > 0.2 {
+            scale -= 0.02
+            let w = cropNorm.width * scale, h = cropNorm.height * scale
+            let r = CGRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
+            if cropInsideContent(r) { cropNorm = r; return }
         }
     }
 
@@ -322,6 +359,7 @@ struct CropEditorView: View {
         guard let cg = ciContext.createCGImage(ci, from: ci.extent) else { return }
         let ns = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
         displayImage = ns.rotatedClockwise(byDegrees: edit.totalAngle)
+        constrainCropToContent()   // keep the crop off the transparent corners
     }
 }
 
