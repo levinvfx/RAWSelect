@@ -39,6 +39,7 @@ struct ExportWizard: View {
     @State private var successCount = 0
     @State private var attempted = 0
     @State private var failures: [ExportFailure] = []
+    @State private var lastItems: [ExportItem] = []   // for "retry failed"
     @State private var tempWarning: String?
     @State private var errorMessage: String?
     @State private var confirmOverwrite = false
@@ -312,6 +313,9 @@ struct ExportWizard: View {
             Spacer()
             HStack {
                 if let t = targetURL { Button("Im Finder anzeigen") { app.revealFolder(t) } }
+                if !failures.isEmpty {
+                    Button("Fehlgeschlagene erneut (\(failures.count))") { retryFailed() }
+                }
                 Spacer()
                 Button("Fertig") { dismiss() }.buttonStyle(.borderedProminent)
             }
@@ -384,18 +388,32 @@ struct ExportWizard: View {
         if let p = presetURL { settings.rememberRecentPreset(p.path) }
 
         let groups = groupsToExport
-
         let items: [ExportItem] = groups.map { g in
             let raw = useJpgInstead ? (g.files.first { ["jpg","jpeg"].contains($0.pathExtension.lowercased()) } ?? app.rawURL(for: g)) : app.rawURL(for: g)
             let edit = edits[g.id] ?? ImageEdit()
             // Manual, per-image exposure set in the crop step (written 1:1 as Exposure2012).
             return ExportItem(group: g, rawURL: raw, evDelta: edit.exposure, edit: edit)
         }
+        lastItems = items
+        performExport(items)
+    }
 
+    /// Retry only the items that failed in the last run.
+    private func retryFailed() {
+        let failedNames = Set(failures.map { $0.fileName })
+        let retry = lastItems.filter { failedNames.contains($0.rawURL.lastPathComponent) }
+        guard !retry.isEmpty else { return }
+        performExport(retry)
+    }
+
+    private func performExport(_ items: [ExportItem]) {
+        guard let target = targetURL, !items.isEmpty else { return }
         let longEdge = exportSize.longEdge(custom: Int(customEdge)) ?? 0
 
+        cancelToken.reset()
         phase = .running
         total = items.count; done = 0; attempted = items.count; stage = .preparing
+        failures = []; tempWarning = nil
 
         let progressCB: (Int, Int, String, ExportStage) -> Void = { d, t, name, st in
             Task { @MainActor in done = max(0, d - 1); total = t; currentName = name; stage = st }

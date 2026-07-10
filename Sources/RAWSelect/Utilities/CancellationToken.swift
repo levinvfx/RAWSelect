@@ -14,4 +14,8 @@ final class CancellationToken: @unchecked Sendable {
     func cancel() {
         lock.lock(); _cancelled = true; lock.unlock()
     }
+
+    func reset() {
+        lock.lock(); _cancelled = false; lock.unlock()
+    }
 }
