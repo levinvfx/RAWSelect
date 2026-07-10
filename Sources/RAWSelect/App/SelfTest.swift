@@ -147,6 +147,13 @@ enum SelfTest {
             check(out.files == 2 && c.count == 2, "overwrite keeps both same-named batch photos (got \(c.count) files)")
         } catch { check(false, "clash copy threw: \(error.localizedDescription)") }
 
+        // 14) Update version comparison handles multi-digit + differing lengths.
+        check(UpdateService.isNewer("1.3", than: "1.2"), "1.3 > 1.2")
+        check(UpdateService.isNewer("1.10", than: "1.9"), "1.10 > 1.9 (numeric, not lexical)")
+        check(UpdateService.isNewer("2", than: "1.9"), "2 > 1.9")
+        check(!UpdateService.isNewer("1.2", than: "1.2"), "1.2 == 1.2 → not newer")
+        check(!UpdateService.isNewer("1.1", than: "1.2"), "1.1 < 1.2 → not newer")
+
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")
         if failures > 0 { exit(1) }

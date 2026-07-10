@@ -12,6 +12,11 @@ enum AppInfo {
     static let instagramURL = URL(string: "https://instagram.com/levin.vfx")!
     static let email = "levin@annelers.ch"
     static var emailURL: URL { URL(string: "mailto:\(email)")! }
+
+    /// GitHub repository (owner/name) the auto-updater queries for new releases.
+    /// ⚠️ HIER dein echtes ÖFFENTLICHES Repo eintragen, sobald es existiert –
+    /// solange das nicht stimmt, findet die App nur „keine Updates“ (404, still).
+    static let githubRepo = "levinanneler/rawselect"
 }
 
 /// Loads the bundled brand logo (black on light, white on dark). Both variants

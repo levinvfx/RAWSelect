@@ -18,16 +18,25 @@ struct RAWSelectApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var app = AppState()
     @StateObject private var settings = AppSettings.shared
+    @StateObject private var updater = UpdateController()
 
     var body: some Scene {
         WindowGroup(AppInfo.name) {
             ContentView()
                 .environmentObject(app)
                 .environmentObject(settings)
+                .environmentObject(updater)
                 .frame(minWidth: 1040, minHeight: 660)
+                .sheet(isPresented: $updater.showSheet) {
+                    UpdateSheet().environmentObject(updater)
+                }
+                .task { updater.checkOnLaunch() }
         }
         .windowToolbarStyle(.unified)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Nach Updates suchen…") { updater.checkManually() }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Ordner öffnen…") { app.openFolderDialog() }
                     .keyboardShortcut("o", modifiers: .command)
