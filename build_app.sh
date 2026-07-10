@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="RAW Select"
 BUNDLE_ID="ch.anneler.rawselect"
-VERSION="1.2"
+VERSION="1.3"
 EXECUTABLE="RAWSelect"
 
 echo "▶︎ Building (release)…"
