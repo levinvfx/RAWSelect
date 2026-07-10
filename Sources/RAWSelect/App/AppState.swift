@@ -511,6 +511,11 @@ final class AppState: ObservableObject {
             return false
         }
 
+        // CRITICAL: only the browser window (no export sheet / Settings window
+        // open) may react to ANY culling/navigation key. Otherwise digit keys
+        // would silently re-mark the background selection while a modal is up.
+        guard !showExportWizard, NSApp.keyWindow === NSApp.mainWindow else { return false }
+
         let extend = event.modifierFlags.contains(.shift)
 
         switch event.keyCode {
@@ -520,24 +525,19 @@ final class AppState: ObservableObject {
         default: break
         }
 
-        // Space/Return/Escape only steer the browser window – never while the
-        // export wizard or the Settings window is up (would swallow their keys).
-        let browserIsKey = !showExportWizard && NSApp.keyWindow === NSApp.mainWindow
-        if browserIsKey, event.characters == "?" { showShortcuts = true; return true }
-        if browserIsKey {
-            switch event.keyCode {
-            case 49:                                          // Space → toggle zoom mode (loupe only)
-                if viewMode == .loupe { zoom.setZoomMode(!zoom.sliderActive); return true }
-            case 36:                                          // Return → focused viewing
-                if viewMode == .loupe { focusMode.toggle(); return true }
-                if currentID != nil { viewMode = .loupe; return true }
-            case 53:                                          // Escape → leave zoom mode / reset zoom / leave loupe
-                if viewMode == .loupe && zoom.sliderActive { zoom.setZoomMode(false); return true }
-                if viewMode == .loupe && zoom.zoomed { zoom.fit(); return true }
-                if focusMode { focusMode = false; return true }
-                if viewMode == .loupe { viewMode = .grid; return true }
-            default: break
-            }
+        if event.characters == "?" { showShortcuts = true; return true }
+        switch event.keyCode {
+        case 49:                                          // Space → toggle zoom mode (loupe only)
+            if viewMode == .loupe { zoom.setZoomMode(!zoom.sliderActive); return true }
+        case 36:                                          // Return → focused viewing
+            if viewMode == .loupe { focusMode.toggle(); return true }
+            if currentID != nil { viewMode = .loupe; return true }
+        case 53:                                          // Escape → leave zoom mode / reset zoom / leave loupe
+            if viewMode == .loupe && zoom.sliderActive { zoom.setZoomMode(false); return true }
+            if viewMode == .loupe && zoom.zoomed { zoom.fit(); return true }
+            if focusMode { focusMode = false; return true }
+            if viewMode == .loupe { viewMode = .grid; return true }
+        default: break
         }
 
         if let chars = event.charactersIgnoringModifiers, chars.count == 1,
