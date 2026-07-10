@@ -333,7 +333,9 @@ struct ExportWizard: View {
         customEdge = settings.customLongEdge
         folderStructure = settings.exportFolderStructure
         conflict = settings.exportConflict
-        if let p = settings.recentPresets.first, FileManager.default.fileExists(atPath: p) { presetURL = URL(fileURLWithPath: p) }
+        // Default preset: the explicit "Standard-Preset" (Einstellungen) wins, else the most recent.
+        let defaultPreset = settings.presetPath.isEmpty ? settings.recentPresets.first : settings.presetPath
+        if let p = defaultPreset, FileManager.default.fileExists(atPath: p) { presetURL = URL(fileURLWithPath: p) }
         if !settings.lastExportTarget.isEmpty {
             let u = URL(fileURLWithPath: settings.lastExportTarget)
             if FileManager.default.fileExists(atPath: u.path) { targetURL = u }

@@ -91,9 +91,6 @@ final class AppSettings: ObservableObject {
     // ───────── User-facing settings ─────────
 
     // Allgemein
-    var restoreSession: Bool { get { b("rs.restoreSession", true) } set { set("rs.restoreSession", newValue) } }
-    var warnOnQuitDuringOp: Bool { get { b("rs.warnOnQuitDuringOp", true) } set { set("rs.warnOnQuitDuringOp", newValue) } }
-    var completionNotification: Bool { get { b("rs.completionNotification", true) } set { set("rs.completionNotification", newValue) } }
     /// Light/Dark/System appearance of the app itself.
     var appearance: AppAppearance { get { en("rs.appearance", .system) } set { setEnum("rs.appearance", newValue) } }
 
@@ -121,10 +118,6 @@ final class AppSettings: ObservableObject {
     var revealAfterExport: Bool { get { b("rs.revealAfterExport", true) } set { set("rs.revealAfterExport", newValue) } }
     var rawJpgExport: RawJpgExport { get { en("rs.rawJpgExport", .both) } set { setEnum("rs.rawJpgExport", newValue) } }
     var jpegQualityPercent: Double { get { dbl("rs.jpegQualityPercent", 100) } set { set("rs.jpegQualityPercent", newValue) } }
-    /// Noise reduction applied on export (off / Camera-Raw NR / Adobe AI Enhance).
-    var denoiseMode: DenoiseMode { get { en("rs.denoiseMode", .off) } set { setEnum("rs.denoiseMode", newValue) } }
-    /// Denoise strength 0…100 (default 50).
-    var aiDenoiseAmount: Double { get { dbl("rs.aiDenoiseAmount", 50) } set { set("rs.aiDenoiseAmount", newValue) } }
 
     // Erweitert
     var lightroomPath: String { get { str("rs.lightroomPath", "") } set { set("rs.lightroomPath", newValue) } }
@@ -183,7 +176,6 @@ final class AppSettings: ObservableObject {
 
     // Export
     var exportSubfolders: Bool { true }
-    var useMarkFolderNames: Bool { true }
     var ignoreUnmarked: Bool { true }
     var conflictMode: ConflictMode { .rename }
 

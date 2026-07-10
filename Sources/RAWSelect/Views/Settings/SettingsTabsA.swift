@@ -13,16 +13,6 @@ struct GeneralSettingsTab: View {
                     ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
                 }
             }
-            Section {
-                SettingToggle(title: "Letzte Session wiederherstellen",
-                              help: "Öffnet den zuletzt verwendeten Ordner samt Markierungen wieder.",
-                              isOn: $settings.restoreSession)
-                SettingToggle(title: "Warnen, wenn beim Beenden ein Vorgang läuft",
-                              isOn: $settings.warnOnQuitDuringOp)
-                SettingToggle(title: "Abschluss-Benachrichtigung anzeigen",
-                              help: "Kurze Meldung, wenn Kopieren oder Verschieben fertig ist.",
-                              isOn: $settings.completionNotification)
-            }
         }
         .formStyle(.grouped)
     }

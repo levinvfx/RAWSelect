@@ -64,17 +64,6 @@ struct ExportSettingsTab: View {
                 SettingPicker(title: "Farbraum", selection: $settings.colorSpace) {
                     ForEach(ColorSpaceChoice.allCases) { Text($0.label).tag($0) }
                 }
-                SettingPicker(title: "Entrauschen (Standard)",
-                              help: "Vorgabe für neue Exporte. „Adobe KI-Denoise“ nutzt Lightrooms echtes Enhance (langsamer); „Rauschreduzierung“ wirkt sofort.",
-                              selection: $settings.denoiseMode) {
-                    ForEach(DenoiseMode.allCases) { Text($0.label).tag($0) }
-                }
-                if settings.denoiseMode.isOn {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack { Text("Entrausch-Stärke"); Spacer(); Text("\(Int(settings.aiDenoiseAmount))").foregroundStyle(.secondary).monospacedDigit() }
-                        Slider(value: $settings.aiDenoiseAmount, in: 0...100, step: 5)
-                    }
-                }
                 Text("Die Helligkeit stellst du beim Export pro Bild manuell im „Zuschneiden & Belichten“-Schritt ein (wie in Lightroom, −5…+5).")
                     .font(.caption).foregroundStyle(.secondary)
             }
