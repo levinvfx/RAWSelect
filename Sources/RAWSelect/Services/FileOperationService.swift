@@ -11,6 +11,8 @@ struct FileOperationService {
     struct Outcome {
         var photos: Int   // number of photo groups processed
         var files: Int    // number of individual files copied/moved (incl. XMP)
+        var failures: [String] = []          // "filename: reason" for files that failed
+        var movedGroupIDs: Set<String> = []  // groups whose files ALL moved (move only)
     }
 
     /// - Parameters:
@@ -49,51 +51,72 @@ struct FileOperationService {
         var completed = 0
         var photoCount = 0
         var fileCount = 0
+        var failures: [String] = []
+        var movedGroupIDs = Set<String>()
+        var used = Set<String>()            // destinations already written in THIS run
         progress(0, totalFiles)
 
         for group in groups {
             if isCancelled() { break }
             var didProcessAny = false
+            var completedWholeGroup = true   // false if any file skipped/failed/cancelled
 
             let dir: URL
             if let sub = subfolder(group), !sub.isEmpty {
                 dir = targetRoot.appendingPathComponent(sub, isDirectory: true)
-                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                do { try fm.createDirectory(at: dir, withIntermediateDirectories: true) }
+                catch { failures.append("\(sub): \(error.localizedDescription)"); continue }
             } else {
                 dir = targetRoot
             }
 
             for file in filesToProcess(group) {
-                if isCancelled() { break }
-                guard fm.fileExists(atPath: file.path) else { continue }
+                if isCancelled() { completedWholeGroup = false; break }
+                guard fm.fileExists(atPath: file.path) else { completedWholeGroup = false; continue }
 
                 var destination = dir.appendingPathComponent(file.lastPathComponent)
-                if fm.fileExists(atPath: destination.path) {
+                if used.contains(destination.path) {
+                    // In-batch name clash → never clobber our own just-written file.
+                    destination = uniqueDestination(for: file.lastPathComponent, in: dir, avoiding: used)
+                } else if fm.fileExists(atPath: destination.path) {
                     switch conflict {
-                    case .skip: continue
+                    case .skip: completedWholeGroup = false; continue
                     case .overwrite: try? fm.removeItem(at: destination)
-                    case .rename, .ask: destination = uniqueDestination(for: file.lastPathComponent, in: dir)
+                    case .rename, .ask: destination = uniqueDestination(for: file.lastPathComponent, in: dir, avoiding: used)
                     }
                 }
-                switch kind {
-                case .copy: try fm.copyItem(at: file, to: destination)
-                case .move: try fm.moveItem(at: file, to: destination)
+                do {
+                    switch kind {
+                    case .copy: try fm.copyItem(at: file, to: destination)
+                    case .move: try fm.moveItem(at: file, to: destination)
+                    }
+                    used.insert(destination.path)
+                    fileCount += 1
+                    completed += 1
+                    didProcessAny = true
+                    progress(completed, totalFiles)
+                } catch {
+                    // Collect the failure and keep going – never abort the whole batch.
+                    failures.append("\(file.lastPathComponent): \(error.localizedDescription)")
+                    completedWholeGroup = false
                 }
-                fileCount += 1
-                completed += 1
-                didProcessAny = true
-                progress(completed, totalFiles)
             }
             if didProcessAny { photoCount += 1 }
+            // Only groups whose files ALL moved may be removed from the source list.
+            if kind == .move && didProcessAny && completedWholeGroup { movedGroupIDs.insert(group.id) }
         }
 
-        return Outcome(photos: photoCount, files: fileCount)
+        return Outcome(photos: photoCount, files: fileCount, failures: failures, movedGroupIDs: movedGroupIDs)
     }
 
     /// Returns a non-colliding destination URL, appending _1, _2, … if needed.
-    static func uniqueDestination(for filename: String, in directory: URL) -> URL {
+    static func uniqueDestination(for filename: String, in directory: URL,
+                                  avoiding used: Set<String> = []) -> URL {
+        func free(_ url: URL) -> Bool {
+            !FileManager.default.fileExists(atPath: url.path) && !used.contains(url.path)
+        }
         let candidate = directory.appendingPathComponent(filename)
-        guard FileManager.default.fileExists(atPath: candidate.path) else { return candidate }
+        if free(candidate) { return candidate }
 
         let ns = filename as NSString
         let base = ns.deletingPathExtension
@@ -102,7 +125,7 @@ struct FileOperationService {
         while true {
             let newName = ext.isEmpty ? "\(base)_\(index)" : "\(base)_\(index).\(ext)"
             let url = directory.appendingPathComponent(newName)
-            if !FileManager.default.fileExists(atPath: url.path) { return url }
+            if free(url) { return url }
             index += 1
         }
     }

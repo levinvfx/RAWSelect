@@ -474,15 +474,22 @@ final class AppState: ObservableObject {
 
                 self.operation = nil
                 let verb = kind == .copy ? "kopiert" : "verschoben"
-                self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) \(verb)."
-                self.showToast("\(outcome.photos) Bilder \(verb).", kind: .success)
 
                 if kind == .move {
-                    let movedIDs = Set(snapshot.map { $0.id })
-                    self.groups.removeAll { movedIDs.contains($0.id) }
-                    self.selectedIDs.subtract(movedIDs)
+                    // Only remove groups whose files ALL moved (partial moves stay).
+                    let moved = outcome.movedGroupIDs
+                    self.groups.removeAll { moved.contains($0.id) }
+                    self.selectedIDs.subtract(moved)
                     self.persistState()
                     self.reconcileSelection()
+                }
+
+                if outcome.failures.isEmpty {
+                    self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) \(verb)."
+                    self.showToast("\(outcome.photos) Bilder \(verb).", kind: .success)
+                } else {
+                    self.statusMessage = "\(outcome.files) Dateien \(verb) – \(outcome.failures.count) fehlgeschlagen."
+                    self.showToast("\(outcome.failures.count) Datei(en) nicht \(verb) – Rest ok.", kind: .error)
                 }
                 if self.settings.revealAfterExport { FinderService.revealFolder(target) }
             } catch {
