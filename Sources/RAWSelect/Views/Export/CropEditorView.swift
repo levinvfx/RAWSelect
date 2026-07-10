@@ -245,16 +245,21 @@ struct CropEditorView: View {
 
     /// After a straighten change, shrink the crop around its centre until it fits
     /// inside the rotated content (so the export never bakes transparent wedges).
+    /// Binary-searches the *largest* concentric rectangle of the same aspect ratio
+    /// that fits, so it always lands on a fitting crop (never leaves a wedge, even
+    /// for a large, off-centre selection).
     private func constrainCropToContent() {
         guard !cropInsideContent(cropNorm) else { return }
         let cx = cropNorm.midX, cy = cropNorm.midY
-        var scale: CGFloat = 1
-        while scale > 0.2 {
-            scale -= 0.02
-            let w = cropNorm.width * scale, h = cropNorm.height * scale
+        let ar = cropNorm.height > 0 ? cropNorm.width / cropNorm.height : 1
+        var lo: CGFloat = 0, hi = cropNorm.width
+        var best = CGRect.null
+        for _ in 0..<24 {
+            let w = (lo + hi) / 2, h = w / ar
             let r = CGRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
-            if cropInsideContent(r) { cropNorm = r; return }
+            if cropInsideContent(r) { best = r; lo = w } else { hi = w }
         }
+        if !best.isNull, best.width >= minSize, best.height >= minSize { cropNorm = best }
     }
 
     private func hover(_ phase: HoverPhase, frame: CGRect) {
