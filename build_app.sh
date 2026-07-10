@@ -19,6 +19,9 @@ if [[ ! -f "$BIN" ]]; then
     exit 1
 fi
 
+echo "▶︎ Running self-test…"
+"$BIN" --selftest    # aborts the build (set -e) if any logic check fails
+
 APP_DIR="${APP_NAME}.app"
 echo "▶︎ Packaging ${APP_DIR}…"
 rm -rf "$APP_DIR"

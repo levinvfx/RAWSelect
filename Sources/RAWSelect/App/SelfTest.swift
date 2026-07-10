@@ -108,6 +108,45 @@ enum SelfTest {
         // 9. Originals protected
         check(fm.fileExists(atPath: fakeRAW.path), "source RAW untouched after copy")
 
+        // 10. ImageEdit geometry
+        var edit = ImageEdit()
+        edit.rotateRight(); edit.rotateRight()
+        check(edit.rotation == 2, "rotateRight cycles (got \(edit.rotation))")
+        edit.rotateLeft()
+        check(edit.rotation == 1 && abs(edit.totalAngle - 90) < 0.001, "totalAngle = rotation*90 + straighten")
+        check(ImageEdit().isIdentity && !edit.isIdentity, "isIdentity reflects edits")
+
+        // 11. TagFilter solo (⌥-Klick, V1.1)
+        var solo = TagFilter()
+        solo.solo(4)
+        check(solo.isShown(4) && !solo.isShown(1) && !solo.isShown(0), "solo shows only that colour")
+        solo.solo(4)
+        check(solo.allShown, "second solo restores all")
+
+        // 12. Conflict naming avoids disk AND the in-batch used set (Paket-3 fix)
+        let uniqDir = root.appendingPathComponent("uniq"); try? fm.createDirectory(at: uniqDir, withIntermediateDirectories: true)
+        let u0 = FileOperationService.uniqueDestination(for: "A.jpg", in: uniqDir)
+        fm.createFile(atPath: u0.path, contents: Data())
+        let u1 = FileOperationService.uniqueDestination(for: "A.jpg", in: uniqDir)
+        let u2 = FileOperationService.uniqueDestination(for: "A.jpg", in: uniqDir, avoiding: [u1.path])
+        check(u0.lastPathComponent == "A.jpg" && u1.lastPathComponent == "A_1.jpg" && u2.lastPathComponent == "A_2.jpg",
+              "uniqueDestination avoids disk + in-batch collisions")
+
+        // 13. Overwrite must NOT collapse two same-named photos in one batch (Paket-3/4b fix)
+        let sub2 = root.appendingPathComponent("day2"); try? fm.createDirectory(at: sub2, withIntermediateDirectories: true)
+        let clashA = sub.appendingPathComponent("CLASH.JPG"); writePNG(to: clashA, size: 32)
+        let clashB = sub2.appendingPathComponent("CLASH.JPG"); writePNG(to: clashB, size: 32)
+        let gA = PhotoGroup(id: "a", directory: sub, baseName: "CLASH", files: [clashA], previewURL: clashA, displayName: "CLASH")
+        let gB = PhotoGroup(id: "b", directory: sub2, baseName: "CLASH", files: [clashB], previewURL: clashB, displayName: "CLASH")
+        let clashTarget = root.appendingPathComponent("clash")
+        do {
+            let out = try FileOperationService.perform(.copy, groups: [gA, gB], targetRoot: clashTarget,
+                                                       includeSidecars: false, conflict: .overwrite,
+                                                       progress: { _, _ in }, isCancelled: { false })
+            let c = Set((try? fm.contentsOfDirectory(atPath: clashTarget.path)) ?? [])
+            check(out.files == 2 && c.count == 2, "overwrite keeps both same-named batch photos (got \(c.count) files)")
+        } catch { check(false, "clash copy threw: \(error.localizedDescription)") }
+
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")
         if failures > 0 { exit(1) }
