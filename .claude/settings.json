@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(swift build:*)",
+      "Bash(.build/debug/RAWSelect --selftest)",
+      "Bash(.build/release/RAWSelect --selftest)",
+      "Bash(./build_app.sh)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ]
+  }
+}
