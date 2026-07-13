@@ -14,7 +14,7 @@ final class AppState: ObservableObject {
     @Published var rootURL: URL?
     @Published var browseRoot: URL?      // root of the sidebar folder navigator
     @Published var groups: [PhotoGroup] = []
-    @Published var tagFilter = TagFilter() { didSet { reconcileSelection() } }
+    @Published var tagFilter = TagFilter() { didSet { refreshDerived(); reconcileSelection() } }
 
     /// All selected photos (multi-select). `currentID` is the "active" one shown
     /// in the loupe and used as the anchor for keyboard navigation.
@@ -41,6 +41,13 @@ final class AppState: ObservableObject {
     @Published var operation: OperationState?
     @Published var pendingMoveTarget: URL?
     @Published var showExportWizard = false
+
+    /// Non-destructive per-photo edits (crop/rotate/develop), keyed by group id.
+    /// Made in the standalone editor or the export crop step, persisted per source,
+    /// and applied on export. Only non-identity edits are kept.
+    @Published var edits: [String: ImageEdit] = [:]
+    /// Presents the standalone image editor for `currentGroup`.
+    @Published var showEditor = false
 
     /// Transient confirmation/error banner shown at the bottom of the window.
     @Published var toast: Toast?
@@ -83,12 +90,27 @@ final class AppState: ObservableObject {
     private var keyMonitor: Any?
     private var identity: FolderIdentity?
 
-    // MARK: Derived
-    var filteredGroups: [PhotoGroup] { groups.filter { tagFilter.matches($0) } }
+    // MARK: Derived (cached — rebuilt only when groups/filter/marks change, so the
+    // navigation hot path stays O(1) even with thousands of photos).
+    @Published private(set) var filteredGroups: [PhotoGroup] = []
+    private var filteredIndexByID: [String: Int] = [:]
+    private var groupByID: [String: PhotoGroup] = [:]
+
+    /// Rebuilds the cached filtered list and lookup maps. This is the single choke
+    /// point that keeps the derived state honest — call it after ANY change to
+    /// `groups`, `tagFilter`, or marks. Avoids the O(n) `filter`/`firstIndex` that
+    /// previously ran several times per keystroke.
+    private func refreshDerived() {
+        filteredGroups = groups.filter { tagFilter.matches($0) }
+        filteredIndexByID.removeAll(keepingCapacity: true)
+        for (i, g) in filteredGroups.enumerated() { filteredIndexByID[g.id] = i }
+        groupByID.removeAll(keepingCapacity: true)
+        for g in groups { groupByID[g.id] = g }
+    }
 
     var currentGroup: PhotoGroup? {
         guard let id = currentID else { return nil }
-        return groups.first { $0.id == id }
+        return groupByID[id]
     }
 
     var selectedGroups: [PhotoGroup] { groups.filter { selectedIDs.contains($0.id) } }
@@ -139,6 +161,7 @@ final class AppState: ObservableObject {
         browseRoot = url
         rootURL = nil
         groups = []
+        refreshDerived()
         selectedIDs = []
         currentID = nil
         isScanning = false
@@ -173,6 +196,7 @@ final class AppState: ObservableObject {
             }
         }
         groups = []
+        refreshDerived()
         selectedIDs = []
         currentID = nil
         anchorID = nil
@@ -210,11 +234,19 @@ final class AppState: ObservableObject {
 
             if Task.isCancelled || token.isCancelled { self.isScanning = false; return }
             self.groups = found
+            // Re-attach saved non-destructive edits to their photos.
+            var loadedEdits: [String: ImageEdit] = [:]
+            for g in found {
+                if let e = savedMarks[g.persistKey]?.edit, !e.isIdentity { loadedEdits[g.id] = e }
+            }
+            self.edits = loadedEdits
             self.applySort()
             self.isScanning = false
-            // Warm the tiny-thumbnail cache for every photo so the grid always has
-            // at least a low-res image to show while scrolling (never a spinner).
-            ThumbnailLoader.shared.warmTiny(found.map { $0.previewURL }, maxPixel: PreviewConfig.tinyMaxPixel)
+            // Warm only the first screenful of tiny thumbnails so the initial grid
+            // is instant; the rest load lazily on appearance and via the sliding
+            // prefetch window around the current photo (no queue flood at open).
+            let initialWarm = self.filteredGroups.prefix(PreviewConfig.initialWarmCount).map { $0.previewURL }
+            ThumbnailLoader.shared.warmTiny(initialWarm, maxPixel: PreviewConfig.tinyMaxPixel)
             if let first = self.filteredGroups.first { self.selectSingle(first.id) }
             let markedNote = self.markedCount > 0 ? " (\(self.markedCount) bereits markiert)" : ""
             self.statusMessage = found.isEmpty
@@ -262,7 +294,7 @@ final class AppState: ObservableObject {
     private func step(by delta: Int, extend: Bool) {
         let list = filteredGroups
         guard !list.isEmpty else { return }
-        let current = list.firstIndex { $0.id == currentID } ?? (delta > 0 ? -1 : 0)
+        let current = currentID.flatMap { filteredIndexByID[$0] } ?? (delta > 0 ? -1 : 0)
         var next = current + delta
         if settings.wrapNavigation && !extend {
             next = (next % list.count + list.count) % list.count   // wrap around
@@ -282,7 +314,7 @@ final class AppState: ObservableObject {
         guard viewMode == .loupe, settings.preloadPerfect, let id = currentID else { return }
         let list = filteredGroups
         let count = list.count
-        guard let idx = list.firstIndex(where: { $0.id == id }), count > 1 else { return }
+        guard let idx = filteredIndexByID[id], count > 1 else { return }
         let loader = ThumbnailLoader.shared
         let target = settings.perfectPixels
         let instantPixel = settings.instantPixels
@@ -300,6 +332,9 @@ final class AppState: ObservableObject {
                 let softLimit = dir > 0 ? softFwd : softBack
                 guard d <= softLimit else { continue }
                 let url = list[i].previewURL
+                // Tiny first (cheapest) so even a fast scrub always finds a frame,
+                // then the soft instant tier.
+                loader.prefetch(for: url, maxPixel: PreviewConfig.tinyMaxPixel, fullQuality: false)
                 loader.prefetch(for: url, maxPixel: instantPixel, fullQuality: false)
                 let sharpLimit = dir > 0 ? sharpFwd : sharpBack
                 if d <= sharpLimit {
@@ -347,6 +382,7 @@ final class AppState: ObservableObject {
     func undoMark() {
         guard let snap = markUndoStack.popLast() else { return }
         for i in groups.indices { if let m = snap[groups[i].id] { groups[i].mark = m } }
+        refreshDerived()
         persistState()
         reconcileSelection()
         statusMessage = "Markierung rückgängig gemacht."
@@ -359,6 +395,7 @@ final class AppState: ObservableObject {
         let anchorPos = filteredGroups.firstIndex { $0.id == currentID }
         pushUndo(targets)
         for i in groups.indices where targets.contains(groups[i].id) { body(&groups[i]) }
+        refreshDerived()
         persistState()
         statusMessage = status(targets.count)
 
@@ -376,8 +413,11 @@ final class AppState: ObservableObject {
     private func persistState() {
         guard let identity else { return }
         var states: [String: SessionStore.PhotoState] = [:]
-        for g in groups where g.hasState {
-            states[g.persistKey] = SessionStore.PhotoState(mark: g.mark)
+        for g in groups {
+            let edit = edits[g.id]
+            let hasEdit = !(edit?.isIdentity ?? true)
+            guard g.mark != 0 || hasEdit else { continue }
+            states[g.persistKey] = SessionStore.PhotoState(mark: g.mark, edit: hasEdit ? edit : nil)
         }
         SessionStore.save(identityID: identity.id, states: states)
     }
@@ -397,6 +437,7 @@ final class AppState: ObservableObject {
             }
         }
         if settings.sortReversed { groups.reverse() }
+        refreshDerived()
         reconcileSelection()
     }
 
@@ -409,6 +450,28 @@ final class AppState: ObservableObject {
         FinderService.reveal(g.previewURL)
     }
     func revealFolder(_ url: URL) { FinderService.revealFolder(url) }
+
+    // MARK: Image editing
+    /// Current non-destructive edit for a photo (identity when untouched).
+    func edit(for id: String) -> ImageEdit { edits[id] ?? ImageEdit() }
+
+    /// Stores an edit centrally and persists it. Identity edits are dropped so the
+    /// session file stays clean and `hasEdits` stays honest.
+    func commitEdit(_ edit: ImageEdit, for id: String) {
+        if edit.isIdentity { edits[id] = nil } else { edits[id] = edit }
+        persistState()
+    }
+
+    func hasEdit(_ id: String) -> Bool { !(edits[id]?.isIdentity ?? true) }
+
+    /// Flushes the current edits to disk (e.g. when the export wizard closes).
+    func saveEditsNow() { persistState() }
+
+    /// Opens the standalone editor for the active photo (loupe or grid).
+    func openEditor() {
+        guard currentGroup != nil else { statusMessage = "Kein Bild ausgewählt."; return }
+        showEditor = true
+    }
 
     // MARK: Export helpers
     /// Resolves an export image source to the matching photo groups.
@@ -514,6 +577,7 @@ final class AppState: ObservableObject {
                     let moved = outcome.movedGroupIDs
                     self.groups.removeAll { moved.contains($0.id) }
                     self.selectedIDs.subtract(moved)
+                    self.refreshDerived()
                     self.persistState()
                     self.reconcileSelection()
                 }
@@ -546,7 +610,7 @@ final class AppState: ObservableObject {
         // ⌘Z undoes the last marking — only in the browser (not Settings/sheets/text fields).
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
            event.charactersIgnoringModifiers == "z",
-           !showExportWizard, NSApp.keyWindow === NSApp.mainWindow,
+           !showExportWizard, !showEditor, NSApp.keyWindow === NSApp.mainWindow,
            !(NSApp.keyWindow?.firstResponder is NSText) {
             undoMark(); return true
         }
@@ -562,7 +626,7 @@ final class AppState: ObservableObject {
         // CRITICAL: only the browser window (no export sheet / Settings window
         // open) may react to ANY culling/navigation key. Otherwise digit keys
         // would silently re-mark the background selection while a modal is up.
-        guard !showExportWizard, NSApp.keyWindow === NSApp.mainWindow else { return false }
+        guard !showExportWizard, !showEditor, NSApp.keyWindow === NSApp.mainWindow else { return false }
 
         let extend = event.modifierFlags.contains(.shift)
 
@@ -598,6 +662,8 @@ final class AppState: ObservableObject {
                 setMark(0); return true
             case 49...57:                                   // 1–9 → colour mark
                 setMark(Int(scalar.value) - 48); return true
+            case UInt32(UInt8(ascii: "e")), UInt32(UInt8(ascii: "E")):
+                openEditor(); return true
             case UInt32(UInt8(ascii: "i")), UInt32(UInt8(ascii: "I")):
                 toggleInfo(); return true
             case UInt32(UInt8(ascii: "f")), UInt32(UInt8(ascii: "F")):

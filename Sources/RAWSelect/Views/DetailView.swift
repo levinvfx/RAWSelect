@@ -32,6 +32,9 @@ struct DetailView: View {
                 contentBody
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .sheet(isPresented: $app.showEditor) {
+                if let g = app.currentGroup { ImageEditorSheet(group: g) }
+            }
         }
     }
 
@@ -107,6 +110,17 @@ struct DetailView: View {
             .tint(.accentColor)
             .disabled(app.selectionCount == 0)
             .help("Originale kopieren – Art im Menü wählen")
+        }
+
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                app.openEditor()
+            } label: {
+                Label("Bearbeiten", systemImage: "slider.horizontal.below.rectangle")
+                    .symbolVariant(app.currentGroup.map { app.hasEdit($0.id) } == true ? .fill : .none)
+            }
+            .disabled(app.currentGroup == nil)
+            .help("Bild bearbeiten – Zuschneiden & Entwickeln (E)")
         }
 
         ToolbarItem(placement: .primaryAction) {

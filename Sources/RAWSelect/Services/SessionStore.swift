@@ -11,7 +11,10 @@ struct SessionStore {
     /// Per-photo culling state, keyed by persistKey.
     struct PhotoState: Codable {
         var mark: Int = 0
-        var isDefault: Bool { mark == 0 }
+        /// Non-destructive develop/crop edit; nil when the photo is untouched.
+        /// Optional so older session files (mark only) still decode.
+        var edit: ImageEdit? = nil
+        var isDefault: Bool { mark == 0 && (edit?.isIdentity ?? true) }
     }
 
     struct SessionData: Codable {

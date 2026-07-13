@@ -3,7 +3,7 @@ import SwiftUI
 /// Central place for the file types and mark styling used across the app.
 enum AppInfo {
     static let name = "RAW Select"
-    static let version = "1.3"
+    static let version = "1.4"
 
     // Credits / branding
     static let author = "Levin Anneler"
@@ -47,6 +47,10 @@ enum PreviewConfig {
     /// Tiny always-available grid thumbnail (fallback shown instantly while the
     /// sharp version decodes – so scrolling never shows a spinner).
     static let tinyMaxPixel = 160
+    /// How many tiny thumbnails to warm right when a folder opens. Bounded so a
+    /// huge folder (1000s of RAWs) doesn't flood the decode queue at once — the
+    /// rest load lazily on appearance and via the sliding prefetch window.
+    static let initialWarmCount = 120
     /// Sharp grid thumbnail size as a factor of the cell side (kept small = fast).
     static let gridSharpFactor: CGFloat = 1.7
 }

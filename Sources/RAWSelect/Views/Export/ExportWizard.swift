@@ -28,8 +28,8 @@ struct ExportWizard: View {
     @State private var targetURL: URL?
     @State private var folderStructure: ExportFolderStructure = .perMark
     @State private var conflict: ConflictMode = .rename
-    // crop
-    @State private var edits: [String: ImageEdit] = [:]
+    // crop — edits live centrally in AppState so the standalone editor and the
+    // export crop step share one source of truth.
     @State private var cropIndex = 0
     // running / result
     @State private var done = 0
@@ -74,6 +74,7 @@ struct ExportWizard: View {
         }
         .frame(width: 600, height: 680)
         .onAppear(perform: loadDefaults)
+        .onDisappear { app.saveEditsNow() }   // persist any crop-step edits
     }
 
     private var header: some View {
@@ -261,7 +262,8 @@ struct ExportWizard: View {
     }
 
     private func editBinding(for group: PhotoGroup) -> Binding<ImageEdit> {
-        Binding(get: { edits[group.id] ?? ImageEdit() }, set: { edits[group.id] = $0 })
+        Binding(get: { app.edits[group.id] ?? ImageEdit() },
+                set: { app.edits[group.id] = $0.isIdentity ? nil : $0 })
     }
 
     private func advanceCrop(_ count: Int) {
@@ -390,7 +392,7 @@ struct ExportWizard: View {
         let groups = groupsToExport
         let items: [ExportItem] = groups.map { g in
             let raw = useJpgInstead ? (g.files.first { ["jpg","jpeg"].contains($0.pathExtension.lowercased()) } ?? app.rawURL(for: g)) : app.rawURL(for: g)
-            let edit = edits[g.id] ?? ImageEdit()
+            let edit = app.edits[g.id] ?? ImageEdit()
             // Manual, per-image exposure set in the crop step (written 1:1 as Exposure2012).
             return ExportItem(group: g, rawURL: raw, evDelta: edit.exposure, edit: edit)
         }

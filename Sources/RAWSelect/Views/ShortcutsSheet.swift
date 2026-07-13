@@ -16,6 +16,7 @@ struct ShortcutsSheet: View {
         ("Leertaste",  "Zoom-Modus + Slider ein/aus (Loupe)"),
         ("Z",          "100% / Einpassen (in der Loupe)"),
         ("+ / −",      "Rein- / rauszoomen (in der Loupe)"),
+        ("E",          "Bild bearbeiten (Zuschneiden & Entwickeln)"),
         ("I",          "EXIF-Infos ein/aus"),
         ("F",          "Vollbild"),
         ("?",          "Diese Übersicht ein/aus")

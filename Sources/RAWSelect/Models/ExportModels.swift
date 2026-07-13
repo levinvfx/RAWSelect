@@ -75,8 +75,9 @@ enum ExposureMode: String, CaseIterable, Identifiable { case smart, manual
     var label: String { self == .smart ? "Smart Exposure" : "Manuelle Belichtung" }
 }
 
-/// Non-destructive per-image edit applied only for the export.
-struct ImageEdit: Equatable {
+/// Non-destructive per-image edit. Held centrally in `AppState.edits` (keyed by
+/// group id), persisted per source via `SessionStore`, and applied on export.
+struct ImageEdit: Equatable, Codable {
     /// Clockwise 90° steps: 0, 1, 2, 3.
     var rotation: Int = 0
     /// Fine straighten angle in degrees (clockwise), applied on top of `rotation`.

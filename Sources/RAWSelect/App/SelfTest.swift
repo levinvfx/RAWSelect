@@ -165,6 +165,20 @@ enum SelfTest {
         check(!UpdateService.isNewer("1.2", than: "1.2"), "1.2 == 1.2 → not newer")
         check(!UpdateService.isNewer("1.1", than: "1.2"), "1.1 < 1.2 → not newer")
 
+        // 16) Non-destructive edits persist per photo and survive a reload; an
+        //     identity edit counts as "default" so untouched photos aren't stored.
+        var editState = ImageEdit(); editState.contrast = 30; editState.temp = -20
+        check(!SessionStore.PhotoState(mark: 0, edit: editState).isDefault, "edited-but-unmarked photo is not default")
+        check(SessionStore.PhotoState(mark: 0, edit: ImageEdit()).isDefault, "identity edit → default (not stored)")
+        let editKey = "edit-roundtrip"
+        SessionStore.save(identityID: identity.id, states: [
+            key: .init(mark: 3),
+            editKey: .init(mark: 0, edit: editState)
+        ])
+        let reloaded = SessionStore.load(identityID: identity.id)
+        check(reloaded[editKey]?.edit == editState, "ImageEdit round-trips through the session store")
+        check(reloaded[key]?.edit == nil, "mark-only photo reloads without an edit")
+
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")
         if failures > 0 { exit(1) }

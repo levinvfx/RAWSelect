@@ -179,7 +179,9 @@ private struct Filmstrip: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: true) {
-                HStack(spacing: 10) {
+                // Lazy: with thousands of photos only the visible strip cells are
+                // built & decoded, instead of instantiating every cell at once.
+                LazyHStack(spacing: 10) {
                     ForEach(app.filteredGroups) { group in
                         ThumbnailCell(group: group,
                                       isSelected: app.selectedIDs.contains(group.id),

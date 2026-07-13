@@ -42,7 +42,14 @@ struct CropEditorView: View {
     @State private var startAngle: CGFloat = 0
     @State private var hoveredZone: CropZone?
 
-    private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    // Live-preview render pump: only ever one render in flight, and it always
+    // renders the *latest* edit (rapid slider drags coalesce into one job).
+    @State private var isRendering = false
+    @State private var pendingRender = false
+
+    /// One CIContext shared across all editor previews — creating one per view is
+    /// expensive, and CIContext rendering is thread-safe.
+    private static let sharedContext = CIContext(options: [.useSoftwareRenderer: false])
     private let full = CGRect(x: 0, y: 0, width: 1, height: 1)
     private let minSize: CGFloat = 0.06
     private let handleRadius: CGFloat = 28
@@ -431,14 +438,50 @@ struct CropEditorView: View {
         updateDisplay()
     }
 
+    /// Requests a fresh preview. The heavy work (filter chain + rasterise +
+    /// rotate) runs off the main thread; while a render is in flight, further
+    /// changes just flag a re-render so we always end on the latest edit without
+    /// blocking the UI or piling up jobs.
     private func updateDisplay() {
-        guard let base = baseCI else { return }
-        let ci = DevelopEngine.apply(edit, to: base)
-        guard let cg = ciContext.createCGImage(ci, from: ci.extent) else { return }
-        let ns = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-        displayImage = ns.rotatedClockwise(byDegrees: edit.totalAngle)
-        constrainCropToContent()   // keep the crop off the transparent corners
+        guard baseCI != nil else { return }
+        if isRendering { pendingRender = true; return }
+        renderOnce()
     }
+
+    private func renderOnce() {
+        guard let base = baseCI else { return }
+        let snapshot = edit
+        let ctx = Self.sharedContext
+        isRendering = true
+        pendingRender = false
+        Task { @MainActor in
+            let img = await Task.detached(priority: .userInitiated) {
+                RenderedImage(Self.renderPreview(snapshot, base: base, context: ctx))
+            }.value.image
+            if let img { self.displayImage = img }
+            self.constrainCropToContent()   // keep the crop off the transparent corners
+            self.isRendering = false
+            if self.pendingRender { self.renderOnce() }
+        }
+    }
+
+    /// Develops + rotates the preview image. Pure and thread-safe so it can run on
+    /// a background executor.
+    nonisolated private static func renderPreview(_ edit: ImageEdit, base: CIImage,
+                                                  context: CIContext) -> NSImage? {
+        let ci = DevelopEngine.apply(edit, to: base)
+        guard let cg = context.createCGImage(ci, from: ci.extent) else { return nil }
+        let ns = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+        return ns.rotatedClockwise(byDegrees: edit.totalAngle)
+    }
+}
+
+/// Ferries a rendered NSImage across the actor boundary. NSImage isn't `Sendable`,
+/// but the instance we pass is freshly created, immutable and handed off exactly
+/// once — so the unchecked conformance is safe here.
+private struct RenderedImage: @unchecked Sendable {
+    let image: NSImage?
+    init(_ image: NSImage?) { self.image = image }
 }
 
 // MARK: - Visual overlay (no gestures)
