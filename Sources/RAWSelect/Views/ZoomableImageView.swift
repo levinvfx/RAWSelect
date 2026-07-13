@@ -13,7 +13,7 @@ final class ZoomController: ObservableObject {
     /// Slider position, 0 = fit … 1 = maximum magnification.
     @Published var fraction: Double = 0
 
-    enum Command { case zoomIn, zoomOut, toggle100, fit, zoomTo100, setFraction(Double) }
+    enum Command { case zoomIn, zoomOut, toggle100, fit, zoomTo100, spaceToggle, setFraction(Double) }
     var command: ((Command) -> Void)?
 
     func zoomIn()    { command?(.zoomIn) }
@@ -22,7 +22,12 @@ final class ZoomController: ObservableObject {
     func fit()       { command?(.fit) }
     func setFraction(_ f: Double) { fraction = f; command?(.setFraction(f)) }
 
-    /// Space bar: enter zoom mode (jump to 100%, show slider) or leave it (fit).
+    /// Space bar: native ⇄ fit toggle. At native (100%) → fit; from fit OR any other
+    /// magnification (e.g. pinched) → native. The live view decides from the exact
+    /// magnification and updates `sliderActive` accordingly.
+    func spaceToggle() { command?(.spaceToggle) }
+
+    /// Leave zoom mode (used by Escape): hide slider and fit.
     func setZoomMode(_ on: Bool) {
         sliderActive = on
         command?(on ? .zoomTo100 : .fit)
@@ -241,6 +246,19 @@ struct ZoomableImageView: NSViewRepresentable {
                 if abs(scroll.magnification - 1.0) < 0.01 {
                     animateMagnification(to: fitMagnification(), anchorWindowPoint: nil)
                 } else {
+                    animateMagnification(to: 1.0, anchorWindowPoint: currentMouseWindowPoint())
+                }
+            case .spaceToggle:
+                // Only from the fitted (unzoomed) state does space zoom IN to 100%.
+                // From ANY zoomed-in state — manual/trackpad, intermediate, or exactly
+                // 100% — it always zooms OUT to fit. Never zooms further in when already
+                // zoomed. (Same "zoomed" threshold as updatePercent.)
+                let fitM = fitMagnification()
+                if scroll.magnification > fitM + 0.001 {   // already zoomed in → out to fit
+                    controller.sliderActive = false
+                    animateMagnification(to: fitM, anchorWindowPoint: nil)
+                } else {                                    // at fit → in to native 100%
+                    controller.sliderActive = true
                     animateMagnification(to: 1.0, anchorWindowPoint: currentMouseWindowPoint())
                 }
             case .setFraction(let f):

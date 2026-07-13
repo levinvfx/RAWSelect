@@ -121,6 +121,9 @@ final class AppSettings: ObservableObject {
 
     // Erweitert
     var lightroomPath: String { get { str("rs.lightroomPath", "") } set { set("rs.lightroomPath", newValue) } }
+    /// App used by the toolbar "In … öffnen" button (Lightroom / Lightroom Classic /
+    /// any app). Empty = not yet chosen → picked on first use, then editable here.
+    var openWithAppPath: String { get { str("rs.openWithAppPath", "") } set { set("rs.openWithAppPath", newValue) } }
     /// Auto-click Lightroom's "update AI model" / Enhance dialog during export (needs Accessibility permission).
     var autoConfirmLightroomDialogs: Bool { get { b("rs.autoConfirmLightroomDialogs", true) } set { set("rs.autoConfirmLightroomDialogs", newValue) } }
     var presetPath: String { get { str("rs.presetPath", "") } set { set("rs.presetPath", newValue) } }

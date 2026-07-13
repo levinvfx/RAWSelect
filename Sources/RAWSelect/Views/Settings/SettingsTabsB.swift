@@ -91,9 +91,37 @@ struct AdvancedSettingsTab: View {
     private var lightroomLabel: String {
         settings.lightroomPath.isEmpty ? "Automatisch" : (settings.lightroomPath as NSString).lastPathComponent
     }
+    private var openWithLabel: String {
+        settings.openWithAppPath.isEmpty ? "Beim ersten Klick wählen" : OpenWithService.appName(settings.openWithAppPath)
+    }
 
     var body: some View {
         Form {
+            Section("Bilder öffnen mit") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Öffnen-Button (Symbolleiste)")
+                        Text(openWithLabel).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Menu("Ändern…") {
+                        ForEach(OpenWithService.lightroomApps(), id: \.self) { url in
+                            Button(OpenWithService.appName(url.path)) { settings.openWithAppPath = url.path }
+                        }
+                        Divider()
+                        Button("Andere App wählen…") {
+                            if let u = OpenWithService.chooseApp() { settings.openWithAppPath = u.path }
+                        }
+                        if !settings.openWithAppPath.isEmpty {
+                            Divider()
+                            Button("Zurücksetzen") { settings.openWithAppPath = "" }
+                        }
+                    }
+                    .frame(width: 130)
+                }
+                Text("Der Button in der Symbolleiste öffnet die ausgewählten Bilder in dieser App (z. B. Lightroom oder Lightroom Classic).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Lightroom Classic") {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {

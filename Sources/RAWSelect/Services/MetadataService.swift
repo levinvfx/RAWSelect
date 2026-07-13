@@ -74,6 +74,11 @@ enum MetadataService {
         }
         if let w = props[kCGImagePropertyPixelWidth] as? Int, let h = props[kCGImagePropertyPixelHeight] as? Int {
             meta.pixels = "\(w) × \(h)"
+        } else if let w = (exif[kCGImagePropertyExifPixelXDimension] as? NSNumber)?.intValue,
+                  let h = (exif[kCGImagePropertyExifPixelYDimension] as? NSNumber)?.intValue {
+            // RAWs the OS can't read top-level dimensions for (e.g. Sony A7 V) still
+            // carry the sensor size in EXIF.
+            meta.pixels = "\(w) × \(h)"
         }
         return meta
     }

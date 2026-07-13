@@ -473,6 +473,43 @@ final class AppState: ObservableObject {
         showEditor = true
     }
 
+    // MARK: Open in external app (Lightroom etc.)
+    /// Display name of the currently configured "open with" app (default: Lightroom).
+    var openWithAppName: String {
+        let name = OpenWithService.appName(settings.openWithAppPath)
+        return name.isEmpty ? "Lightroom" : name
+    }
+    /// Title for the toolbar button — reflects the chosen app once set.
+    var openWithButtonTitle: String {
+        settings.openWithAppPath.isEmpty ? "Öffnen mit…" : "In \(openWithAppName) öffnen"
+    }
+
+    /// Opens the selected photos' original/RAW files in the chosen external app.
+    /// On first use (no app configured yet) it asks which app to use and remembers
+    /// it; afterwards the choice is fixed but changeable in Settings.
+    func openSelectionInExternalApp() {
+        let sel = selectedGroups
+        guard !sel.isEmpty else {
+            statusMessage = "Keine Bilder ausgewählt."
+            showToast("Keine Bilder ausgewählt.", kind: .error); return
+        }
+        // First use: let the user pick the default app, then store it.
+        if settings.openWithAppPath.isEmpty {
+            guard let chosen = OpenWithService.chooseApp() else { return }   // cancelled
+            settings.openWithAppPath = chosen.path
+        }
+        let files = sel.map { rawURL(for: $0) }               // the RAW/original per photo
+        if OpenWithService.open(files, withAppAt: settings.openWithAppPath) {
+            showToast("\(sel.count == 1 ? "Bild" : "\(sel.count) Bilder") in \(openWithAppName) geöffnet.")
+        } else {
+            // App missing → clear the stale path so the next click asks again.
+            let missing = openWithAppName
+            settings.openWithAppPath = ""
+            statusMessage = "App zum Öffnen nicht gefunden."
+            showToast("„\(missing)“ nicht gefunden – bitte neu wählen.", kind: .error)
+        }
+    }
+
     // MARK: Export helpers
     /// Resolves an export image source to the matching photo groups.
     func groups(for source: ExportImageSource) -> [PhotoGroup] {
@@ -639,8 +676,8 @@ final class AppState: ObservableObject {
 
         if event.characters == "?" { showShortcuts = true; return true }
         switch event.keyCode {
-        case 49:                                          // Space → toggle zoom mode (loupe only)
-            if viewMode == .loupe { zoom.setZoomMode(!zoom.sliderActive); return true }
+        case 49:                                          // Space → native ⇄ fit zoom toggle (loupe only)
+            if viewMode == .loupe { zoom.spaceToggle(); return true }
         case 36:                                          // Return → focused viewing
             if viewMode == .loupe { focusMode.toggle(); return true }
             if currentID != nil { viewMode = .loupe; return true }

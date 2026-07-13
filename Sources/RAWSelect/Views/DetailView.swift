@@ -112,15 +112,30 @@ struct DetailView: View {
             .help("Originale kopieren – Art im Menü wählen")
         }
 
+        // Combined "Öffnen" menu: open the selection in the external app
+        // (Lightroom / chosen app) or reveal it in the Finder. Merges the two former
+        // separate toolbar buttons into one dropdown.
         ToolbarItem(placement: .primaryAction) {
-            Button {
-                app.openEditor()
+            Menu {
+                Button {
+                    app.openSelectionInExternalApp()
+                } label: {
+                    Label(app.openWithButtonTitle, systemImage: "arrow.up.right.square")
+                }
+                .disabled(app.selectionCount == 0)
+
+                Button {
+                    app.revealCurrent()
+                } label: {
+                    Label("Im Finder anzeigen", systemImage: "arrow.up.forward.app")
+                }
+                .disabled(app.currentGroup == nil)
             } label: {
-                Label("Bearbeiten", systemImage: "slider.horizontal.below.rectangle")
-                    .symbolVariant(app.currentGroup.map { app.hasEdit($0.id) } == true ? .fill : .none)
+                Label("Öffnen", systemImage: "arrow.up.right.square")
             }
+            .menuStyle(.button)
             .disabled(app.currentGroup == nil)
-            .help("Bild bearbeiten – Zuschneiden & Entwickeln (E)")
+            .help("In App öffnen oder im Finder anzeigen")
         }
 
         ToolbarItem(placement: .primaryAction) {
@@ -139,16 +154,6 @@ struct DetailView: View {
             .buttonStyle(.bordered)
             .disabled(app.groups.isEmpty)
             .help("Export JPEG mit Lightroom Classic")
-        }
-
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                app.revealCurrent()
-            } label: {
-                Label("Im Finder anzeigen", systemImage: "arrow.up.forward.app")
-            }
-            .disabled(app.currentGroup == nil)
-            .help("Aktuelles Bild im Finder anzeigen (⌘R)")
         }
     }
 

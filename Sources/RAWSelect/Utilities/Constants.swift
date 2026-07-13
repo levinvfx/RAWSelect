@@ -53,6 +53,11 @@ enum PreviewConfig {
     static let initialWarmCount = 120
     /// Sharp grid thumbnail size as a factor of the cell side (kept small = fast).
     static let gridSharpFactor: CGFloat = 1.7
+
+    /// Full-res target for the zoom loupe. High enough to be effectively "native"
+    /// for any current camera (ImageIO never upscales past the source), so a RAW is
+    /// developed at sensor resolution — only while zoomed in, one image at a time.
+    static let zoomMaxPixel = 12000
 }
 
 enum PhotoTypes {
