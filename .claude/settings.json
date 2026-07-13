@@ -9,5 +9,18 @@
       "Bash(git diff:*)",
       "Bash(git log:*)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/open-latest-app.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
   }
 }
