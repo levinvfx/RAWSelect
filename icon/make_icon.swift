@@ -23,6 +23,44 @@ if let c = CGContext(data: &buf, width: sw, height: sh, bitsPerComponent: 8, byt
     c.draw(srcCG, in: CGRect(x: 0, y: 0, width: sw, height: sh))
 }
 
+// ---- 1b. Already-finished TRANSPARENT icon? ----
+// If the source has transparent corners it's a ready-made app tile (rounded shape,
+// gradient border, own shading). Do NOT impose our own squircle/background — just
+// alpha-trim it and centre it in the Apple icon live area (824 on a 1024 canvas).
+func alphaAt(_ x: Int, _ y: Int) -> Int { Int(buf[(y * sw + x) * 4 + 3]) }
+let cornersClear = [(2, 2), (sw - 3, 2), (2, sh - 3), (sw - 3, sh - 3)]
+    .allSatisfy { alphaAt($0.0, $0.1) < 16 }
+if cornersClear {
+    var aX0 = sw, aY0 = sh, aX1 = 0, aY1 = 0
+    for y in 0..<sh { for x in 0..<sw where alphaAt(x, y) > 24 {
+        if x < aX0 { aX0 = x }; if x > aX1 { aX1 = x }
+        if y < aY0 { aY0 = y }; if y > aY1 { aY1 = y }
+    } }
+    let cx = Double(aX0 + aX1) / 2, cy = Double(aY0 + aY1) / 2
+    var half = Double(max(aX1 - aX0, aY1 - aY0)) / 2
+    half = min(half, min(cx, Double(sw) - cx)); half = min(half, min(cy, Double(sh) - cy))
+    let crop = CGRect(x: cx - half, y: cy - half, width: half * 2, height: half * 2)
+    let tile = srcCG.cropping(to: crop) ?? srcCG
+    let tileImg = NSImage(cgImage: tile, size: NSSize(width: tile.width, height: tile.height))
+
+    let px = 1024, live: CGFloat = 824, margin = (CGFloat(px) - 824) / 2
+    guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px,
+                                     bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                     isPlanar: false, colorSpaceName: .deviceRGB,
+                                     bytesPerRow: 0, bitsPerPixel: 0),
+          let ctx = NSGraphicsContext(bitmapImageRep: rep) else { exit(1) }
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = ctx
+    ctx.imageInterpolation = .high
+    tileImg.draw(in: NSRect(x: margin, y: margin, width: live, height: live),
+                 from: .zero, operation: .sourceOver, fraction: 1.0)
+    NSGraphicsContext.restoreGraphicsState()
+    if let png = rep.representation(using: .png, properties: [:]) {
+        try? png.write(to: URL(fileURLWithPath: outPath))
+    }
+    exit(0)
+}
+
 // ---- 2. Bounding box of non-near-white content (top-left origin) ----
 // A pixel counts as content if it is meaningfully darker/more saturated than the
 // white background. Faint drop shadows (≈250) are intentionally ignored.
