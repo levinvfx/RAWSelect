@@ -139,6 +139,14 @@ final class ThumbnailLoader {
     /// nil if the file has no usable embedded JPEG. Downsamples to `maxPixel` (never
     /// upscales). Only used on the zoom fallback path, never during fast browsing.
     static func largestEmbeddedJPEG(url: URL, maxPixel: Int) -> NSImage? {
+        guard let cg = largestEmbeddedJPEGCG(url: url, maxPixel: maxPixel) else { return nil }
+        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+    }
+
+    /// The decoded, correctly-oriented CGImage of the largest embedded JPEG (true
+    /// pixel dimensions — used by the diagnosis so it reports honest sizes, not the
+    /// backing-scaled NSImage representation).
+    static func largestEmbeddedJPEGCG(url: URL, maxPixel: Int) -> CGImage? {
         guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
         guard let range = data.withUnsafeBytes({ (raw: UnsafeRawBufferPointer) -> Range<Int>? in
             largestJPEGRange(raw.bindMemory(to: UInt8.self))
@@ -152,24 +160,29 @@ final class ThumbnailLoader {
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixel
         ]
-        guard var cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
-        // The extracted JPEG carries NO orientation tag, but the RAW container does
-        // (e.g. A7 V portrait shots = orientation 8). The normal preview applies the
-        // container orientation, so apply it here too — otherwise the sharp zoom would
-        // appear rotated relative to the preview.
-        if let orientation = containerOrientation(url), orientation != 1,
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+        // The extracted JPEG usually has NO orientation tag, but the RAW container does
+        // (e.g. A7 V portrait shots = orientation 8). Prefer the container orientation;
+        // if it has none, fall back to the JPEG's own tag (other brands may set it).
+        // Apply it so the sharp zoom matches the (correctly rotated) preview.
+        if let orientation = containerOrientation(url) ?? imageOrientation(src), orientation != 1,
            let rotated = reoriented(cg, exifOrientation: orientation) {
-            cg = rotated
+            return rotated
         }
-        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+        return cg
     }
 
     private static let ciContext = CIContext(options: nil)
 
     /// EXIF orientation of the RAW container (nil if unknown / normal).
     private static func containerOrientation(_ url: URL) -> UInt32? {
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return imageOrientation(src)
+    }
+
+    /// EXIF orientation stored in an image source's primary image (nil if none).
+    private static func imageOrientation(_ src: CGImageSource) -> UInt32? {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
               let o = (props[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value else { return nil }
         return o
     }
@@ -191,10 +204,14 @@ final class ThumbnailLoader {
             else { i += 1 }
         }
         guard !sois.isEmpty else { return nil }
-        // Pick the SOI whose SOF frame is the largest.
+        // Pick the SOI whose SOF frame is the largest — but ignore tiny streams
+        // (256×256 raw tiles, thumbnails) so a false positive can never be chosen as
+        // the "preview". A real embedded preview is always well above this floor.
+        let minLongEdge = 800
         var bestIdx = -1, bestArea = 0
         for (k, soi) in sois.enumerated() {
-            if let (w, h) = sofDimensions(p, from: soi), w * h > bestArea { bestArea = w * h; bestIdx = k }
+            guard let (w, h) = sofDimensions(p, from: soi), max(w, h) >= minLongEdge else { continue }
+            if w * h > bestArea { bestArea = w * h; bestIdx = k }
         }
         guard bestIdx >= 0 else { return nil }
         let start = sois[bestIdx]
@@ -244,6 +261,34 @@ final class ThumbnailLoader {
         } onCancel: {
             operation.cancel()
         }
+    }
+
+    /// Human-readable diagnosis of which zoom-decode path a RAW would take (used by
+    /// the `--rawcheck` CLI so any new camera/RAW can be verified without owning it).
+    static func zoomDecodeReport(url: URL, maxPixel: Int = PreviewConfig.zoomMaxPixel) -> String {
+        func dims(_ w: Int, _ h: Int) -> String {
+            "\(w) × \(h) (\(String(format: "%.1f", Double(w * h) / 1_000_000)) MP)"
+        }
+        let develop = makeThumbnail(url: url, maxPixel: maxPixel, fullQuality: true)
+        let embeddedCG = largestEmbeddedJPEGCG(url: url, maxPixel: maxPixel)
+        let embDims = embeddedCG.map { ($0.width, $0.height) }
+        let orientation = containerOrientation(url)
+
+        var out = "\(url.lastPathComponent)\n"
+        out += develop.map { "  • RAW-Entwicklung (ImageIO): OK  \(dims($0.width, $0.height))\n" }
+            ?? "  • RAW-Entwicklung (ImageIO): nicht möglich (kein OS-Codec)\n"
+        out += embDims.map { "  • Eingebettetes JPEG (Fallback): \(dims($0.0, $0.1))\n" }
+            ?? "  • Eingebettetes JPEG (Fallback): keins gefunden\n"
+        out += "  • Container-Orientierung: \(orientation.map(String.init) ?? "—")\n"
+
+        if let d = develop {
+            out += "  → Zoom nutzt: RAW nativ entwickeln  →  \(dims(d.width, d.height))\n"
+        } else if let e = embDims {
+            out += "  → Zoom nutzt: eingebettetes JPEG  →  \(dims(e.0, e.1))\n"
+        } else {
+            out += "  → Zoom nutzt: nur kleine ImageIO-Vorschau (Zoom bleibt weich)\n"
+        }
+        return out
     }
 
     static func makeThumbnail(url: URL, maxPixel: Int, fullQuality: Bool = false) -> CGImage? {

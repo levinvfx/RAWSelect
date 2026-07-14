@@ -18,6 +18,9 @@ Native macOS-App zum schnellen Aussortieren (Culling) von RAW-Bildern, offline. 
 - Build: `swift build`
 - App bauen: `./build_app.sh` → erzeugt `RAW Select.app`
 - Selbsttest: `.build/debug/RAWSelect --selftest`
+- RAW-Zoom-Diagnose: `.build/debug/RAWSelect --rawcheck <datei.raw> …` → meldet pro RAW,
+  ob macOS es nativ entwickeln kann, welches eingebettete JPEG als Fallback dient und
+  welche Auflösung der Zoom nutzt (um neue Kameras/Formate ohne die Kamera zu prüfen).
 - Releases als DMG unter `Releases/` (eingefroren, nicht überschreiben).
 
 ## Vor jedem Commit

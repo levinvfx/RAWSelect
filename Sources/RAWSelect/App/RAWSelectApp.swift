@@ -10,6 +10,10 @@ enum EntryPoint {
             SelfTest.run()
             exit(0)
         }
+        if let idx = CommandLine.arguments.firstIndex(of: "--rawcheck") {
+            RawCheck.run(Array(CommandLine.arguments[(idx + 1)...]))
+            exit(0)
+        }
         RAWSelectApp.main()
     }
 }
