@@ -74,7 +74,10 @@ struct ExportWizard: View {
         }
         .frame(width: 600, height: 680)
         .onAppear(perform: loadDefaults)
-        .onDisappear { app.saveEditsNow() }   // persist any crop-step edits
+        .onDisappear {
+            app.saveEditsNow()   // persist any crop-step edits
+            Task { await LightroomPreviewService.shared.clearCache() }   // previews are session-scoped
+        }
     }
 
     private var header: some View {
@@ -245,7 +248,9 @@ struct ExportWizard: View {
             }
             .padding(.horizontal, 20).padding(.top, 16)
 
-            CropEditorView(previewURL: group.previewURL, edit: editBinding(for: group))
+            CropEditorView(previewURL: group.previewURL, edit: editBinding(for: group),
+                           rawURL: exportSource(for: group), presetURL: presetURL,
+                           lightroomPath: settings.lightroomPath)
                 .padding(.horizontal, 20)
 
             Divider()
@@ -258,6 +263,29 @@ struct ExportWizard: View {
                     .buttonStyle(.borderedProminent)
             }
             .padding(.horizontal, 20).padding(.bottom, 14)
+        }
+    }
+
+    /// The file that will be rendered for this photo (RAW, or its JPG sibling when
+    /// "use JPG instead" is on) — used for both the export and the preset preview.
+    private func exportSource(for group: PhotoGroup) -> URL {
+        if useJpgInstead, let jpg = group.files.first(where: { ["jpg","jpeg"].contains($0.pathExtension.lowercased()) }) {
+            return jpg
+        }
+        return app.rawURL(for: group)
+    }
+
+    /// Warms the Lightroom preset previews for the whole set in the background (serial,
+    /// current-image first) so navigating the crop step is mostly instant.
+    private func prewarmPresetPreviews() {
+        guard engineAvailable, let presetURL else { return }
+        let sources = groupsToExport.map { exportSource(for: $0) }
+        let lr = settings.lightroomPath
+        Task.detached(priority: .utility) {
+            for src in sources {
+                _ = await LightroomPreviewService.shared.preview(
+                    rawURL: src, presetURL: presetURL, maxEdge: 2048, lightroomPath: lr)
+            }
         }
     }
 
@@ -369,6 +397,7 @@ struct ExportWizard: View {
         guard validate() else { return }
         cropIndex = 0
         phase = .cropping
+        prewarmPresetPreviews()   // background Lightroom renders so navigation is instant
     }
 
     private func startExport(skipCrop: Bool) {
@@ -391,7 +420,7 @@ struct ExportWizard: View {
 
         let groups = groupsToExport
         let items: [ExportItem] = groups.map { g in
-            let raw = useJpgInstead ? (g.files.first { ["jpg","jpeg"].contains($0.pathExtension.lowercased()) } ?? app.rawURL(for: g)) : app.rawURL(for: g)
+            let raw = exportSource(for: g)
             let edit = app.edits[g.id] ?? ImageEdit()
             // Manual, per-image exposure set in the crop step (written 1:1 as Exposure2012).
             return ExportItem(group: g, rawURL: raw, evDelta: edit.exposure, edit: edit)

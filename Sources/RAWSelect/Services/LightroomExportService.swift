@@ -193,6 +193,62 @@ struct LightroomExportService {
         }
     }
 
+    // MARK: Preview render (single small JPEG for the export crop step)
+
+    /// Renders ONE small preset-applied JPEG for a live preview (no crop, no denoise)
+    /// and returns a stable temp file the caller owns (move/delete it). Reuses the
+    /// same bridge as the export. Returns nil if Lightroom/bridge is unavailable or
+    /// the render fails. Exposure is left at the preset's neutral (0) — the crop
+    /// step overlays manual exposure approximately on top.
+    static func renderPreview(rawURL: URL, presetURL: URL?, edit: ImageEdit = ImageEdit(),
+                              maxEdge: Int, lightroomPath: String,
+                              isCancelled: @escaping () -> Bool = { false }) async -> URL? {
+        guard let lrURL = lightroomURL(preferredPath: lightroomPath) else { return nil }
+        let fm = FileManager.default
+        let base = spoolBase()
+        let jobsDir = base.appendingPathComponent("jobs", isDirectory: true)
+        let doneDir = base.appendingPathComponent("done", isDirectory: true)
+        let tempDir = fm.temporaryDirectory.appendingPathComponent("RAWSelectLRPrev-\(UUID().uuidString)", isDirectory: true)
+        do {
+            try fm.createDirectory(at: jobsDir, withIntermediateDirectories: true)
+            try fm.createDirectory(at: doneDir, withIntermediateDirectories: true)
+            let inDir = tempDir.appendingPathComponent("in", isDirectory: true)
+            let stageDir = tempDir.appendingPathComponent("stage", isDirectory: true)
+            try fm.createDirectory(at: inDir, withIntermediateDirectories: true)
+            try fm.createDirectory(at: stageDir, withIntermediateDirectories: true)
+
+            await ensureLightroomRunning(url: lrURL)
+
+            let base0 = rawURL.deletingPathExtension().lastPathComponent
+            let ext = rawURL.pathExtension
+            let tempRaw = inDir.appendingPathComponent("\(base0).\(ext)")
+            try fm.copyItem(at: rawURL, to: tempRaw)
+            let sidecar = inDir.appendingPathComponent("\(base0).xmp")
+            // Exactly the export sidecar: preset + absolute exposure + Basic-panel
+            // develop values → the render matches the export 1:1 (crop/rotate stay local).
+            let xmp = XMPPresetBuilder.sidecarXMP(presetURL: presetURL, evDelta: edit.exposure, edit: edit)
+            try xmp.data(using: .utf8)?.write(to: sidecar)
+
+            let id = "RSPREV_\(UUID().uuidString)"
+            writeJob(id: id, raw: tempRaw, out: stageDir, quality: 0.85, maxEdge: maxEdge,
+                     colorSpace: "sRGB", denoise: 0, enhance: false, jobsDir: jobsDir)
+            let result = await waitForDone(id: id, doneDir: doneDir, timeout: 120, isCancelled: isCancelled)
+
+            guard case let .some((status, path)) = result, status == "ok",
+                  let produced = firstJPEG(in: stageDir, hint: path) else {
+                try? fm.removeItem(at: tempDir); return nil
+            }
+            let outFile = fm.temporaryDirectory.appendingPathComponent("RSPrev-\(id).jpg")
+            try? fm.removeItem(at: outFile)
+            try fm.moveItem(at: produced, to: outFile)
+            try? fm.removeItem(at: tempDir)
+            return outFile
+        } catch {
+            try? fm.removeItem(at: tempDir)
+            return nil
+        }
+    }
+
     // MARK: Lightroom lifecycle
 
     private static func ensureLightroomRunning(url: URL) async {

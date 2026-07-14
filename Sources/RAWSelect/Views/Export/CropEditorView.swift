@@ -20,6 +20,9 @@ fileprivate enum CropZone: Equatable { case tl, tr, bl, br, top, bottom, left, r
 
 fileprivate enum EditorTab: String, CaseIterable { case crop = "Zuschneiden", develop = "Entwickeln" }
 
+/// State of the optional Lightroom-rendered preset preview (export step only).
+fileprivate enum PresetPreviewStatus: Equatable { case none, rendering, ready, failed }
+
 /// Lightroom-style crop: the image stays fixed, the crop **grid** shrinks. Corner
 /// & edge handles resize the grid (anchored on the opposite side), dragging inside
 /// moves the grid, dragging in the **margin outside** rotates the whole image.
@@ -27,6 +30,19 @@ fileprivate enum EditorTab: String, CaseIterable { case crop = "Zuschneiden", de
 struct CropEditorView: View {
     let previewURL: URL
     @Binding var edit: ImageEdit
+    /// Optional: when set (export crop step), the base image is the Lightroom-rendered
+    /// preview WITH the preset applied, so tweaks are made in the near-final look.
+    /// Left nil in the standalone editor → plain preview as before.
+    var rawURL: URL? = nil
+    var presetURL: URL? = nil
+    var lightroomPath: String = ""
+    @State private var presetStatus: PresetPreviewStatus = .none
+    // Exact Adobe render of preset+develop (tone-complete). When it matches the
+    // current develop values, it's shown directly (DevelopEngine bypassed); otherwise
+    // the fast approximation is shown until a fresh exact render lands on release.
+    @State private var exactCI: CIImage?
+    @State private var exactKey: String?
+    @State private var exactTask: Task<Void, Never>?
 
     @State private var baseCI: CIImage?
     @State private var displayImage: NSImage?
@@ -92,6 +108,8 @@ struct CropEditorView: View {
                 .background(Color(white: 0.11))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1))
+                .overlay(alignment: .top) { presetStatusPill.padding(.top, 10) }
+                .animation(.easeOut(duration: 0.15), value: presetStatus == .rendering)
             if editorTab == .crop { sliderControls } else { developControls }
         }
         .task(id: previewURL) { await loadImage() }
@@ -130,6 +148,25 @@ struct CropEditorView: View {
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    @ViewBuilder private var presetStatusPill: some View {
+        switch presetStatus {
+        case .rendering:
+            statusPill { HStack(spacing: 7) { ProgressView().controlSize(.small); Text("Preset-Vorschau wird gerendert…") } }
+        case .failed:
+            statusPill { Label("Preset-Vorschau nicht verfügbar – zeigt Basisbild", systemImage: "exclamationmark.triangle") }
+        case .ready, .none:
+            EmptyView()
+        }
+    }
+
+    private func statusPill<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(.regularMaterial, in: Capsule())
+            .transition(.opacity)
     }
 
     private var rotateHint: some View {
@@ -363,13 +400,22 @@ struct CropEditorView: View {
             .frame(maxHeight: 230)
 
             HStack {
-                Text("Live-Vorschau ist eine Annäherung – finale Entwicklung durch Adobe beim Export.")
+                Text(developNote)
                     .font(.caption2).foregroundStyle(.tertiary)
                 Spacer()
                 Button("Entwicklung zurücksetzen") { resetDevelop() }
                     .buttonStyle(.borderless).controlSize(.small)
                     .disabled(edit.developIsZero && edit.exposure == 0)
             }
+        }
+    }
+
+    private var developNote: String {
+        switch presetStatus {
+        case .ready:     return "Vorschau MIT Preset · deine Regler sind eine Annäherung darüber. Final rendert Adobe beim Export."
+        case .rendering: return "Preset-Vorschau wird gerendert… Regler wirken bereits (Annäherung)."
+        case .failed:    return "Preset-Vorschau nicht verfügbar – Basisbild. Final: Preset + Regler via Adobe beim Export."
+        case .none:      return "Live-Vorschau ist eine Annäherung – finale Entwicklung durch Adobe beim Export."
         }
     }
 
@@ -430,12 +476,64 @@ struct CropEditorView: View {
     }
 
     private func loadImage() async {
+        exactTask?.cancel(); exactCI = nil; exactKey = nil   // reset per photo
         let img = await ThumbnailLoader.shared.thumbnail(for: previewURL, maxPixel: 1600)
         if let cg = img?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
             baseCI = CIImage(cgImage: cg)
         }
         cropNorm = edit.crop ?? full
         updateDisplay()
+        await loadPresetBaseIfNeeded()
+    }
+
+    /// Export step only: swap the plain base for Lightroom's preset-rendered preview
+    /// once it's ready (cached previews are instant). Manual tweaks then sit on top of
+    /// the near-final look. Silent, non-blocking fallback to the plain base on failure.
+    private func loadPresetBaseIfNeeded() async {
+        guard let rawURL, let presetURL else { presetStatus = .none; return }
+        let target = previewURL
+        presetStatus = .rendering
+        let url = await LightroomPreviewService.shared.preview(
+            rawURL: rawURL, presetURL: presetURL, maxEdge: 2048, lightroomPath: lightroomPath)
+        guard previewURL == target else { return }   // navigated away → ignore stale result
+        if let url, let cg = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            baseCI = CIImage(cgImage: cg)
+            // The preset base is rendered at develop=0, so it IS the exact render for a
+            // zero edit. Mark it as such; non-zero edits then trigger a fresh exact render.
+            exactCI = baseCI
+            exactKey = ImageEdit().developSignature
+            presetStatus = .ready
+            updateDisplay()
+        } else {
+            presetStatus = .failed
+        }
+    }
+
+    /// After develop values settle (debounced), render the EXACT Adobe image with
+    /// those values via Lightroom and show it — so the resting preview equals the
+    /// export for all sliders. Export step only. Silent fallback keeps the approximation.
+    private func scheduleExactIfNeeded() {
+        guard let rawURL, let presetURL else { return }
+        let wanted = edit
+        if exactKey == wanted.developSignature, exactCI != nil { return }   // already exact
+        exactTask?.cancel()
+        let target = previewURL
+        exactTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)   // debounce rapid drags
+            if Task.isCancelled { return }
+            presetStatus = .rendering
+            let url = await LightroomPreviewService.shared.preview(
+                rawURL: rawURL, presetURL: presetURL, edit: wanted, maxEdge: 2048, lightroomPath: lightroomPath)
+            guard previewURL == target, edit.developSignature == wanted.developSignature else { return }
+            if let url, let cg = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                exactCI = CIImage(cgImage: cg)
+                exactKey = wanted.developSignature
+                presetStatus = .ready
+                renderOnce()   // swap in the exact Adobe image
+            } else {
+                presetStatus = .failed
+            }
+        }
     }
 
     /// Requests a fresh preview. The heavy work (filter chain + rasterise +
@@ -444,19 +542,24 @@ struct CropEditorView: View {
     /// blocking the UI or piling up jobs.
     private func updateDisplay() {
         guard baseCI != nil else { return }
-        if isRendering { pendingRender = true; return }
-        renderOnce()
+        if isRendering { pendingRender = true } else { renderOnce() }
+        scheduleExactIfNeeded()
     }
 
     private func renderOnce() {
-        guard let base = baseCI else { return }
+        guard let approxBase = baseCI else { return }
         let snapshot = edit
         let ctx = Self.sharedContext
+        // If an exact Adobe render matches the current develop values, show it directly
+        // (its tone is already baked → don't re-apply DevelopEngine). Otherwise the fast
+        // approximation over the preset base.
+        let useExact = (exactCI != nil && exactKey == snapshot.developSignature)
+        let base = useExact ? exactCI! : approxBase
         isRendering = true
         pendingRender = false
         Task { @MainActor in
             let img = await Task.detached(priority: .userInitiated) {
-                RenderedImage(Self.renderPreview(snapshot, base: base, context: ctx))
+                RenderedImage(Self.renderPreview(snapshot, base: base, context: ctx, skipDevelop: useExact))
             }.value.image
             if let img { self.displayImage = img }
             self.constrainCropToContent()   // keep the crop off the transparent corners
@@ -465,11 +568,11 @@ struct CropEditorView: View {
         }
     }
 
-    /// Develops + rotates the preview image. Pure and thread-safe so it can run on
-    /// a background executor.
+    /// Develops (unless the base is already an exact Adobe render) + rotates the preview
+    /// image. Pure and thread-safe so it can run on a background executor.
     nonisolated private static func renderPreview(_ edit: ImageEdit, base: CIImage,
-                                                  context: CIContext) -> NSImage? {
-        let ci = DevelopEngine.apply(edit, to: base)
+                                                  context: CIContext, skipDevelop: Bool) -> NSImage? {
+        let ci = skipDevelop ? base : DevelopEngine.apply(edit, to: base)
         guard let cg = context.createCGImage(ci, from: ci.extent) else { return nil }
         let ns = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
         return ns.rotatedClockwise(byDegrees: edit.totalAngle)

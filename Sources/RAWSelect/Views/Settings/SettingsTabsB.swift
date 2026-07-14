@@ -144,7 +144,11 @@ struct AdvancedSettingsTab: View {
             Section {
                 Button("Cache leeren") { confirmClear = true }
                     .confirmationDialog("Cache leeren?", isPresented: $confirmClear) {
-                        Button("Leeren", role: .destructive) { ThumbnailLoader.shared.clearCache(); status = "Cache geleert." }
+                        Button("Leeren", role: .destructive) {
+                            ThumbnailLoader.shared.clearCache()
+                            Task { await LightroomPreviewService.shared.clearCache() }
+                            status = "Cache geleert."
+                        }
                         Button("Abbrechen", role: .cancel) {}
                     }
                 Button("Alle Einstellungen zurücksetzen…", role: .destructive) { confirmReset = true }

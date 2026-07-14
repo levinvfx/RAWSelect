@@ -116,6 +116,15 @@ struct ImageEdit: Equatable, Codable {
     var totalAngle: Double { Double(rotation) * 90 + straighten }
     mutating func rotateLeft() { rotation = (rotation + 3) % 4 }
     mutating func rotateRight() { rotation = (rotation + 1) % 4 }
+
+    /// Stable signature of the tone/develop values that a Lightroom render depends on
+    /// (exposure + Basic panel). Excludes crop/rotate/straighten — those are applied
+    /// locally, not baked by the render. Used to key the exact preset-preview cache.
+    var developSignature: String {
+        [exposure, contrast, highlights, shadows, whites, blacks,
+         temp, tint, vibrance, saturation, clarity, sharpness]
+            .map { String(format: "%.3f", $0) }.joined(separator: ",")
+    }
 }
 
 struct ExportItem: Identifiable {
