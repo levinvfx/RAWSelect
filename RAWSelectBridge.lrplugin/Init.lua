@@ -86,6 +86,16 @@ local function processJob(procPath)
         return
     end
 
+    -- Die RAW-Kopie liegt im Temp-Ordner und ist irgendwann weg. Bleibt ein Job liegen
+    -- (App-Absturz, Lightroom zu), zeigt addPhoto sonst beim naechsten Start einen modalen
+    -- "interner Fehler: no file at path"-Dialog — mitten in Lightroom, fuer einen Job, den
+    -- niemand mehr will.
+    if not LrFileUtils.exists(job.raw) then
+        L('FEHLER: RAW nicht mehr vorhanden (veralteter Job) -> ' .. tostring(job.raw))
+        writeDone(id, 'error', '', 'RAW nicht mehr vorhanden')
+        return
+    end
+
     local catalog = LrApplication.activeCatalog()
     local photo = catalog:findPhotoByPath(job.raw)
     L('bereits im Katalog: ' .. tostring(photo ~= nil))
@@ -103,13 +113,11 @@ local function processJob(procPath)
     end
 
     -- Develop-Settings aus dem Sidecar: Diagnose + der Weissabgleich für die App.
-    local wbTemp, wbTint
     local ds = photo:getDevelopSettings()
     if ds then
         L('Masken vorhanden: ' .. tostring(ds.MaskGroupBasedCorrections ~= nil))
-        wbTemp = tonumber(ds.Temperature)
-        wbTint = tonumber(ds.Tint)
-        L('wb: temp=' .. tostring(wbTemp) .. ' tint=' .. tostring(wbTint))
+        L('wb vor Render: WhiteBalance=' .. tostring(ds.WhiteBalance) ..
+          ' temp=' .. tostring(ds.Temperature) .. ' tint=' .. tostring(ds.Tint))
     end
 
     -- Export-Einstellungen aus dem Job
@@ -142,6 +150,17 @@ local function processJob(procPath)
         if ok then okAny = true; outPath = path end
     end
 
+    -- Weissabgleich ERST JETZT lesen: bei WhiteBalance="As Shot" trägt das Preset gar keine
+    -- Temperatur, Camera Raw muss das RAW erst dekodieren, um den Kelvin-Wert zu kennen.
+    -- Direkt nach addPhoto ist er darum noch nil — nach dem Render steht er fest.
+    local wbTemp, wbTint
+    local ds2 = photo:getDevelopSettings()
+    if ds2 then
+        wbTemp = tonumber(ds2.Temperature)
+        wbTint = tonumber(ds2.Tint)
+    end
+    L('wb nach Render: temp=' .. tostring(wbTemp) .. ' tint=' .. tostring(wbTint))
+
     if okAny then
         writeDone(id, 'ok', outPath, '', wbTemp, wbTint)
         L('FERTIG ok')
@@ -171,7 +190,20 @@ LrTasks.startAsyncTask(function()
                 local procPath = filePath .. '.processing'
                 local moved = LrFileUtils.move(filePath, procPath)
                 if moved ~= false then
-                    LrTasks.startAsyncTask(function() processJob(procPath) end)
+                    LrTasks.startAsyncTask(function()
+                        -- LrTasks.pcall (yield-fest, im Gegensatz zum nackten pcall): ein
+                        -- unerwarteter Fehler landet im Log, statt Lightroom einen modalen
+                        -- "interner Fehler"-Dialog zeigen zu lassen. Der Job wird trotzdem
+                        -- beantwortet und entfernt, damit die App nicht ewig wartet.
+                        local ok, err = LrTasks.pcall(function() processJob(procPath) end)
+                        if not ok then
+                            local id = LrPathUtils.leafName(procPath):gsub('%.job%.processing$', '')
+                            appendLog(LrPathUtils.child(logDir, 'watcher.log'),
+                                      'Job-Fehler ' .. id .. ': ' .. tostring(err))
+                            writeDone(id, 'error', '', tostring(err))
+                            LrFileUtils.delete(procPath)
+                        end
+                    end)
                 end
             end
         end

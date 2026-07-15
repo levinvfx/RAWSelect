@@ -132,6 +132,30 @@ enum SliderCal {
         let presetVals = XMPPresetBuilder.presetValues(presetURL)
         let asShot = await LightroomPreviewService.shared.asShotWB(rawURL: raw)
 
+        // `--xmp`: print the sidecar Lightroom would receive, instead of rendering. The temp
+        // folder a job uses is deleted straight after, so this is the only way to actually
+        // read what we send.
+        if args.contains("--xmp") {
+            for knob in picked {
+                let base = presetVals[knob.key]
+                    ?? (knob.key == "Temperature" ? asShot?.temp : knob.key == "Tint" ? asShot?.tint : nil)
+                    ?? 0
+                for v in usableSteps(knob, base: base).prefix(2) {
+                    let e = knob.make(v)
+                    let xmp = XMPPresetBuilder.sidecarXMP(presetURL: presetURL, evDelta: e.exposure,
+                                                          edit: e, stripMasks: true,
+                                                          asShotWB: asShot.map { ($0.temp, $0.tint) })
+                    print("\n===== \(knob.name) Delta \(fmt(v)) → abs \(base + v) =====")
+                    for line in xmp.split(separator: "\n").prefix(8) { print(line) }
+                    let wb = xmp.split(separator: " ").filter {
+                        $0.contains("Temperature") || $0.contains("Tint") || $0.contains("WhiteBalance")
+                    }
+                    print("WB-Attribute: \(wb.joined(separator: "  "))")
+                }
+            }
+            return
+        }
+
         for knob in picked {
             // The slider's base: the preset's own value, or — for WB, which presets usually
             // leave "As Shot" — the RAW's as-shot value. Deltas are measured from there.
@@ -155,7 +179,7 @@ enum SliderCal {
                 guard let refURL = await render(raw, presetURL, e), let refCI = CIImage(contentsOf: refURL) else {
                     print("  \(absLabel) | (Render-Fehler)"); continue
                 }
-                let mineCI = DevelopEngine.apply(e, to: baseCI)
+                let mineCI = DevelopEngine.apply(e, to: baseCI, wbBase: presetVals["Temperature"] ?? asShot?.temp ?? 5500)
                 if knob.colour {
                     let a = channelShift(baseCI, refCI, bandHue: knob.bandHue)
                     let m = channelShift(baseCI, mineCI, bandHue: knob.bandHue)
@@ -194,7 +218,7 @@ enum SliderCal {
         case "shadows":    return "shadows \(DevelopEngine.Cal.shadows)"
         case "whites":     return "whites +\(DevelopEngine.Cal.whitesPos)^\(DevelopEngine.Cal.whitesPosExp) / -\(DevelopEngine.Cal.whitesNeg)^\(DevelopEngine.Cal.whitesNegExp)"
         case "blacks":     return "blacks +\(DevelopEngine.Cal.blacksPos)^\(DevelopEngine.Cal.blacksPosExp) / -\(DevelopEngine.Cal.blacksNeg)^\(DevelopEngine.Cal.blacksNegExp)"
-        case "temp":       return "temp \(DevelopEngine.Cal.temp)"
+        case "temp":       return "temp kalt \(DevelopEngine.Cal.tempCool) / warm \(DevelopEngine.Cal.tempWarm)"
         case "tint":       return "tint \(DevelopEngine.Cal.tint)"
         case "hslsat":     return "hslSat +\(DevelopEngine.Cal.hslSatPos) / -\(DevelopEngine.Cal.hslSatNeg)"
         case "hslhue":     return "hslHueDeg \(DevelopEngine.Cal.hslHueDeg)"

@@ -84,7 +84,6 @@ struct CropEditorView: View {
     /// WB), learned from the Lightroom render. Seeds the WB slider base so it shows the
     /// value the RAW was shot with instead of a fixed guess. nil until known.
     @State private var asShotTemp: Double?
-    @State private var asShotTint: Double?
 
     /// Currently selected hue band in the color-mixer section (index into ImageEdit.hslBands).
     @State private var hslBand = 0
@@ -471,16 +470,25 @@ struct CropEditorView: View {
     /// binding maps the displayed absolute value back to the stored delta.
     private func toneSlider(_ title: String, _ field: WritableKeyPath<ImageEdit, Double>, _ key: String,
                             range: ClosedRange<Double> = -100...100,
-                            baseDefault: Double = 0,
                             format: @escaping (Double) -> String = { String(format: "%+.0f", $0) },
                             gradient: [Color]? = nil) -> some View {
         // Fall back to a sensible neutral (e.g. 6500 K for WB) when the preset doesn't
         // define this value, so the slider shows a real number instead of 0.
-        let base = presetVals[key] ?? baseDefault
+        let base = presetVals[key] ?? 0
         return LRSlider(title: title,
                         value: Binding(get: { base + edit[keyPath: field] },
                                        set: { edit[keyPath: field] = $0 - base }),
                         range: range, neutral: base, format: format, gradient: gradient, onEdit: dev)
+    }
+
+    /// A white-balance slider: a plain relative nudge around 0, so it never has to wait for
+    /// Lightroom to reveal the photo's actual Kelvin. The stored value IS the delta.
+    private func wbSlider(_ title: String, _ field: WritableKeyPath<ImageEdit, Double>,
+                          range: ClosedRange<Double>, gradient: [Color]) -> some View {
+        LRSlider(title: title,
+                 value: Binding(get: { edit[keyPath: field] }, set: { edit[keyPath: field] = $0 }),
+                 range: range, neutral: 0,
+                 format: { String(format: "%+.0f", $0) }, gradient: gradient, onEdit: dev)
     }
 
     /// One color-mixer slider for the selected band. Like `toneSlider`, the value shows
@@ -503,13 +511,17 @@ struct CropEditorView: View {
         VStack(spacing: 8) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
+                    // The WB sliders nudge relative to wherever the photo already is (cooler ↔
+                    // warmer), rather than showing an absolute Kelvin. The absolute value only
+                    // becomes known once Lightroom has rendered the photo once, so an absolute
+                    // slider would sit on a placeholder until then — and Camera Raw ignores
+                    // relative WB on RAW, so the delta is turned into absolute Kelvin on the
+                    // way out (see XMPPresetBuilder).
                     LRSection(title: "Weissabgleich") {
-                        toneSlider("Temperatur", \.temp, "Temperature", range: 2000...12000,
-                                   baseDefault: asShotTemp ?? 6500, format: { String(format: "%.0f", $0) },
-                                   gradient: [Color(red: 0.30, green: 0.52, blue: 0.95), Color(red: 0.96, green: 0.86, blue: 0.36)])
-                        toneSlider("Tönung", \.tint, "Tint", range: -150...150,
-                                   baseDefault: asShotTint ?? 0,
-                                   gradient: [Color(red: 0.36, green: 0.85, blue: 0.42), Color(red: 0.90, green: 0.36, blue: 0.86)])
+                        wbSlider("Temperatur", \.temp, range: -2000...2000,
+                                 gradient: [Color(red: 0.30, green: 0.52, blue: 0.95), Color(red: 0.96, green: 0.86, blue: 0.36)])
+                        wbSlider("Tönung", \.tint, range: -60...60,
+                                 gradient: [Color(red: 0.36, green: 0.85, blue: 0.42), Color(red: 0.90, green: 0.36, blue: 0.86)])
                     }
                     LRSection(title: "Licht") {
                         toneSlider("Belichtung", \.exposure, "Exposure2012", range: -5...5,
@@ -597,7 +609,7 @@ struct CropEditorView: View {
 
     private func loadImage() async {
         exactTask?.cancel(); exactCI = nil; exactKey = nil; toneCG = nil; toneKey = nil   // reset per photo
-        asShotTemp = nil; asShotTint = nil
+        asShotTemp = nil
         zoomFullRes = nil; zoomFullResID = nil; previewZoom.fit()
         presetVals = XMPPresetBuilder.presetValues(presetURL)   // preset baseline for the sliders
         // Instant WB base if this RAW was rendered before (survives across sessions).
@@ -639,12 +651,11 @@ struct CropEditorView: View {
         if let wb = await LightroomPreviewService.shared.asShotWB(rawURL: rawURL) { applyAsShotWB(wb) }
     }
 
-    /// Adopts the photo's real white balance as the WB slider base — but only while the
-    /// user hasn't touched WB yet, so a late-arriving value never shifts an edit in progress.
+    /// Remembers the photo's real Kelvin. The sliders don't show it — they are relative — but
+    /// the live preview anchors its white-balance maths there, because colour temperature is
+    /// reciprocal: the same nudge means a different colour shift at 4000 K than at 7000 K.
     private func applyAsShotWB(_ wb: LightroomPreviewService.WB) {
-        guard edit.temp == 0, edit.tint == 0 else { return }
         asShotTemp = wb.temp
-        asShotTint = wb.tint
     }
 
     /// After develop values settle (debounced), render the EXACT Adobe image with
@@ -698,6 +709,8 @@ struct CropEditorView: View {
         let key = (useExact ? "e:" : "a:") + snapshot.developSignature
         let reuse = (toneKey == key) ? toneCG : nil
         let angle = snapshot.totalAngle
+        // The Kelvin the picture currently sits at — the WB preview is anchored there.
+        let wbBase = presetVals["Temperature"] ?? asShotTemp ?? 5500
         isRendering = true
         pendingRender = false
         Task { @MainActor in
@@ -705,7 +718,7 @@ struct CropEditorView: View {
                 let tone: CGImage?
                 if let reuse { tone = reuse }
                 else {
-                    let ci = useExact ? sourceCI : DevelopEngine.apply(snapshot, to: sourceCI)
+                    let ci = useExact ? sourceCI : DevelopEngine.apply(snapshot, to: sourceCI, wbBase: wbBase)
                     tone = ctx.createCGImage(ci, from: ci.extent)
                 }
                 guard let t = tone else { return ToneOut(tone: nil, image: nil) }

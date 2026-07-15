@@ -217,10 +217,18 @@ enum SelfTest {
         check(wbAsShot.contains("crs:Tint=\"12\""), "As-Shot preset: Tint written alongside (Custom needs both)")
         check(wbAsShot.contains("crs:WhiteBalance=\"Custom\""), "As-Shot preset: WhiteBalance switched to Custom")
         // No known base anywhere → writing a bare delta as absolute Kelvin would be wrong.
+        // WhiteBalance still goes to Custom: without a Temperature of its own that leaves the
+        // picture untouched, and it is the only mode Lightroom reports the Kelvin back from —
+        // which is exactly how the base gets discovered in the first place.
         let wbNoBase = XMPPresetBuilder.sidecarXMP(presetURL: asShotFile, evDelta: 0, edit: wb2)
         check(!wbNoBase.contains("crs:Temperature"), "unknown WB base → no absolute Temperature written")
-        check(!wbNoBase.contains("crs:WhiteBalance=\"Custom\""), "unknown WB base → WhiteBalance stays As Shot")
+        check(wbNoBase.contains("crs:WhiteBalance=\"Custom\""), "unknown WB base → Custom (probes the Kelvin, image unchanged)")
         check(wbNoBase.contains("crs:Contrast2012=\"-2\""), "unknown WB base → other sliders still apply")
+
+        // An untouched edit must ALSO switch to Custom — that identity render is the probe.
+        let probe = XMPPresetBuilder.sidecarXMP(presetURL: asShotFile, evDelta: 0, edit: ImageEdit())
+        check(probe.contains("crs:WhiteBalance=\"Custom\""), "identity render probes WB via Custom")
+        check(!probe.contains("crs:Temperature"), "identity render writes no Temperature (image must not change)")
         try? fm.removeItem(at: asShotFile)
 
         // 14b-3) preset base + delta must stay inside Camera Raw's range. ACR DISCARDS an

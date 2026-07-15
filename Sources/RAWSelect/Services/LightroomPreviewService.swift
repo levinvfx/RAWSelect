@@ -75,7 +75,14 @@ actor LightroomPreviewService {
             guard let render = await LightroomExportService.renderPreview(
                 rawURL: rawURL, presetURL: presetURL, edit: edit, maxEdge: maxEdge, lightroomPath: lightroomPath)
             else { return nil }
-            self.storeWB(rawURL: rawURL, temp: render.asShotTemp, tint: render.asShotTint)
+            // Only harvest the WB from a render we did NOT override: the bridge reports the
+            // white balance Camera Raw ended up using, so a render with our Custom temp/tint
+            // reports OUR value back. Storing that would overwrite the as-shot base with the
+            // edited one, and every further edit would drift from a moving base (measured:
+            // 5800 → 4600 → 4000 → 3700 over six nudges).
+            if edit.temp == 0 && edit.tint == 0 {
+                self.storeWB(rawURL: rawURL, temp: render.asShotTemp, tint: render.asShotTint)
+            }
             try? self.fm.removeItem(at: dest)
             try? self.fm.moveItem(at: render.url, to: dest)
             return self.fm.fileExists(atPath: dest.path) ? dest : nil

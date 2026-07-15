@@ -65,23 +65,32 @@ enum XMPPresetBuilder {
         add("Shadows2012", edit.shadows)
         add("Whites2012", edit.whites)
         add("Blacks2012", edit.blacks)
-        // WB is ABSOLUTE (Kelvin) and only takes effect in Custom mode, where BOTH Temperature
-        // and Tint must be present — so either write the pair or neither. The base is the
-        // preset's own value, or, when the preset leaves the white balance "As Shot" (no
-        // Temperature attribute at all), the RAW's as-shot value harvested from the render —
-        // the same base the slider displays. Without a known base nothing is written: a bare
-        // delta would land as an ABSOLUTE Kelvin (a +300 nudge became 300 K, deep blue).
-        if edit.temp != 0 || edit.tint != 0,
-           let baseTemp = value(of: "Temperature", in: xmp) ?? asShotWB?.temp,
-           let baseTint = value(of: "Tint", in: xmp) ?? asShotWB?.tint {
+        // White balance. The slider is a relative nudge (cooler ↔ warmer), but Camera Raw only
+        // honours ABSOLUTE Kelvin on a RAW — crs:IncrementalTemperature/-Tint are silently
+        // ignored (measured: ±80 changes not a single pixel). So the delta has to be added to
+        // a base, and the base has to come from Lightroom.
+        //
+        // Getting that base is the trick: Lightroom's API reports Temperature only when the
+        // white balance is already "Custom"; for "As Shot" it returns nil. Writing Custom
+        // WITHOUT a Temperature makes Camera Raw resolve the photo's existing white balance
+        // into numbers — same image, but now readable. That first render teaches us the base;
+        // every later one adds the delta to it.
+        let baseTemp = value(of: "Temperature", in: xmp) ?? asShotWB?.temp
+        let baseTint = value(of: "Tint", in: xmp) ?? asShotWB?.tint
+        if let baseTemp, let baseTint, edit.temp != 0 || edit.tint != 0 {
             attrs.append(("Temperature", clamp("Temperature", baseTemp + edit.temp)))
             attrs.append(("Tint", clamp("Tint", baseTint + edit.tint)))
         }
         // Color mixer (HSL): each band/channel is a delta over the preset's own value.
         for (k, v) in edit.hsl where v != 0 { attrs.append((k, clamp(k, (value(of: k, in: xmp) ?? 0) + v))) }
-        guard !attrs.isEmpty else { return xmp }
 
-        var text = xmp
+        // Custom on EVERY render, even an untouched one: without a Temperature of its own it
+        // leaves the picture exactly as it was, but it forces Camera Raw to resolve the white
+        // balance into numbers Lightroom will actually hand back to us. That is what makes the
+        // very first render usable as the base for the cooler/warmer slider.
+        var text = setWhiteBalanceCustom(xmp)
+        guard !attrs.isEmpty else { return text }
+
         for (k, _) in attrs {
             text = text.replacingOccurrences(of: "\\s*crs:\(k)=\"[^\"]*\"", with: "", options: .regularExpression)
             text = text.replacingOccurrences(of: "\\s*<crs:\(k)>[^<]*</crs:\(k)>", with: "", options: .regularExpression)
@@ -89,10 +98,6 @@ enum XMPPresetBuilder {
         let ins = attrs.map { " crs:\($0.0)=\"\(Int($0.1.rounded()))\"" }.joined()
         if let r = text.range(of: "<rdf:Description") {
             text.insert(contentsOf: ins, at: r.upperBound)
-        }
-        // Absolute WB only applies when the white balance mode is Custom.
-        if attrs.contains(where: { $0.0 == "Temperature" || $0.0 == "Tint" }) {
-            text = setWhiteBalanceCustom(text)
         }
         return text
     }

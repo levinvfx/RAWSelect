@@ -37,28 +37,38 @@ enum DevelopEngine {
         static var blacksNegExp = 1.2
         static var exposure = 1.4          // Exposure(EV) → CIExposureAdjust EV multiplier.
                                            // Judged by eye against the real preset render.
-        static var hslLum = 0.45           // HSL Luminance ±100 → ±lightness
-        static var temp = 1.0              // Temperature delta → CI target-neutral Kelvin scale
-        static var tint = 1.0              // Tint delta → CI target-neutral tint scale
+        static var hslLum = 0.65           // HSL Luminance ±100 → ±lightness
+        // Even anchored at the real Kelvin, CoreImage moves less than Camera Raw, and less
+        // still when cooling than when warming — hence one factor per direction.
+        static var tempCool = 2.6          // Temperature− → CI target-neutral Kelvin scale
+        static var tempWarm = 1.35         // Temperature+ → CI target-neutral Kelvin scale
+        static var tint = 1.33             // Tint delta → CI target-neutral tint scale
         static var hslHueDeg = 90.0        // HSL Hue ±100 → ±degrees shift
         static var hslSatPos = 3.5         // HSL Saturation+ → RGB chroma scale (clips like ACR)
         static var hslSatNeg = 2.0         // HSL Saturation− → scales `s` in HSL
     }
 
-    static func apply(_ edit: ImageEdit, to base: CIImage) -> CIImage {
+    /// `wbBase` is the Kelvin the picture currently sits at (the RAW's as-shot value, or the
+    /// preset's own). The white-balance preview needs it because colour temperature is
+    /// RECIPROCAL: −1200 K from 5500 is a far bigger colour shift than +1200 K. Anchoring at a
+    /// fixed 6500 made the preview both too weak and lopsided (measured 0.22× of Adobe when
+    /// cooling, 0.62× when warming). Anchoring at the real value lets CoreImage do that
+    /// non-linear maths itself. The default is daylight, for when it isn't known yet.
+    static func apply(_ edit: ImageEdit, to base: CIImage, wbBase: Double = 5500) -> CIImage {
         var ci = base
 
-        // White balance. edit.temp/tint are the DELTA (Kelvin / tint units) from the preset,
-        // applied over the already-white-balanced preview base — the neutral shift is the
-        // delta around CI's default 6500 neutral (delta 0 → no change). The signs are
-        // INVERTED versus CITemperatureAndTint's target-neutral convention so the effect
-        // matches Camera Raw and the slider gradient: +temp warms (yellow), +tint → magenta.
-        // (Measured: raising inputTargetNeutral.x cools, raising .y greens — the opposite.)
+        // White balance. edit.temp/tint are the DELTA (Kelvin / tint units) from the base.
+        // The signs are INVERTED versus CITemperatureAndTint's target-neutral convention so the
+        // effect matches Camera Raw and the slider gradient: +temp warms (yellow), +tint →
+        // magenta. (Measured: raising inputTargetNeutral.x cools, raising .y greens.)
         if edit.temp != 0 || edit.tint != 0 {
+            let anchor = max(2000, min(50000, wbBase))
+            let cal = edit.temp > 0 ? Cal.tempWarm : Cal.tempCool
             let f = CIFilter(name: "CITemperatureAndTint")!
             f.setValue(ci, forKey: kCIInputImageKey)
-            f.setValue(CIVector(x: 6500, y: 0), forKey: "inputNeutral")
-            f.setValue(CIVector(x: 6500 - edit.temp * Cal.temp, y: -edit.tint * Cal.tint), forKey: "inputTargetNeutral")
+            f.setValue(CIVector(x: anchor, y: 0), forKey: "inputNeutral")
+            f.setValue(CIVector(x: max(2000, min(50000, anchor - edit.temp * cal)),
+                                y: -edit.tint * Cal.tint), forKey: "inputTargetNeutral")
             ci = f.outputImage ?? ci
         }
 
