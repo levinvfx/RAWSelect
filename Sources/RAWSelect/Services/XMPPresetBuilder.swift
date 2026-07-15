@@ -11,7 +11,8 @@ enum XMPPresetBuilder {
     /// `denoise` > 0, Camera-Raw noise reduction is written on top (0…100).
     static func sidecarXMP(presetURL: URL?, evDelta exposure: Double,
                            edit: ImageEdit? = nil, denoise: Double = 0,
-                           stripMasks: Bool = false) -> String {
+                           stripMasks: Bool = false,
+                           asShotWB: (temp: Double, tint: Double)? = nil) -> String {
         var text: String
         if let presetURL, var preset = try? String(contentsOf: presetURL, encoding: .utf8) {
             // For the live PREVIEW render we drop all local corrections (AI masks etc.).
@@ -22,7 +23,7 @@ enum XMPPresetBuilder {
         } else {
             text = minimalSidecar(evDelta: exposure)
         }
-        if let edit { text = applyDevelop(to: text, edit: edit) }
+        if let edit { text = applyDevelop(to: text, edit: edit, asShotWB: asShotWB) }
         if denoise > 0 { text = applyDenoise(to: text, amount: denoise) }
         return text
     }
@@ -50,29 +51,34 @@ enum XMPPresetBuilder {
     /// Injects the Basic-panel develop adjustments as Camera-Raw attributes, for
     /// every non-zero value (exposure is handled separately via `evDelta`). Any
     /// same-named preset attribute is stripped first so the XML stays valid.
-    private static func applyDevelop(to xmp: String, edit: ImageEdit) -> String {
+    private static func applyDevelop(to xmp: String, edit: ImageEdit,
+                                     asShotWB: (temp: Double, tint: Double)?) -> String {
         // Sliders are now shown as PRESET value + user delta. So the exported value is
         // the preset's own value (read from the sidecar) plus the delta — this keeps
         // preview, exact render and export identical.
         var attrs: [(String, Double)] = []
         func add(_ key: String, _ delta: Double) {
-            if delta != 0 { attrs.append((key, (value(of: key, in: xmp) ?? 0) + delta)) }
+            if delta != 0 { attrs.append((key, clamp(key, (value(of: key, in: xmp) ?? 0) + delta))) }
         }
         add("Contrast2012", edit.contrast)
         add("Highlights2012", edit.highlights)
         add("Shadows2012", edit.shadows)
         add("Whites2012", edit.whites)
         add("Blacks2012", edit.blacks)
-        // WB is ABSOLUTE (Kelvin): slider shows preset value + delta, so the written value
-        // is the preset's own Temperature/Tint plus the delta. Requires WhiteBalance="Custom".
-        add("Temperature", edit.temp)
-        add("Tint", edit.tint)
-        add("Vibrance", edit.vibrance)
-        add("Saturation", edit.saturation)
-        add("Clarity2012", edit.clarity)
-        add("Sharpness", edit.sharpness)
+        // WB is ABSOLUTE (Kelvin) and only takes effect in Custom mode, where BOTH Temperature
+        // and Tint must be present — so either write the pair or neither. The base is the
+        // preset's own value, or, when the preset leaves the white balance "As Shot" (no
+        // Temperature attribute at all), the RAW's as-shot value harvested from the render —
+        // the same base the slider displays. Without a known base nothing is written: a bare
+        // delta would land as an ABSOLUTE Kelvin (a +300 nudge became 300 K, deep blue).
+        if edit.temp != 0 || edit.tint != 0,
+           let baseTemp = value(of: "Temperature", in: xmp) ?? asShotWB?.temp,
+           let baseTint = value(of: "Tint", in: xmp) ?? asShotWB?.tint {
+            attrs.append(("Temperature", clamp("Temperature", baseTemp + edit.temp)))
+            attrs.append(("Tint", clamp("Tint", baseTint + edit.tint)))
+        }
         // Color mixer (HSL): each band/channel is a delta over the preset's own value.
-        for (k, v) in edit.hsl where v != 0 { attrs.append((k, (value(of: k, in: xmp) ?? 0) + v)) }
+        for (k, v) in edit.hsl where v != 0 { attrs.append((k, clamp(k, (value(of: k, in: xmp) ?? 0) + v))) }
         guard !attrs.isEmpty else { return xmp }
 
         var text = xmp
@@ -89,6 +95,22 @@ enum XMPPresetBuilder {
             text = setWhiteBalanceCustom(text)
         }
         return text
+    }
+
+    /// Camera Raw's accepted range per control. An out-of-range value is not clamped by ACR —
+    /// it is DISCARDED, silently resetting that control to 0, which is the opposite of what the
+    /// user asked for. Reachable because a stored delta outlives the preset it was made on:
+    /// +80 on a preset with Highlights2012="-87" is a harmless -7, but carry that same delta to
+    /// a preset sitting at +50 and it becomes +130 → highlights snap to 0.
+    private static func clamp(_ key: String, _ v: Double) -> Double {
+        let range: ClosedRange<Double>
+        switch key {
+        case "Temperature":   range = 2000...50000
+        case "Tint":          range = -150...150
+        case "Exposure2012":  range = -5...5
+        default:              range = -100...100   // Basic panel + all HSL bands
+        }
+        return Swift.max(range.lowerBound, Swift.min(range.upperBound, v))
     }
 
     /// Forces crs:WhiteBalance="Custom" (replaces an existing value or inserts one) so an
@@ -162,8 +184,7 @@ enum XMPPresetBuilder {
     static func presetValues(_ presetURL: URL?) -> [String: Double] {
         guard let presetURL, let text = try? String(contentsOf: presetURL, encoding: .utf8) else { return [:] }
         let keys = ["Exposure2012", "Contrast2012", "Highlights2012", "Shadows2012", "Whites2012",
-                    "Blacks2012", "Vibrance", "Saturation", "Clarity2012", "Sharpness",
-                    "Temperature", "Tint"] + ImageEdit.hslKeys
+                    "Blacks2012", "Temperature", "Tint"] + ImageEdit.hslKeys
         var out: [String: Double] = [:]
         for k in keys { if let v = value(of: k, in: text) { out[k] = v } }
         return out

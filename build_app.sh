@@ -80,5 +80,27 @@ echo "APPL????" > "${APP_DIR}/Contents/PkgInfo"
 # Ad-hoc code signature so first launch is smoother.
 codesign --force --sign - "${APP_DIR}" >/dev/null 2>&1 || echo "  (ad-hoc signing skipped)"
 
+# Install the Lightroom bridge plug-in.
+#
+# Lightroom auto-scans this Modules folder at startup, so no "Add" in the Plug-in Manager.
+# The copy is deliberate and NOT redundant: Lightroom cannot read the .lua files out of
+# ~/Developer (it reads Info.lua once while you pick the folder, but every script load
+# afterwards fails with "No script by the name Init.lua"), and a symlink would resolve
+# straight back there and hit the same wall.
+#
+# So: the plug-in in this repo is the SOURCE — the only copy to ever edit. The one below is
+# a build artifact, exactly like RAW Select.app. Never edit it by hand; it gets overwritten.
+#
+# Lightroom caches a plug-in's file list, so ADDING a .lua needs a remove + re-add in the
+# Plug-in Manager. Changing existing ones only needs a Lightroom restart.
+MODULES_DIR="${HOME}/Library/Application Support/Adobe/Lightroom/Modules"
+if [ -d "RAWSelectBridge.lrplugin" ]; then
+    echo "▶︎ Installing Lightroom bridge plug-in…"
+    mkdir -p "${MODULES_DIR}"
+    rm -rf "${MODULES_DIR}/RAWSelectBridge.lrplugin"
+    cp -R "RAWSelectBridge.lrplugin" "${MODULES_DIR}/"
+    echo "  → ${MODULES_DIR}/RAWSelectBridge.lrplugin"
+fi
+
 echo "✓ Done: $(pwd)/${APP_DIR}"
 echo "  Start with:  open \"${APP_DIR}\""

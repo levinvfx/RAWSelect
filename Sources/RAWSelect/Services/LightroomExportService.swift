@@ -112,8 +112,12 @@ struct LightroomExportService {
                 let tempRaw = inDir.appendingPathComponent("\(base0).\(ext)")
                 try fm.copyItem(at: item.rawURL, to: tempRaw)
                 let sidecar = inDir.appendingPathComponent("\(base0).xmp")
+                // The absolute WB needs the same base the slider showed: the preset's own
+                // Temperature, or the RAW's as-shot value harvested by the preview render.
+                let wb = await LightroomPreviewService.shared.asShotWB(rawURL: item.rawURL)
                 let xmp = XMPPresetBuilder.sidecarXMP(presetURL: config.presetURL, evDelta: item.evDelta,
-                                                      edit: item.edit, denoise: config.denoise)
+                                                      edit: item.edit, denoise: config.denoise,
+                                                      asShotWB: wb.map { ($0.temp, $0.tint) })
                 try xmp.data(using: .utf8)?.write(to: sidecar)
 
                 let dir = outputDir(for: item.group, config: config, item: item)
@@ -229,8 +233,12 @@ struct LightroomExportService {
             let sidecar = inDir.appendingPathComponent("\(base0).xmp")
             // Exactly the export sidecar: preset + absolute exposure + Basic-panel
             // develop values → the render matches the export 1:1 (crop/rotate stay local).
+            // Identity renders (temp/tint 0) are what harvest the as-shot WB in the first
+            // place, so a missing value here is fine — nothing WB-related gets written.
+            let wb = await LightroomPreviewService.shared.asShotWB(rawURL: rawURL)
             let xmp = XMPPresetBuilder.sidecarXMP(presetURL: presetURL, evDelta: edit.exposure,
-                                                  edit: edit, stripMasks: true)
+                                                  edit: edit, stripMasks: true,
+                                                  asShotWB: wb.map { ($0.temp, $0.tint) })
             try xmp.data(using: .utf8)?.write(to: sidecar)
 
             let id = "RSPREV_\(UUID().uuidString)"

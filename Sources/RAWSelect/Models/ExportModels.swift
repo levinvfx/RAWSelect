@@ -98,10 +98,6 @@ struct ImageEdit: Equatable, Codable {
     var blacks: Double = 0       // -100…100 → crs:Blacks2012
     var temp: Double = 0         // Kelvin DELTA from preset → absolute crs:Temperature (WB Custom)
     var tint: Double = 0         // tint DELTA from preset → absolute crs:Tint
-    var vibrance: Double = 0     // -100…100 → crs:Vibrance
-    var saturation: Double = 0   // -100…100 → crs:Saturation
-    var clarity: Double = 0      // -100…100 → crs:Clarity2012
-    var sharpness: Double = 0    //    0…150 → crs:Sharpness (0 = leave preset default)
 
     // MARK: Color mixer (HSL) — 8 hue bands × Hue/Saturation/Luminance, each -100…100.
     // Stored as a delta over the preset (like WB): key = full crs key
@@ -117,8 +113,7 @@ struct ImageEdit: Equatable, Codable {
     /// True when no Basic-panel develop adjustment (besides exposure) is set.
     var developIsZero: Bool {
         contrast == 0 && highlights == 0 && shadows == 0 && whites == 0 && blacks == 0
-            && temp == 0 && tint == 0 && vibrance == 0 && saturation == 0
-            && clarity == 0 && sharpness == 0 && hsl.values.allSatisfy { $0 == 0 }
+            && temp == 0 && tint == 0 && hsl.values.allSatisfy { $0 == 0 }
     }
 
     var isIdentity: Bool {
@@ -132,8 +127,7 @@ struct ImageEdit: Equatable, Codable {
     /// (exposure + Basic panel). Excludes crop/rotate/straighten — those are applied
     /// locally, not baked by the render. Used to key the exact preset-preview cache.
     var developSignature: String {
-        let basic = [exposure, contrast, highlights, shadows, whites, blacks,
-                     temp, tint, vibrance, saturation, clarity, sharpness]
+        let basic = [exposure, contrast, highlights, shadows, whites, blacks, temp, tint]
             .map { String(format: "%.3f", $0) }.joined(separator: ",")
         let color = hsl.filter { $0.value != 0 }.sorted { $0.key < $1.key }
             .map { "\($0.key)=\(String(format: "%.3f", $0.value))" }.joined(separator: ",")

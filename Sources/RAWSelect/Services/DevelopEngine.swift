@@ -18,24 +18,31 @@ enum DevelopEngine {
         // against Lightroom renders was tried and reverted: minimising average pixel error
         // with a mismatched filter shape systematically shrank the effects, making the Light
         // preview far too weak. Perceived match ≠ lowest MAE.)
-        static var contrast = 0.30         // Contrast2012/100 → S-curve amplitude (mid-tone pivot)
+        static var contrast = 0.17         // Contrast2012/100 → S-curve amplitude (mid-tone pivot)
         static var contrastCap = 0.34      // max |S-curve| shift so extreme values stay sane
-        static var highlights = 0.13       // Highlights/100 → shift of the 0.75 tone anchor
-        static var shadows = 0.13          // Shadows/100    → shift of the 0.25 tone anchor
-        static var whites = 0.11           // Whites/100     → extra shift of the 0.75 anchor
-        static var blacks = 0.11           // Blacks/100     → extra shift of the 0.25 anchor
+        // Fitted to Lightroom renders via `--slidercal`; see the tone curve below.
+        static var highlights = 0.14       // Highlights/100 → peak curve lift around x≈0.85
+        static var shadows = 0.09          // Shadows/100    → peak curve lift around x≈0.15
+        // Whites and Blacks are ASYMMETRIC in Camera Raw — measured, not assumed. Pushing them
+        // up scales the image and clips; pulling them down only compresses one end. Each
+        // direction also ACCELERATES (Adobe's Whites ran +20/+40/+80 → 1 : 2 : 9), so the
+        // slider value is raised to a power instead of scaling linearly.
+        static var whitesPos = 0.29        // Whites+ → white point pulled in (lift + clipping)
+        static var whitesNeg = 0.10        // Whites− → top-end compression only
+        static var blacksPos = 0.15        // Blacks+ → black point lifted
+        static var blacksNeg = 0.31        // Blacks− → black point pulled in (crush)
+        static var whitesPosExp = 1.6      // curvature of the Whites+ response (clipping ramp)
+        static var whitesNegExp = 1.0      // Whites− stays linear — it never clips
+        static var blacksPosExp = 1.25
+        static var blacksNegExp = 1.2
         static var exposure = 1.4          // Exposure(EV) → CIExposureAdjust EV multiplier.
-                                           // Judged by eye against the real preset render (the neutral
-                                           // --expcal metric underestimated the real-world response).
-        static var vibrance = 1.0          // Vibrance/100 → CIVibrance amount multiplier
-        static var saturation = 1.0        // Saturation/100 → CIColorControls saturation multiplier
-        static var hslLum = 0.22           // HSL Luminance ±100 → ±lightness
+                                           // Judged by eye against the real preset render.
+        static var hslLum = 0.45           // HSL Luminance ±100 → ±lightness
         static var temp = 1.0              // Temperature delta → CI target-neutral Kelvin scale
         static var tint = 1.0              // Tint delta → CI target-neutral tint scale
-        static var clarity = 0.6           // Clarity → unsharp intensity
-        static var sharpness = 1.5 / 150   // Sharpness → CISharpenLuminance sharpness
-        static var hslHueDeg = 30.0        // HSL Hue ±100 → ±degrees shift
-        static var hslSat = 1.0            // HSL Saturation strength multiplier
+        static var hslHueDeg = 90.0        // HSL Hue ±100 → ±degrees shift
+        static var hslSatPos = 3.5         // HSL Saturation+ → RGB chroma scale (clips like ACR)
+        static var hslSatNeg = 2.0         // HSL Saturation− → scales `s` in HSL
     }
 
     static func apply(_ edit: ImageEdit, to base: CIImage) -> CIImage {
@@ -63,30 +70,56 @@ enum DevelopEngine {
             ci = f.outputImage ?? ci
         }
 
-        // Highlights / shadows / whites / blacks as ONE regional tone curve. Shadows+blacks
-        // shift the lower anchor (0.25), highlights+whites the upper anchor (0.75); each
-        // control responds in BOTH directions (the old CIHighlightShadowAdjust could only
-        // darken highlights, and the endpoint-clamped whites/blacks curve did nothing for
-        // whites+ / blacks-). Verified correct-signed and visible for every control.
+        // Highlights / shadows / whites / blacks as ONE tone curve. Each control is a broad
+        // Gaussian bump whose centre, width and amplitude were fitted against real Lightroom
+        // renders (`--slidercal`): Camera Raw's tone controls reach much further than their
+        // name suggests — Whites and Highlights lift the MID-tones nearly as much as the top,
+        // and Blacks pulls the mids down harder than the shadows themselves.
+        //
+        // The previous curve pinned the 0.5 anchor and only moved the 0.25/0.75 points, so the
+        // mid-tones could never follow: Whites came out ~10× too weak (ratio 0.09 vs Adobe) and
+        // no amount of scaling could fix it, because the SHAPE — not the strength — was wrong.
+        // Whites and Blacks move the white/black POINT, the way Camera Raw does — that is why
+        // their response is asymmetric and accelerating rather than linear: pulling the white
+        // point inward makes more and more pixels clip. Measured on a real render, Whites −66
+        // barely moved the image while +80 lifted it enormously (a 1 : 2 : 9 progression).
+        // Modelled as a symmetric bump instead, the negative side came out 3–5× too strong.
+        //
+        // Highlights and Shadows bend the curve between those endpoints as broad Gaussian
+        // bumps — broad because Camera Raw's tone controls reach well into the mid-tones.
         if edit.highlights != 0 || edit.shadows != 0 || edit.whites != 0 || edit.blacks != 0 {
-            func cl(_ y: Double) -> Double { max(0, min(1, y)) }
-            let low = edit.shadows / 100 * Cal.shadows + edit.blacks / 100 * Cal.blacks
-            let high = edit.highlights / 100 * Cal.highlights + edit.whites / 100 * Cal.whites
+            /// Slider → curve amount, accelerating like Camera Raw's own response.
+            func shaped(_ v: Double, _ cal: Double, _ e: Double) -> Double {
+                min(0.45, pow(abs(v) / 100, e) * cal)
+            }
+            func bump(_ x: Double, _ centre: Double, _ sigma: Double) -> Double {
+                let t = (x - centre) / sigma
+                return exp(-t * t)
+            }
+            let whiteIn = edit.whites > 0 ? shaped(edit.whites, Cal.whitesPos, Cal.whitesPosExp) : 0
+            let whiteDown = edit.whites < 0 ? shaped(edit.whites, Cal.whitesNeg, Cal.whitesNegExp) : 0
+            let blackLift = edit.blacks > 0 ? shaped(edit.blacks, Cal.blacksPos, Cal.blacksPosExp) : 0
+            let blackIn = edit.blacks < 0 ? shaped(edit.blacks, Cal.blacksNeg, Cal.blacksNegExp) : 0
+
+            func y(_ x: Double) -> Double {
+                var v = x
+                // Blacks move the black point: + lifts it off zero, − pulls it in and crushes.
+                if blackLift > 0 { v = blackLift + v * (1 - blackLift) }
+                if blackIn > 0 { v = (v - blackIn) / (1 - blackIn) }
+                // Whites+ scales the whole curve up until the top clips — that global lift is
+                // what Adobe does. Whites− does NOT scale globally; it only rolls the top off,
+                // which is why its measured effect on shadows was nearly nil.
+                if whiteIn > 0 { v /= (1 - whiteIn) }
+                if whiteDown > 0 { v -= whiteDown * bump(x, 1.0, 0.40) }
+                v += edit.shadows    / 100 * Cal.shadows    * bump(x, 0.15, 0.50)
+                v += edit.highlights / 100 * Cal.highlights * bump(x, 0.85, 0.50)
+                return max(0, min(1, v))
+            }
             let f = CIFilter(name: "CIToneCurve")!
             f.setValue(ci, forKey: kCIInputImageKey)
-            f.setValue(CIVector(x: 0, y: 0), forKey: "inputPoint0")
-            f.setValue(CIVector(x: 0.25, y: cl(0.25 + low)), forKey: "inputPoint1")
-            f.setValue(CIVector(x: 0.5, y: 0.5), forKey: "inputPoint2")
-            f.setValue(CIVector(x: 0.75, y: cl(0.75 + high)), forKey: "inputPoint3")
-            f.setValue(CIVector(x: 1, y: 1), forKey: "inputPoint4")
-            ci = f.outputImage ?? ci
-        }
-
-        // Global saturation.
-        if edit.saturation != 0 {
-            let f = CIFilter(name: "CIColorControls")!
-            f.setValue(ci, forKey: kCIInputImageKey)
-            f.setValue(1 + edit.saturation / 100 * Cal.saturation, forKey: kCIInputSaturationKey)
+            for (i, x) in [0.0, 0.25, 0.5, 0.75, 1.0].enumerated() {
+                f.setValue(CIVector(x: x, y: y(x)), forKey: "inputPoint\(i)")
+            }
             ci = f.outputImage ?? ci
         }
 
@@ -111,31 +144,6 @@ enum DevelopEngine {
         if edit.hsl.values.contains(where: { $0 != 0 }), let cube = hslCube(edit.hsl) {
             cube.setValue(ci, forKey: kCIInputImageKey)
             ci = cube.outputImage ?? ci
-        }
-
-        // Vibrance.
-        if edit.vibrance != 0 {
-            let f = CIFilter(name: "CIVibrance")!
-            f.setValue(ci, forKey: kCIInputImageKey)
-            f.setValue(edit.vibrance / 100 * Cal.vibrance, forKey: "inputAmount")
-            ci = f.outputImage ?? ci
-        }
-
-        // Clarity (local contrast) via a wide-radius unsharp mask.
-        if edit.clarity != 0 {
-            let f = CIFilter(name: "CIUnsharpMask")!
-            f.setValue(ci, forKey: kCIInputImageKey)
-            f.setValue(2.5, forKey: kCIInputRadiusKey)
-            f.setValue(edit.clarity / 100 * Cal.clarity, forKey: kCIInputIntensityKey)
-            ci = f.outputImage ?? ci
-        }
-
-        // Sharpness.
-        if edit.sharpness > 0 {
-            let f = CIFilter(name: "CISharpenLuminance")!
-            f.setValue(ci, forKey: kCIInputImageKey)
-            f.setValue(edit.sharpness * Cal.sharpness, forKey: kCIInputSharpnessKey)
-            ci = f.outputImage ?? ci
         }
 
         // Some filters enlarge the extent (blur kernels) – clamp back to the source.
@@ -170,21 +178,37 @@ enum DevelopEngine {
                 for ri in 0..<size {
                     let r = Double(ri) / denom, g = Double(gi) / denom, b = Double(bi) / denom
                     var (h, s, l) = rgbToHSL(r, g, b)
-                    // Weight the effect by saturation so neutrals stay put.
-                    let strength = min(1, s * 2)
+                    // Protect neutrals, but only neutrals: `s * 2` still halved the effect on
+                    // ordinary colours (a blue sky sits around s≈0.3), and combined with the
+                    // hue-band blend that left the mixer 2–7× weaker than Camera Raw.
+                    let strength = min(1, s * 4)
+                    var dSat = 0.0
                     if strength > 0 {
-                        var dHue = 0.0, dSatF = 0.0, dLum = 0.0
+                        var dHue = 0.0, dLum = 0.0
                         let w = bandWeights(h)
                         for k in 0..<8 {
                             dHue += w[k] * hue[k] * Cal.hslHueDeg
-                            dSatF += w[k] * sat[k] * Cal.hslSat
+                            dSat += w[k] * sat[k]
                             dLum += w[k] * lum[k] * Cal.hslLum
                         }
                         h = h + dHue * strength
-                        s = max(0, min(1, s * (1 + dSatF * strength)))
                         l = max(0, min(1, l + dLum * strength))
                     }
-                    let (nr, ng, nb) = hslToRGB(h, s, l)
+                    // Saturation is handled differently per direction, because measurement says
+                    // the two behave differently and no single model fit both:
+                    //  − : scaling `s` in HSL tracks Adobe closely (ratio ≈ 0.85).
+                    //  + : scaling `s` hits the ceiling at s = 1 and stalls at ~1/3 of Adobe's
+                    //      effect, so chroma is scaled in RGB instead, which clips the way
+                    //      Camera Raw does.
+                    if dSat < 0 { s = max(0, min(1, s * (1 + dSat * Cal.hslSatNeg * strength))) }
+                    var (nr, ng, nb) = hslToRGB(h, s, l)
+                    if dSat > 0 {
+                        let f = 1 + dSat * Cal.hslSatPos * strength
+                        let y = 0.299 * nr + 0.587 * ng + 0.114 * nb
+                        nr = max(0, min(1, y + (nr - y) * f))
+                        ng = max(0, min(1, y + (ng - y) * f))
+                        nb = max(0, min(1, y + (nb - y) * f))
+                    }
                     data[idx] = Float(nr); data[idx+1] = Float(ng)
                     data[idx+2] = Float(nb); data[idx+3] = 1
                     idx += 4

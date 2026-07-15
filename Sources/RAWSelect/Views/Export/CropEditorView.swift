@@ -520,11 +520,6 @@ struct CropEditorView: View {
                         toneSlider("Weiss", \.whites, "Whites2012")
                         toneSlider("Schwarz", \.blacks, "Blacks2012")
                     }
-                    LRSection(title: "Präsenz") {
-                        toneSlider("Klarheit", \.clarity, "Clarity2012")
-                        toneSlider("Dynamik", \.vibrance, "Vibrance")
-                        toneSlider("Sättigung", \.saturation, "Saturation")
-                    }
                     LRSection(title: "Farbmischer") {
                         HStack(spacing: 6) {
                             ForEach(0..<ImageEdit.hslBands.count, id: \.self) { i in
@@ -540,10 +535,6 @@ struct CropEditorView: View {
                         hslSlider("Farbton", "HueAdjustment")
                         hslSlider("Sättigung", "SaturationAdjustment")
                         hslSlider("Luminanz", "LuminanceAdjustment")
-                    }
-                    LRSection(title: "Detail") {
-                        toneSlider("Schärfe", \.sharpness, "Sharpness", range: 0...150,
-                                   format: { String(format: "%.0f", $0) })
                     }
                 }
                 .padding(12)
@@ -574,7 +565,6 @@ struct CropEditorView: View {
     private func resetDevelop() {
         edit.exposure = 0; edit.contrast = 0; edit.highlights = 0; edit.shadows = 0
         edit.whites = 0; edit.blacks = 0; edit.temp = 0; edit.tint = 0
-        edit.vibrance = 0; edit.saturation = 0; edit.clarity = 0; edit.sharpness = 0
         edit.hsl.removeAll()
         updateDisplay()
     }

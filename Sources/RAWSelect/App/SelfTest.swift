@@ -150,15 +150,33 @@ enum SelfTest {
 
         // 14) Develop adjustments map to Camera-Raw sidecar attributes (non-zero only).
         var dev = ImageEdit()
-        dev.contrast = 40; dev.temp = -25; dev.sharpness = 60; dev.highlights = -100
-        let devXMP = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0, edit: dev)
+        dev.contrast = 40; dev.temp = -25; dev.whites = 60; dev.highlights = -100
+        let devXMP = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0, edit: dev,
+                                                 asShotWB: (temp: 5500, tint: 0))
         check(devXMP.contains("crs:Contrast2012=\"40\""), "Contrast2012 written")
-        check(devXMP.contains("crs:Temperature=\"-25\""), "absolute Temperature written (preset base 0 + delta)")
+        check(devXMP.contains("crs:Temperature=\"5475\""), "absolute Temperature = as-shot 5500 + (-25)")
         check(devXMP.contains("crs:WhiteBalance=\"Custom\""), "WhiteBalance forced Custom for absolute WB")
-        check(devXMP.contains("crs:Sharpness=\"60\""), "Sharpness written")
+        check(devXMP.contains("crs:Whites2012=\"60\""), "Whites2012 written")
         check(devXMP.contains("crs:Highlights2012=\"-100\""), "Highlights2012 written")
         check(!devXMP.contains("crs:Blacks2012"), "zero adjustment (Blacks) NOT written")
         check(ImageEdit().isIdentity && !dev.isIdentity, "develop breaks isIdentity")
+
+        // 14a) Präsenz/Detail are gone: the app never writes those keys itself, so a preset's
+        //      own Clarity/Vibrance/Saturation/Sharpness survive untouched.
+        let presenceXMP = """
+        <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+          crs:Clarity2012="+22" crs:Vibrance="+15" crs:Saturation="-8" crs:Sharpness="55">
+        </rdf:Description></rdf:RDF></x:xmpmeta>
+        """
+        let presenceFile = root.appendingPathComponent("selftest_presence.xmp")
+        try? presenceXMP.data(using: .utf8)?.write(to: presenceFile)
+        var pv = ImageEdit(); pv.contrast = 10
+        let pvXMP = XMPPresetBuilder.sidecarXMP(presetURL: presenceFile, evDelta: 0, edit: pv)
+        for k in ["Clarity2012=\"+22\"", "Vibrance=\"+15\"", "Saturation=\"-8\"", "Sharpness=\"55\""] {
+            check(pvXMP.contains("crs:" + k), "preset keeps its own crs:\(k.split(separator: "=")[0])")
+        }
+        try? fm.removeItem(at: presenceFile)
 
         // 14b) Preset WB is absolute: slider delta adds onto the preset's Temperature/Tint.
         //      Preview render strips local corrections (AI masks); export keeps them.
@@ -180,6 +198,52 @@ enum SelfTest {
         check(wbXMP.contains("MaskGroupBasedCorrections"), "export keeps AI mask block")
         check(XMPPresetBuilder.presetValues(presetFile)["Temperature"] == 6172, "presetValues reads absolute Temperature")
         try? fm.removeItem(at: presetFile)
+
+        // 14b-2) "As Shot" preset (no crs:Temperature at all): the WB base must come from the
+        //        RAW's as-shot value, never from an implicit 0 — a +300 delta once exported as
+        //        an absolute 300 K (deep blue) while the slider read 6472.
+        let asShotPreset = """
+        <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+          crs:WhiteBalance="As Shot" crs:Contrast2012="-2">
+        </rdf:Description></rdf:RDF></x:xmpmeta>
+        """
+        let asShotFile = root.appendingPathComponent("selftest_asshot.xmp")
+        try? asShotPreset.data(using: .utf8)?.write(to: asShotFile)
+        var wb2 = ImageEdit(); wb2.temp = 300
+        let wbAsShot = XMPPresetBuilder.sidecarXMP(presetURL: asShotFile, evDelta: 0, edit: wb2,
+                                                   asShotWB: (temp: 6172, tint: 12))
+        check(wbAsShot.contains("crs:Temperature=\"6472\""), "As-Shot preset: WB base = RAW as-shot 6172 + 300")
+        check(wbAsShot.contains("crs:Tint=\"12\""), "As-Shot preset: Tint written alongside (Custom needs both)")
+        check(wbAsShot.contains("crs:WhiteBalance=\"Custom\""), "As-Shot preset: WhiteBalance switched to Custom")
+        // No known base anywhere → writing a bare delta as absolute Kelvin would be wrong.
+        let wbNoBase = XMPPresetBuilder.sidecarXMP(presetURL: asShotFile, evDelta: 0, edit: wb2)
+        check(!wbNoBase.contains("crs:Temperature"), "unknown WB base → no absolute Temperature written")
+        check(!wbNoBase.contains("crs:WhiteBalance=\"Custom\""), "unknown WB base → WhiteBalance stays As Shot")
+        check(wbNoBase.contains("crs:Contrast2012=\"-2\""), "unknown WB base → other sliders still apply")
+        try? fm.removeItem(at: asShotFile)
+
+        // 14b-3) preset base + delta must stay inside Camera Raw's range. ACR DISCARDS an
+        //        out-of-range value and resets that control to 0 — measured: three different
+        //        Highlights deltas on a -87 preset all landed as "Highlights 0", brightening
+        //        the image instead of darkening it.
+        let steepPreset = """
+        <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+          crs:Highlights2012="-87" crs:Blacks2012="+90">
+        </rdf:Description></rdf:RDF></x:xmpmeta>
+        """
+        let steepFile = root.appendingPathComponent("selftest_steep.xmp")
+        try? steepPreset.data(using: .utf8)?.write(to: steepFile)
+        var over = ImageEdit(); over.highlights = -80; over.blacks = 40
+        let overXMP = XMPPresetBuilder.sidecarXMP(presetURL: steepFile, evDelta: 0, edit: over)
+        check(overXMP.contains("crs:Highlights2012=\"-100\""), "under-range (-167) clamped to -100, not discarded")
+        check(overXMP.contains("crs:Blacks2012=\"100\""), "over-range (+130) clamped to +100, not discarded")
+        var wbOver = ImageEdit(); wbOver.tint = -200
+        let wbOverXMP = XMPPresetBuilder.sidecarXMP(presetURL: steepFile, evDelta: 0, edit: wbOver,
+                                                    asShotWB: (temp: 6000, tint: 0))
+        check(wbOverXMP.contains("crs:Tint=\"-150\""), "Tint clamped to its own -150 limit")
+        try? fm.removeItem(at: steepFile)
 
         // 14c) Color mixer (HSL): only non-zero bands are written; identity mixer stays default.
         var hslEdit = ImageEdit(); hslEdit.hsl["SaturationAdjustmentOrange"] = -30; hslEdit.hsl["HueAdjustmentBlue"] = 0
