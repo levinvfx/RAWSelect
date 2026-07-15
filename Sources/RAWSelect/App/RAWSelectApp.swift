@@ -72,6 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // Ship the bridge plug-in with the app instead of leaving it to a manual install —
+        // an outdated plug-in silently stops reporting the white balance, which makes the
+        // WB sliders do nothing without ever saying so.
+        BridgeInstaller.installIfNeeded()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

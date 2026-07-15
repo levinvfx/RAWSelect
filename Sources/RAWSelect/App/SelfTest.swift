@@ -253,6 +253,27 @@ enum SelfTest {
         check(wbOverXMP.contains("crs:Tint=\"-150\""), "Tint clamped to its own -150 limit")
         try? fm.removeItem(at: steepFile)
 
+        // 14e) The bridge plug-in ships with the app and must be replaced whenever it differs —
+        //      a stale one silently stops reporting the white balance, which kills the WB
+        //      sliders without a single error message.
+        let pluginA = root.appendingPathComponent("plugA", isDirectory: true)
+        let pluginB = root.appendingPathComponent("plugB", isDirectory: true)
+        try? fm.createDirectory(at: pluginA, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: pluginB, withIntermediateDirectories: true)
+        func writeLua(_ dir: URL, _ name: String, _ body: String) {
+            try? body.data(using: .utf8)?.write(to: dir.appendingPathComponent(name))
+        }
+        writeLua(pluginA, "Init.lua", "-- v2"); writeLua(pluginA, "Info.lua", "return {}")
+        writeLua(pluginB, "Init.lua", "-- v2"); writeLua(pluginB, "Info.lua", "return {}")
+        check(BridgeInstaller.scriptsMatch(pluginA, pluginB), "identical plug-ins → no reinstall")
+        writeLua(pluginB, "Init.lua", "-- v1")
+        check(!BridgeInstaller.scriptsMatch(pluginA, pluginB), "changed script → reinstall")
+        try? fm.removeItem(at: pluginB.appendingPathComponent("Init.lua"))
+        check(!BridgeInstaller.scriptsMatch(pluginA, pluginB), "missing script → reinstall")
+        check(!BridgeInstaller.scriptsMatch(pluginA, root.appendingPathComponent("nope")),
+              "no plug-in installed at all → install")
+        try? fm.removeItem(at: pluginA); try? fm.removeItem(at: pluginB)
+
         // 14c) Color mixer (HSL): only non-zero bands are written; identity mixer stays default.
         var hslEdit = ImageEdit(); hslEdit.hsl["SaturationAdjustmentOrange"] = -30; hslEdit.hsl["HueAdjustmentBlue"] = 0
         let hslXMP = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0, edit: hslEdit)

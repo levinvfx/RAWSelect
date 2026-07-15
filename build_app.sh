@@ -54,6 +54,14 @@ for logo in assets/Logo-Schwarz.png assets/Logo-Weiss.png; do
     [[ -f "$logo" ]] && cp "$logo" "${APP_DIR}/Contents/Resources/"
 done
 
+# The Lightroom bridge plug-in travels INSIDE the app. BridgeInstaller copies it into
+# Lightroom's Modules folder on launch, so a download is all a user ever needs — and the
+# app can never end up talking to an older plug-in than it expects. A stale one fails
+# silently (it stops reporting the white balance), which is the worst kind of failure.
+if [[ -d "RAWSelectBridge.lrplugin" ]]; then
+    cp -R "RAWSelectBridge.lrplugin" "${APP_DIR}/Contents/Resources/"
+fi
+
 cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -80,21 +88,21 @@ echo "APPL????" > "${APP_DIR}/Contents/PkgInfo"
 # Ad-hoc code signature so first launch is smoother.
 codesign --force --sign - "${APP_DIR}" >/dev/null 2>&1 || echo "  (ad-hoc signing skipped)"
 
-# Install the Lightroom bridge plug-in.
+# Install the plug-in on THIS machine too, so a build alone is enough while developing —
+# the shipped path is BridgeInstaller, which does the same on app launch from the copy
+# inside the bundle. Lightroom auto-scans this folder at startup, no "Add" needed.
 #
-# Lightroom auto-scans this Modules folder at startup, so no "Add" in the Plug-in Manager.
-# The copy is deliberate and NOT redundant: Lightroom cannot read the .lua files out of
-# ~/Developer (it reads Info.lua once while you pick the folder, but every script load
-# afterwards fails with "No script by the name Init.lua"), and a symlink would resolve
-# straight back there and hit the same wall.
+# The plug-in in this repo is the SOURCE — the only copy to ever edit. Both the one below
+# and the one in the bundle are build artifacts and get overwritten.
 #
-# So: the plug-in in this repo is the SOURCE — the only copy to ever edit. The one below is
-# a build artifact, exactly like RAW Select.app. Never edit it by hand; it gets overwritten.
+# Why copy instead of symlink: Lightroom cannot read the .lua files out of ~/Developer (it
+# reads Info.lua once while you pick the folder, then every script load fails with "No
+# script by the name Init.lua"), and a symlink resolves straight back there.
 #
 # Lightroom caches a plug-in's file list, so ADDING a .lua needs a remove + re-add in the
 # Plug-in Manager. Changing existing ones only needs a Lightroom restart.
 MODULES_DIR="${HOME}/Library/Application Support/Adobe/Lightroom/Modules"
-if [ -d "RAWSelectBridge.lrplugin" ]; then
+if [[ -d "RAWSelectBridge.lrplugin" ]]; then
     echo "▶︎ Installing Lightroom bridge plug-in…"
     mkdir -p "${MODULES_DIR}"
     rm -rf "${MODULES_DIR}/RAWSelectBridge.lrplugin"
