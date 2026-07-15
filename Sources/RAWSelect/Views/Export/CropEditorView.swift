@@ -57,12 +57,9 @@ struct CropEditorView: View {
     @State private var baseCI: CIImage?
     @State private var displayImage: NSImage?
 
-    // Zoom inspector for the Develop preview: pinch/scroll like the browsing loupe. On
-    // zoom-in the sharp ORIGINAL file is loaded (cropped to the current frame) — no
-    // RAW-editor render needed, it's just for checking sharpness/focus.
+    // Zoom inspector for the Develop preview: pinch/scroll like the browsing loupe, but it
+    // magnifies the DEVELOPED image so an adjustment can be judged on real detail.
     @StateObject private var previewZoom = ZoomController()
-    @State private var zoomFullRes: NSImage?
-    @State private var zoomFullResID: String?
     @State private var cropNorm = CGRect(x: 0, y: 0, width: 1, height: 1)
     @State private var aspect: AspectPreset = .free
     @State private var portrait = false
@@ -200,33 +197,18 @@ struct CropEditorView: View {
     private func workspace(in c: CGSize) -> some View {
         if editorTab == .crop, let img = displayImage {
             cropWorkspace(img: img, in: c)
-        } else if let img = zoomPreviewImage ?? developPreviewImage {
+        } else if let img = developPreviewImage {
+            // Zooms the DEVELOPED image, not the original file: the whole point of zooming here
+            // is watching an adjustment land on real detail. `developPreviewImage` is rebuilt on
+            // every slider move, and ZoomableImageView swaps it in while holding the zoom level
+            // and centre — so white balance or exposure changes show up live, magnified.
             ZoomableImageView(imageID: previewURL.path, image: img, controller: previewZoom)
                 .frame(width: c.width, height: c.height)
-                .onChange(of: previewZoom.zoomed) { _, z in
-                    if z, zoomFullResID != previewURL.path { Task { await loadZoomFullRes() } }
-                }
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    /// The sharp original (cropped to the current frame) while the Develop preview is
-    /// zoomed in — else nil, so the normal developed preview is shown at fit.
-    private var zoomPreviewImage: NSImage? {
-        guard previewZoom.zoomed, zoomFullResID == previewURL.path, let fr = zoomFullRes else { return nil }
-        return (cropNorm == full) ? fr : cropped(fr, to: cropNorm)
-    }
-
-    /// Loads the full-resolution ORIGINAL file for the zoom inspector (once per photo).
-    private func loadZoomFullRes() async {
-        let target = previewURL
-        let src = rawURL ?? previewURL
-        let big = await ThumbnailLoader.shared.fullDecode(for: src, maxPixel: PreviewConfig.zoomMaxPixel)
-        guard previewURL == target, let big else { return }
-        zoomFullRes = big
-        zoomFullResID = target.path
-    }
 
     @ViewBuilder
     private func cropWorkspace(img: NSImage, in c: CGSize) -> some View {
@@ -610,7 +592,7 @@ struct CropEditorView: View {
     private func loadImage() async {
         exactTask?.cancel(); exactCI = nil; exactKey = nil; toneCG = nil; toneKey = nil   // reset per photo
         asShotTemp = nil
-        zoomFullRes = nil; zoomFullResID = nil; previewZoom.fit()
+        previewZoom.fit()
         presetVals = XMPPresetBuilder.presetValues(presetURL)   // preset baseline for the sliders
         // Instant WB base if this RAW was rendered before (survives across sessions).
         if let rawURL, let wb = await LightroomPreviewService.shared.asShotWB(rawURL: rawURL) {
