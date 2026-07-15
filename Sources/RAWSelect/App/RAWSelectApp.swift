@@ -14,6 +14,10 @@ enum EntryPoint {
             RawCheck.run(Array(CommandLine.arguments[(idx + 1)...]))
             exit(0)
         }
+        if let idx = CommandLine.arguments.firstIndex(of: "--expcal") {
+            ExpCal.run(Array(CommandLine.arguments[(idx + 1)...]))
+            exit(0)
+        }
         RAWSelectApp.main()
     }
 }

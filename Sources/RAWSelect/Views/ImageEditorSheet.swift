@@ -10,6 +10,7 @@ struct ImageEditorSheet: View {
     let group: PhotoGroup
 
     @State private var draft = ImageEdit()
+    @State private var editorTab: EditorTab = .crop
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,7 +26,7 @@ struct ImageEditorSheet: View {
             .padding(.horizontal, 20).padding(.vertical, 14)
             Divider()
 
-            CropEditorView(previewURL: group.previewURL, edit: $draft)
+            CropEditorView(previewURL: group.previewURL, edit: $draft, editorTab: $editorTab)
                 .padding(20)
 
             Divider()

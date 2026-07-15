@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import CoreImage
 
 /// Headless verification of the core workflow, runnable without the GUI:
 ///   scan → RAW+JPG grouping → XMP sidecars → mark persistence (volume identity)
@@ -152,11 +153,70 @@ enum SelfTest {
         dev.contrast = 40; dev.temp = -25; dev.sharpness = 60; dev.highlights = -100
         let devXMP = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0, edit: dev)
         check(devXMP.contains("crs:Contrast2012=\"40\""), "Contrast2012 written")
-        check(devXMP.contains("crs:IncrementalTemperature=\"-25\""), "IncrementalTemperature written")
+        check(devXMP.contains("crs:Temperature=\"-25\""), "absolute Temperature written (preset base 0 + delta)")
+        check(devXMP.contains("crs:WhiteBalance=\"Custom\""), "WhiteBalance forced Custom for absolute WB")
         check(devXMP.contains("crs:Sharpness=\"60\""), "Sharpness written")
         check(devXMP.contains("crs:Highlights2012=\"-100\""), "Highlights2012 written")
         check(!devXMP.contains("crs:Blacks2012"), "zero adjustment (Blacks) NOT written")
         check(ImageEdit().isIdentity && !dev.isIdentity, "develop breaks isIdentity")
+
+        // 14b) Preset WB is absolute: slider delta adds onto the preset's Temperature/Tint.
+        //      Preview render strips local corrections (AI masks); export keeps them.
+        let presetXMP = """
+        <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+        <rdf:Description rdf:about="" xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+          crs:WhiteBalance="Custom" crs:Temperature="6172" crs:Tint="+12">
+        <crs:MaskGroupBasedCorrections><rdf:Seq><rdf:li>AI</rdf:li></rdf:Seq></crs:MaskGroupBasedCorrections>
+        </rdf:Description></rdf:RDF></x:xmpmeta>
+        """
+        let presetFile = root.appendingPathComponent("selftest_preset.xmp")
+        try? presetXMP.data(using: .utf8)?.write(to: presetFile)
+        var wb = ImageEdit(); wb.temp = 300; wb.tint = -5
+        let wbXMP = XMPPresetBuilder.sidecarXMP(presetURL: presetFile, evDelta: 0, edit: wb)
+        check(wbXMP.contains("crs:Temperature=\"6472\""), "absolute Temperature = preset 6172 + 300")
+        check(wbXMP.contains("crs:Tint=\"7\""), "absolute Tint = preset 12 + (-5)")
+        let prevXMP = XMPPresetBuilder.sidecarXMP(presetURL: presetFile, evDelta: 0, stripMasks: true)
+        check(!prevXMP.contains("MaskGroupBasedCorrections"), "preview strips AI mask block")
+        check(wbXMP.contains("MaskGroupBasedCorrections"), "export keeps AI mask block")
+        check(XMPPresetBuilder.presetValues(presetFile)["Temperature"] == 6172, "presetValues reads absolute Temperature")
+        try? fm.removeItem(at: presetFile)
+
+        // 14c) Color mixer (HSL): only non-zero bands are written; identity mixer stays default.
+        var hslEdit = ImageEdit(); hslEdit.hsl["SaturationAdjustmentOrange"] = -30; hslEdit.hsl["HueAdjustmentBlue"] = 0
+        let hslXMP = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0, edit: hslEdit)
+        check(hslXMP.contains("crs:SaturationAdjustmentOrange=\"-30\""), "HSL Saturation/Orange written")
+        check(!hslXMP.contains("HueAdjustmentBlue"), "HSL zero band NOT written")
+        check(!hslEdit.isIdentity && ImageEdit.hslKeys.count == 24, "HSL breaks identity; 24 HSL keys")
+
+        // 14d) DevelopEngine live approximation moves each control in the CORRECT direction.
+        let ctx = CIContext()
+        func patch(_ r: Double, _ g: Double, _ b: Double) -> CIImage {
+            CIImage(color: CIColor(red: r, green: g, blue: b)).cropped(to: CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        func px(_ img: CIImage) -> (Double, Double, Double) {
+            var bmp = [UInt8](repeating: 0, count: 4)
+            ctx.render(img, toBitmap: &bmp, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                       format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
+            return (Double(bmp[0]), Double(bmp[1]), Double(bmp[2]))
+        }
+        func lum(_ e: ImageEdit, _ p: CIImage) -> Double { let c = px(DevelopEngine.apply(e, to: p)); return c.0 * 0.3 + c.1 * 0.59 + c.2 * 0.11 }
+        var eSh = ImageEdit(); eSh.shadows = 100
+        check(lum(eSh, patch(0.25, 0.25, 0.25)) > 64, "Shadows+ brightens shadows")
+        var eHiN = ImageEdit(); eHiN.highlights = -100
+        check(lum(eHiN, patch(0.75, 0.75, 0.75)) < 191, "Highlights− darkens highlights")
+        var eWh = ImageEdit(); eWh.whites = 100
+        check(lum(eWh, patch(0.75, 0.75, 0.75)) > 191, "Whites+ brightens (no longer a no-op)")
+        // WB: +temp must WARM (red up, blue down); +tint must go MAGENTA (green down).
+        var eWarm = ImageEdit(); eWarm.temp = 2000
+        let warm = px(DevelopEngine.apply(eWarm, to: patch(0.5, 0.5, 0.5)))
+        check(warm.0 > warm.2, "Temp+ warms (red > blue), matches gradient")
+        var eMag = ImageEdit(); eMag.tint = 100
+        let mag = px(DevelopEngine.apply(eMag, to: patch(0.5, 0.5, 0.5)))
+        check(mag.0 > mag.1 && mag.2 > mag.1, "Tint+ → magenta (green lowest), matches gradient")
+        // HSL: desaturating the red band pulls a red patch toward neutral.
+        var eDesat = ImageEdit(); eDesat.hsl["SaturationAdjustmentRed"] = -100
+        let red0 = px(patch(0.8, 0.1, 0.1)), redD = px(DevelopEngine.apply(eDesat, to: patch(0.8, 0.1, 0.1)))
+        check((redD.0 - redD.1) < (red0.0 - red0.1), "HSL Saturation− desaturates the red band")
 
         // 15) Update version comparison handles multi-digit + differing lengths.
         check(UpdateService.isNewer("1.3", than: "1.2"), "1.3 > 1.2")

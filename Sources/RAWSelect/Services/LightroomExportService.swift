@@ -151,8 +151,8 @@ struct LightroomExportService {
                 let result = await waitForDone(id: e.id, doneDir: doneDir, timeout: timeout, isCancelled: isCancelled)
 
                 switch result {
-                case .some((let status, let path)) where status == "ok":
-                    if let produced = firstJPEG(in: e.stage, hint: path) {
+                case .some(let r) where r.status == "ok":
+                    if let produced = firstJPEG(in: e.stage, hint: r.path) {
                         if needsEdit {
                             if applyEdit(from: produced, edit: e.item.edit, longEdge: config.longEdge,
                                          quality: config.jpegQuality01, to: e.desired) {
@@ -172,7 +172,7 @@ struct LightroomExportService {
                     } else {
                         failures.append(ExportFailure(fileName: e.name, message: "Lightroom meldete Erfolg, aber kein JPEG gefunden."))
                     }
-                case .some((_, _)):
+                case .some:
                     failures.append(ExportFailure(fileName: e.name, message: "Lightroom-Export fehlgeschlagen."))
                 case nil:
                     if isCancelled() {
@@ -200,9 +200,12 @@ struct LightroomExportService {
     /// same bridge as the export. Returns nil if Lightroom/bridge is unavailable or
     /// the render fails. Exposure is left at the preset's neutral (0) — the crop
     /// step overlays manual exposure approximately on top.
+    /// A rendered preview plus the white balance Camera Raw resolved for the photo.
+    struct PreviewRender { let url: URL; let asShotTemp: Double?; let asShotTint: Double? }
+
     static func renderPreview(rawURL: URL, presetURL: URL?, edit: ImageEdit = ImageEdit(),
                               maxEdge: Int, lightroomPath: String,
-                              isCancelled: @escaping () -> Bool = { false }) async -> URL? {
+                              isCancelled: @escaping () -> Bool = { false }) async -> PreviewRender? {
         guard let lrURL = lightroomURL(preferredPath: lightroomPath) else { return nil }
         let fm = FileManager.default
         let base = spoolBase()
@@ -226,7 +229,8 @@ struct LightroomExportService {
             let sidecar = inDir.appendingPathComponent("\(base0).xmp")
             // Exactly the export sidecar: preset + absolute exposure + Basic-panel
             // develop values → the render matches the export 1:1 (crop/rotate stay local).
-            let xmp = XMPPresetBuilder.sidecarXMP(presetURL: presetURL, evDelta: edit.exposure, edit: edit)
+            let xmp = XMPPresetBuilder.sidecarXMP(presetURL: presetURL, evDelta: edit.exposure,
+                                                  edit: edit, stripMasks: true)
             try xmp.data(using: .utf8)?.write(to: sidecar)
 
             let id = "RSPREV_\(UUID().uuidString)"
@@ -234,15 +238,15 @@ struct LightroomExportService {
                      colorSpace: "sRGB", denoise: 0, enhance: false, jobsDir: jobsDir)
             let result = await waitForDone(id: id, doneDir: doneDir, timeout: 120, isCancelled: isCancelled)
 
-            guard case let .some((status, path)) = result, status == "ok",
-                  let produced = firstJPEG(in: stageDir, hint: path) else {
+            guard case let .some(done) = result, done.status == "ok",
+                  let produced = firstJPEG(in: stageDir, hint: done.path) else {
                 try? fm.removeItem(at: tempDir); return nil
             }
             let outFile = fm.temporaryDirectory.appendingPathComponent("RSPrev-\(id).jpg")
             try? fm.removeItem(at: outFile)
             try fm.moveItem(at: produced, to: outFile)
             try? fm.removeItem(at: tempDir)
-            return outFile
+            return PreviewRender(url: outFile, asShotTemp: done.temp, asShotTint: done.tint)
         } catch {
             try? fm.removeItem(at: tempDir)
             return nil
@@ -285,20 +289,26 @@ struct LightroomExportService {
         try? FileManager.default.moveItem(at: tmp, to: final)   // atomic → watcher never sees a half file
     }
 
-    /// Polls for `<id>.done`; returns (status, path) or nil on timeout/cancel.
-    private static func waitForDone(id: String, doneDir: URL, timeout: TimeInterval = 180, isCancelled: @escaping () -> Bool) async -> (String, String)? {
+    /// Parsed `<id>.done` reply. `temp`/`tint` carry the white balance Camera Raw
+    /// resolved for the photo (as-shot unless a preset overrides it), when reported.
+    struct DoneResult { let status: String; let path: String; let temp: Double?; let tint: Double? }
+
+    /// Polls for `<id>.done`; returns the parsed reply or nil on timeout/cancel.
+    private static func waitForDone(id: String, doneDir: URL, timeout: TimeInterval = 180, isCancelled: @escaping () -> Bool) async -> DoneResult? {
         let marker = doneDir.appendingPathComponent("\(id).done")
         let deadline = Date().addingTimeInterval(timeout)   // generous; cold LR / Enhance included
         while Date() < deadline {
             if isCancelled() { return nil }
             if let text = try? String(contentsOf: marker, encoding: .utf8) {
-                var status = "", path = ""
+                var status = "", path = "", temp: Double?, tint: Double?
                 for line in text.split(whereSeparator: \.isNewline) {
                     if line.hasPrefix("status=") { status = String(line.dropFirst(7)) }
                     else if line.hasPrefix("path=") { path = String(line.dropFirst(5)) }
+                    else if line.hasPrefix("temperature=") { temp = Double(line.dropFirst(12)) }
+                    else if line.hasPrefix("tint=") { tint = Double(line.dropFirst(5)) }
                 }
                 try? FileManager.default.removeItem(at: marker)
-                return (status, path)
+                return DoneResult(status: status, path: path, temp: temp, tint: tint)
             }
             try? await Task.sleep(nanoseconds: 400_000_000)
         }
@@ -358,13 +368,27 @@ struct LightroomExportService {
     /// window. Requires Accessibility permission; fails silently otherwise.
     private static func startDialogConfirmer() -> Process? {
         let script = """
-        set okLabels to {"Herunterladen", "Download", "Aktualisieren", "Update", "Fortfahren", "Continue", "OK", "Laden", "Jetzt herunterladen", "Verbessern", "Enhance", "Anwenden", "Apply"}
+        set okLabels to {"Herunterladen", "Download", "Aktualisieren", "Update", "Fortfahren", "Continue", "OK", "Laden", "Jetzt herunterladen", "Verbessern", "Enhance", "Anwenden", "Apply", "Exportieren", "Export", "Weiter"}
+        set proceedLabels to {"Exportieren", "Export", "Fortfahren", "Continue", "Weiter"}
         repeat 900 times
           try
             tell application "System Events"
               if exists (process "Adobe Lightroom Classic") then
                 tell process "Adobe Lightroom Classic"
                   repeat with w in windows
+                    -- Weg 2: AI-update dialog matched by title → click its proceed button
+                    try
+                      set wn to (name of w) as string
+                      if wn contains "KI-Update" or wn contains "empfohlen" or wn contains "recommended" or wn contains "AI-Update" then
+                        repeat with b in buttons of w
+                          if (name of b) is in proceedLabels then
+                            click b
+                            exit repeat
+                          end if
+                        end repeat
+                      end if
+                    end try
+                    -- Weg 1: known button labels (windows)
                     try
                       repeat with b in buttons of w
                         if (name of b) is in okLabels then
@@ -373,8 +397,17 @@ struct LightroomExportService {
                         end if
                       end repeat
                     end try
+                    -- sheets: title-scoped proceed, then known labels
                     try
                       repeat with sh in sheets of w
+                        try
+                          set sn to (name of sh) as string
+                          if sn contains "KI-Update" or sn contains "empfohlen" or sn contains "recommended" or sn contains "AI-Update" then
+                            repeat with b in buttons of sh
+                              if (name of b) is in proceedLabels then click b
+                            end repeat
+                          end if
+                        end try
                         repeat with b in buttons of sh
                           if (name of b) is in okLabels then click b
                         end repeat
@@ -400,20 +433,9 @@ struct LightroomExportService {
 
     // MARK: Output layout
 
+    /// Always the chosen target folder — RAW Select never creates subfolders on export.
     private static func outputDir(for group: PhotoGroup, config: Config, item: ExportItem) -> URL {
-        switch config.folderStructure {
-        case .single:
-            return config.targetRoot
-        case .perMark:
-            guard group.mark != 0 else { return config.targetRoot }
-            let name = String(format: "%02d_", group.mark) + AppSettings.shared.markName(group.mark)
-                .components(separatedBy: CharacterSet(charactersIn: "/:\\")).joined(separator: "-")
-            return config.targetRoot.appendingPathComponent(name, isDirectory: true)
-        case .mirror:
-            guard let root = config.sourceRoot else { return config.targetRoot }
-            let rel = item.rawURL.deletingLastPathComponent().path.replacingOccurrences(of: root.path, with: "")
-            return config.targetRoot.appendingPathComponent(rel.trimmingCharacters(in: CharacterSet(charactersIn: "/")), isDirectory: true)
-        }
+        config.targetRoot
     }
 
     private static func resolveOutput(base: String, in dir: URL, conflict: ConflictMode, used: inout Set<String>) -> URL? {

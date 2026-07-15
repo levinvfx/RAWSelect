@@ -177,9 +177,9 @@ final class AppSettings: ObservableObject {
     var zeroClearsMark: Bool { true }
     var advanceDirection: AdvanceDirection { .next }
 
-    // Export
-    var exportSubfolders: Bool { true }
-    var ignoreUnmarked: Bool { true }
+    // Export — never create subfolders; always write flat into the chosen target.
+    var exportSubfolders: Bool { false }
+    var ignoreUnmarked: Bool { false }
     var conflictMode: ConflictMode { .rename }
 
     // MARK: Derived helpers

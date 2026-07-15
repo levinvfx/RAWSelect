@@ -94,10 +94,14 @@ local function parseJob(text)
     return job
 end
 
-local function writeDone(id, status, pathOrMsg)
+local function writeDone(id, status, pathOrMsg, temp, tint)
     local body
     if status == 'ok' then
         body = 'status=ok\npath=' .. (pathOrMsg or '')
+        -- As-shot (or preset) white balance, so the app's WB sliders can default to
+        -- the value the photo was actually shot with instead of a fixed guess.
+        if temp then body = body .. '\ntemperature=' .. tostring(temp) end
+        if tint then body = body .. '\ntint=' .. tostring(tint) end
     else
         body = 'status=err\nmessage=' .. (pathOrMsg or 'unknown')
     end
@@ -118,6 +122,16 @@ local function exportJob(job)
         photo = catalog:addPhoto(job.raw)
     end, { timeout = 60 })
     if not photo then error('addPhoto returned nil for ' .. tostring(job.raw)) end
+
+    -- Read the white balance Camera Raw resolved for this photo (as-shot when the
+    -- sidecar/preset doesn't override it, else the preset's own value). Used only to
+    -- seed the app's WB sliders; never fatal if unavailable.
+    local wbTemp, wbTint
+    local okDev, dev = pcall(function() return photo:getDevelopSettings() end)
+    if okDev and type(dev) == 'table' then
+        wbTemp = tonumber(dev.Temperature)
+        wbTint = tonumber(dev.Tint)
+    end
 
     local constrain = (tonumber(job.maxwidth) or 0) > 0
     local exportSettings = {
@@ -153,7 +167,7 @@ local function exportJob(job)
     if not outPath or not LrFileUtils.exists(outPath) then
         error('export produced no file in ' .. tostring(job.out))
     end
-    return outPath
+    return outPath, wbTemp, wbTint
 end
 
 -- Claims and handles a single job on its own async task (failure-isolated).
@@ -173,10 +187,10 @@ local function handleJob(jobPath)
             writeDone(id, 'err', 'malformed job'); LrFileUtils.delete(processingPath); return
         end
 
-        local ok, result = LrTasks.pcall(function() return exportJob(job) end)
+        local ok, result, wbTemp, wbTint = LrTasks.pcall(function() return exportJob(job) end)
         if ok then
             log('OK ' .. id .. ' -> ' .. tostring(result))
-            writeDone(id, 'ok', result)
+            writeDone(id, 'ok', result, wbTemp, wbTint)
         else
             log('ERR ' .. id .. ': ' .. tostring(result))
             writeDone(id, 'err', tostring(result))

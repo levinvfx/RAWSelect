@@ -26,11 +26,11 @@ struct ExportWizard: View {
     @State private var customEdge: Double = 4000
     // Step 5 – target
     @State private var targetURL: URL?
-    @State private var folderStructure: ExportFolderStructure = .perMark
     @State private var conflict: ConflictMode = .rename
     // crop — edits live centrally in AppState so the standalone editor and the
     // export crop step share one source of truth.
     @State private var cropIndex = 0
+    @State private var editorTab: EditorTab = .crop
     // running / result
     @State private var done = 0
     @State private var total = 0
@@ -44,6 +44,17 @@ struct ExportWizard: View {
     @State private var errorMessage: String?
     @State private var confirmOverwrite = false
     private let cancelToken = CancellationToken()
+
+    /// Fits the wizard to the screen — big by default, but never larger than the visible
+    /// screen (so it works on small displays too). Computed ONCE at first appearance and
+    /// held in @State, so switching focus in/out of the app (which changes NSScreen.main)
+    /// never resizes the popup on a later re-render.
+    @State private var wizardSize: CGSize = ExportWizard.fittedSize()
+
+    private static func fittedSize() -> CGSize {
+        let vis = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1000, height: 800)
+        return CGSize(width: min(820, vis.width * 0.92), height: min(920, vis.height * 0.92))
+    }
 
     private var groupsToExport: [PhotoGroup] {
         switch scope {
@@ -72,7 +83,7 @@ struct ExportWizard: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 600, height: 680)
+        .frame(width: wizardSize.width, height: wizardSize.height)
         .onAppear(perform: loadDefaults)
         .onDisappear {
             app.saveEditsNow()   // persist any crop-step edits
@@ -160,7 +171,8 @@ struct ExportWizard: View {
                             Spacer()
                             Button("Zielordner…") { chooseTarget() }
                         }
-                        Picker("Ordnerstruktur", selection: $folderStructure) { ForEach(ExportFolderStructure.allCases) { Text($0.label).tag($0) } }
+                        Text("Die Bilder werden direkt in den gewählten Ordner exportiert (keine Unterordner).")
+                            .font(.caption).foregroundStyle(.secondary)
                         Picker("Bei Dateikonflikt", selection: $conflict) { ForEach(ConflictMode.allCases) { Text($0.label).tag($0) } }
                     }
                 }
@@ -250,16 +262,19 @@ struct ExportWizard: View {
 
             CropEditorView(previewURL: group.previewURL, edit: editBinding(for: group),
                            rawURL: exportSource(for: group), presetURL: presetURL,
-                           lightroomPath: settings.lightroomPath)
+                           lightroomPath: settings.lightroomPath, editorTab: $editorTab)
                 .padding(.horizontal, 20)
 
             Divider()
             HStack(spacing: 10) {
                 Button("Alle überspringen & exportieren") { runExport() }
                 Spacer()
-                Button("Zurück") { cropIndex = max(0, cropIndex - 1) }.disabled(cropIndex == 0)
-                Button("Überspringen") { advanceCrop(items.count) }
-                Button(cropIndex == items.count - 1 ? "Fertig & Export" : "Weiter →") { advanceCrop(items.count) }
+                Button("Zurück") { stepBack(items.count) }
+                    .disabled(editorTab == .crop && cropIndex == 0)
+                Button("Überspringen") { skipImage(items.count) }
+                // Export is only reachable from the Develop tab: „Weiter" on the crop
+                // tab goes to Develop first, then „Fertig & Export" on the last image.
+                Button(exportReady(items.count) ? "Fertig & Export" : "Weiter →") { stepForward(items.count) }
                     .buttonStyle(.borderedProminent)
             }
             .padding(.horizontal, 20).padding(.bottom, 14)
@@ -294,8 +309,26 @@ struct ExportWizard: View {
                 set: { app.edits[group.id] = $0.isIdentity ? nil : $0 })
     }
 
-    private func advanceCrop(_ count: Int) {
-        if cropIndex >= count - 1 { runExport() } else { cropIndex += 1 }
+    /// Export is only offered on the Develop tab of the last image.
+    private func exportReady(_ count: Int) -> Bool { editorTab == .develop && cropIndex >= count - 1 }
+
+    private func stepForward(_ count: Int) {
+        if editorTab == .crop {
+            withAnimation(.easeInOut(duration: 0.15)) { editorTab = .develop }   // crop → develop, no export here
+        } else if cropIndex >= count - 1 {
+            runExport()
+        } else {
+            cropIndex += 1; editorTab = .crop
+        }
+    }
+
+    private func stepBack(_ count: Int) {
+        if editorTab == .develop { withAnimation(.easeInOut(duration: 0.15)) { editorTab = .crop } }
+        else if cropIndex > 0 { cropIndex -= 1 }   // previous image, on its crop tab
+    }
+
+    private func skipImage(_ count: Int) {
+        if cropIndex >= count - 1 { runExport() } else { cropIndex += 1; editorTab = .crop }
     }
 
     // MARK: Running
@@ -365,7 +398,6 @@ struct ExportWizard: View {
         colorSpace = settings.colorSpace
         exportSize = settings.exportSize
         customEdge = settings.customLongEdge
-        folderStructure = settings.exportFolderStructure
         conflict = settings.exportConflict
         // Default preset: the explicit "Standard-Preset" (Einstellungen) wins, else the most recent.
         let defaultPreset = settings.presetPath.isEmpty ? settings.recentPresets.first : settings.presetPath
@@ -396,6 +428,7 @@ struct ExportWizard: View {
         errorMessage = nil
         guard validate() else { return }
         cropIndex = 0
+        editorTab = .crop
         phase = .cropping
         prewarmPresetPreviews()   // background Lightroom renders so navigation is instant
     }
@@ -453,7 +486,7 @@ struct ExportWizard: View {
         let lrConfig = LightroomExportService.Config(
             presetURL: presetURL, jpegQuality01: max(0.1, min(1.0, quality / 100.0)),
             colorSpace: colorSpace.lrColorSpace, longEdge: longEdge,
-            targetRoot: target, folderStructure: folderStructure, sourceRoot: app.rootURL,
+            targetRoot: target, folderStructure: .single, sourceRoot: app.rootURL,
             conflict: conflict, deleteTemp: settings.deleteTempFiles,
             lightroomPath: settings.lightroomPath,
             autoConfirmDialogs: settings.autoConfirmLightroomDialogs,

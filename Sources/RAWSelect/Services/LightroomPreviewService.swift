@@ -9,6 +9,12 @@ actor LightroomPreviewService {
 
     private let fm = FileManager.default
     private var inFlight: [String: Task<URL?, Never>] = [:]
+    /// As-shot (or preset) white balance per RAW, harvested from the render. Cached in
+    /// memory and on disk so the WB sliders can default to the real value instantly on
+    /// a later visit. Keyed by RAW path + mtime.
+    private var wbMemo: [String: WB] = [:]
+
+    struct WB { let temp: Double; let tint: Double }
 
     private var cacheDir: URL {
         let dir = fm.urls(for: .cachesDirectory, in: .userDomainMask).first!
@@ -65,17 +71,47 @@ actor LightroomPreviewService {
         let k = key(rawURL, presetURL, edit, maxEdge)
         if let running = inFlight[k] { return await running.value }
 
-        let task = Task<URL?, Never> { [fm] in
-            guard let temp = await LightroomExportService.renderPreview(
+        let task = Task<URL?, Never> {
+            guard let render = await LightroomExportService.renderPreview(
                 rawURL: rawURL, presetURL: presetURL, edit: edit, maxEdge: maxEdge, lightroomPath: lightroomPath)
             else { return nil }
-            try? fm.removeItem(at: dest)
-            try? fm.moveItem(at: temp, to: dest)
-            return fm.fileExists(atPath: dest.path) ? dest : nil
+            self.storeWB(rawURL: rawURL, temp: render.asShotTemp, tint: render.asShotTint)
+            try? self.fm.removeItem(at: dest)
+            try? self.fm.moveItem(at: render.url, to: dest)
+            return self.fm.fileExists(atPath: dest.path) ? dest : nil
         }
         inFlight[k] = task
         let result = await task.value
         inFlight[k] = nil
         return result
+    }
+
+    // MARK: As-shot white balance
+
+    private func wbFile(_ rawURL: URL) -> URL {
+        let m = (try? rawURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)?
+            .timeIntervalSince1970 ?? 0
+        return cacheDir.appendingPathComponent("wb-" + fnv1a("\(rawURL.path)#\(Int(m))") + ".txt")
+    }
+
+    /// Records the white balance a render reported (memory + disk). No-op if the render
+    /// didn't carry usable values.
+    private func storeWB(rawURL: URL, temp: Double?, tint: Double?) {
+        guard let temp, let tint, temp > 0 else { return }
+        let wb = WB(temp: temp, tint: tint)
+        wbMemo[fnv1a(rawURL.path)] = wb
+        try? "\(temp),\(tint)".data(using: .utf8)?.write(to: wbFile(rawURL))
+    }
+
+    /// The as-shot (or preset) white balance for a RAW, from memory or the disk cache,
+    /// or nil if it hasn't been rendered yet. Never triggers a render.
+    func asShotWB(rawURL: URL) -> WB? {
+        if let wb = wbMemo[fnv1a(rawURL.path)] { return wb }
+        guard let text = try? String(contentsOf: wbFile(rawURL), encoding: .utf8) else { return nil }
+        let parts = text.split(separator: ",")
+        guard parts.count == 2, let t = Double(parts[0]), let n = Double(parts[1]) else { return nil }
+        let wb = WB(temp: t, tint: n)
+        wbMemo[fnv1a(rawURL.path)] = wb
+        return wb
     }
 }

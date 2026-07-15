@@ -18,7 +18,7 @@ enum AspectPreset: String, CaseIterable, Identifiable {
 /// Which part of the crop a drag/hover targets.
 fileprivate enum CropZone: Equatable { case tl, tr, bl, br, top, bottom, left, right, move, rotate }
 
-fileprivate enum EditorTab: String, CaseIterable { case crop = "Zuschneiden", develop = "Entwickeln" }
+enum EditorTab: String, CaseIterable { case crop = "Zuschneiden", develop = "Entwickeln" }
 
 /// State of the optional Lightroom-rendered preset preview (export step only).
 fileprivate enum PresetPreviewStatus: Equatable { case none, rendering, ready, failed }
@@ -37,21 +37,38 @@ struct CropEditorView: View {
     var presetURL: URL? = nil
     var lightroomPath: String = ""
     @State private var presetStatus: PresetPreviewStatus = .none
+    /// Develop values the preset already sets (crs key → value). Sliders display
+    /// `presetValue + user delta`, so the preset's changes are shown right away.
+    @State private var presetVals: [String: Double] = [:]
     // Exact Adobe render of preset+develop (tone-complete). When it matches the
     // current develop values, it's shown directly (DevelopEngine bypassed); otherwise
     // the fast approximation is shown until a fresh exact render lands on release.
     @State private var exactCI: CIImage?
     @State private var exactKey: String?
     @State private var exactTask: Task<Void, Never>?
+    // Cached tone-complete (develop-applied, UN-rotated) image. Rotation/straighten
+    // then only re-rotates this instead of re-running the whole filter chain → live.
+    @State private var toneCG: CGImage?
+    @State private var toneKey: String?
+    /// Frozen layout captured at drag start so the image/crop mapping stays stable
+    /// during a drag (Lightroom-style: move pans the image, resize keeps it fixed).
+    @State private var activeLayout: CropLayout?
 
     @State private var baseCI: CIImage?
     @State private var displayImage: NSImage?
+
+    // Zoom inspector for the Develop preview: pinch/scroll like the browsing loupe. On
+    // zoom-in the sharp ORIGINAL file is loaded (cropped to the current frame) — no
+    // RAW-editor render needed, it's just for checking sharpness/focus.
+    @StateObject private var previewZoom = ZoomController()
+    @State private var zoomFullRes: NSImage?
+    @State private var zoomFullResID: String?
     @State private var cropNorm = CGRect(x: 0, y: 0, width: 1, height: 1)
     @State private var aspect: AspectPreset = .free
     @State private var portrait = false
     @State private var locked = true                 // default: original aspect
 
-    @State private var editorTab: EditorTab = .crop
+    @Binding var editorTab: EditorTab
     @State private var dragZone: CropZone?
     @State private var startCrop: CGRect?
     @State private var startStraighten: Double = 0
@@ -62,6 +79,21 @@ struct CropEditorView: View {
     // renders the *latest* edit (rapid slider drags coalesce into one job).
     @State private var isRendering = false
     @State private var pendingRender = false
+
+    /// White balance Camera Raw resolved for this photo (as-shot, unless the preset sets
+    /// WB), learned from the Lightroom render. Seeds the WB slider base so it shows the
+    /// value the RAW was shot with instead of a fixed guess. nil until known.
+    @State private var asShotTemp: Double?
+    @State private var asShotTint: Double?
+
+    /// Currently selected hue band in the color-mixer section (index into ImageEdit.hslBands).
+    @State private var hslBand = 0
+    /// Representative swatch colors for the eight HSL bands.
+    private static let hslBandColors: [Color] = [
+        Color(red: 0.90, green: 0.24, blue: 0.28), Color(red: 0.95, green: 0.55, blue: 0.20),
+        Color(red: 0.93, green: 0.83, blue: 0.25), Color(red: 0.36, green: 0.78, blue: 0.38),
+        Color(red: 0.30, green: 0.78, blue: 0.80), Color(red: 0.28, green: 0.50, blue: 0.92),
+        Color(red: 0.55, green: 0.38, blue: 0.88), Color(red: 0.88, green: 0.36, blue: 0.78)]
 
     /// One CIContext shared across all editor previews — creating one per view is
     /// expensive, and CIContext rendering is thread-safe.
@@ -116,38 +148,111 @@ struct CropEditorView: View {
         .onChange(of: cropNorm) { _, v in edit.crop = (v == full) ? nil : v }
     }
 
+    /// In the Develop tab the preview shows the FINAL composition — the base image
+    /// cropped to `cropNorm` (rotation/straighten are already baked into displayImage).
+    private var developPreviewImage: NSImage? {
+        guard let img = displayImage else { return nil }
+        return (cropNorm == full) ? img : cropped(img, to: cropNorm)
+    }
+
+    private func cropped(_ img: NSImage, to c: CGRect) -> NSImage {
+        guard let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return img }
+        let W = CGFloat(cg.width), H = CGFloat(cg.height)
+        let rect = CGRect(x: (c.minX * W).rounded(), y: (c.minY * H).rounded(),
+                          width: (c.width * W).rounded(), height: (c.height * H).rounded())
+            .intersection(CGRect(x: 0, y: 0, width: W, height: H))
+        guard rect.width >= 1, rect.height >= 1, let out = cg.cropping(to: rect) else { return img }
+        return NSImage(cgImage: out, size: NSSize(width: out.width, height: out.height))
+    }
+
+    // MARK: Lightroom-style crop layout (frame fixed & centred, image pans behind)
+
+    private func imgRectFor(_ crop: CGRect, in cropView: CGRect) -> CGRect {
+        let dw = cropView.width / max(crop.width, 0.0001), dh = cropView.height / max(crop.height, 0.0001)
+        return CGRect(x: cropView.minX - crop.minX * dw, y: cropView.minY - crop.minY * dh, width: dw, height: dh)
+    }
+    private func cropViewFor(_ crop: CGRect, in imgRect: CGRect) -> CGRect {
+        CGRect(x: imgRect.minX + crop.minX * imgRect.width, y: imgRect.minY + crop.minY * imgRect.height,
+               width: crop.width * imgRect.width, height: crop.height * imgRect.height)
+    }
+    /// Centred, max-fit crop frame for `crop`, with the image sized to map onto it.
+    private func centeredLayout(imgSize: CGSize, crop: CGRect, in c: CGSize) -> CropLayout {
+        let aspect = max(crop.width * imgSize.width, 1) / max(crop.height * imgSize.height, 1)
+        let availW = c.width * 0.82, availH = c.height * 0.82
+        var vw = availW, vh = availW / aspect
+        if vh > availH { vh = availH; vw = availH * aspect }
+        let cv = CGRect(x: (c.width - vw) / 2, y: (c.height - vh) / 2, width: vw, height: vh)
+        return CropLayout(cropView: cv, imgRect: imgRectFor(crop, in: cv))
+    }
+    /// Layout to render right now: while dragging, `move` keeps the frame fixed (image
+    /// pans), resize keeps the image fixed (frame follows); otherwise centred.
+    private func liveLayout(imgSize: CGSize, in c: CGSize) -> CropLayout {
+        if let a = activeLayout, let z = dragZone {
+            switch z {
+            case .move:   return CropLayout(cropView: a.cropView, imgRect: imgRectFor(cropNorm, in: a.cropView))
+            case .rotate: return a
+            default:      return CropLayout(cropView: cropViewFor(cropNorm, in: a.imgRect), imgRect: a.imgRect)
+            }
+        }
+        return centeredLayout(imgSize: imgSize, crop: cropNorm, in: c)
+    }
+
     @ViewBuilder
     private func workspace(in c: CGSize) -> some View {
-        if let img = displayImage {
-            let frame = fittedRect(imageSize: img.size, in: c)
-            let showRotate = hoveredZone == .rotate || dragZone == .rotate
-            let cropping = editorTab == .crop
-            ZStack {
-                Image(nsImage: img).resizable()
-                    .frame(width: frame.width, height: frame.height)
-                    .position(x: frame.midX, y: frame.midY)
-
-                if cropping {
-                    CropVisual(cropNorm: cropNorm, imageFrame: frame, hovered: hoveredZone)
-                        .allowsHitTesting(false)
-
-                    if showRotate {
-                        rotateHint.position(x: frame.midX, y: frame.maxY - 24).allowsHitTesting(false)
-                    }
+        if editorTab == .crop, let img = displayImage {
+            cropWorkspace(img: img, in: c)
+        } else if let img = zoomPreviewImage ?? developPreviewImage {
+            ZoomableImageView(imageID: previewURL.path, image: img, controller: previewZoom)
+                .frame(width: c.width, height: c.height)
+                .onChange(of: previewZoom.zoomed) { _, z in
+                    if z, zoomFullResID != previewURL.path { Task { await loadZoomFullRes() } }
                 }
-            }
-            .frame(width: c.width, height: c.height)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { if cropping { dragChanged($0, frame: frame) } }
-                    .onEnded { _ in dragZone = nil; startCrop = nil }
-            )
-            .onContinuousHover { if cropping { hover($0, frame: frame) } }
-            .animation(.easeOut(duration: 0.15), value: showRotate)
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    /// The sharp original (cropped to the current frame) while the Develop preview is
+    /// zoomed in — else nil, so the normal developed preview is shown at fit.
+    private var zoomPreviewImage: NSImage? {
+        guard previewZoom.zoomed, zoomFullResID == previewURL.path, let fr = zoomFullRes else { return nil }
+        return (cropNorm == full) ? fr : cropped(fr, to: cropNorm)
+    }
+
+    /// Loads the full-resolution ORIGINAL file for the zoom inspector (once per photo).
+    private func loadZoomFullRes() async {
+        let target = previewURL
+        let src = rawURL ?? previewURL
+        let big = await ThumbnailLoader.shared.fullDecode(for: src, maxPixel: PreviewConfig.zoomMaxPixel)
+        guard previewURL == target, let big else { return }
+        zoomFullRes = big
+        zoomFullResID = target.path
+    }
+
+    @ViewBuilder
+    private func cropWorkspace(img: NSImage, in c: CGSize) -> some View {
+        let L = liveLayout(imgSize: img.size, in: c)
+        let showRotate = hoveredZone == .rotate || dragZone == .rotate
+        ZStack {
+            Image(nsImage: img).resizable()
+                .frame(width: L.imgRect.width, height: L.imgRect.height)
+                .position(x: L.imgRect.midX, y: L.imgRect.midY)
+            CropVisual(cropRect: L.cropView, bounds: CGRect(origin: .zero, size: c), hovered: hoveredZone)
+                .allowsHitTesting(false)
+            if showRotate {
+                rotateHint.position(x: L.cropView.midX, y: L.cropView.maxY - 24).allowsHitTesting(false)
+            }
+        }
+        .frame(width: c.width, height: c.height)
+        .clipped()
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { dragChanged($0, in: c, imgSize: img.size) }
+                .onEnded { _ in dragZone = nil; startCrop = nil; activeLayout = nil }
+        )
+        .onContinuousHover { hover($0, cropRect: L.cropView) }
+        .animation(.easeOut(duration: 0.15), value: showRotate)
     }
 
     @ViewBuilder private var presetStatusPill: some View {
@@ -178,13 +283,6 @@ struct CropEditorView: View {
 
     // MARK: Hit testing
 
-    private func screenRect(in frame: CGRect) -> CGRect {
-        CGRect(x: frame.minX + cropNorm.minX * frame.width,
-               y: frame.minY + cropNorm.minY * frame.height,
-               width: cropNorm.width * frame.width,
-               height: cropNorm.height * frame.height)
-    }
-
     private func zone(at p: CGPoint, rect r: CGRect) -> CropZone {
         func near(_ x: CGFloat, _ y: CGFloat) -> Bool { hypot(p.x - x, p.y - y) < handleRadius }
         if near(r.minX, r.minY) { return .tl }
@@ -201,32 +299,36 @@ struct CropEditorView: View {
 
     // MARK: Drag
 
-    private func dragChanged(_ v: DragGesture.Value, frame: CGRect) {
+    private func dragChanged(_ v: DragGesture.Value, in c: CGSize, imgSize: CGSize) {
         if dragZone == nil {
-            dragZone = zone(at: v.startLocation, rect: screenRect(in: frame))
+            let start = centeredLayout(imgSize: imgSize, crop: cropNorm, in: c)
+            activeLayout = start
             startCrop = cropNorm
             startStraighten = edit.straighten
-            startAngle = atan2(v.startLocation.y - frame.midY, v.startLocation.x - frame.midX)
+            dragZone = zone(at: v.startLocation, rect: start.cropView)
+            startAngle = atan2(v.startLocation.y - start.cropView.midY, v.startLocation.x - start.cropView.midX)
         }
-        guard let z = dragZone else { return }
+        guard let z = dragZone, let A = activeLayout else { return }
 
         if z == .rotate {
-            let ang = atan2(v.location.y - frame.midY, v.location.x - frame.midX)
+            let ang = atan2(v.location.y - A.cropView.midY, v.location.x - A.cropView.midX)
             var deg = startStraighten + Double((ang - startAngle) * 180 / .pi)
             deg = min(max(deg, -15), 15)
             if abs(deg - edit.straighten) > 0.01 { edit.straighten = deg; updateDisplay() }
             return
         }
 
-        guard let s = startCrop, frame.width > 0, frame.height > 0 else { return }
-        let dx = v.translation.width / frame.width
-        let dy = v.translation.height / frame.height
+        guard let s = startCrop, A.imgRect.width > 0, A.imgRect.height > 0 else { return }
+        // Deltas are normalised against the FIXED image (start layout).
+        let dx = v.translation.width / A.imgRect.width
+        let dy = v.translation.height / A.imgRect.height
         let a = aspectNorm
         var r = s
         switch z {
         case .move:
-            r.origin.x = min(max(0, s.minX + dx), 1 - s.width)
-            r.origin.y = min(max(0, s.minY + dy), 1 - s.height)
+            // Dragging pans the image → the crop region moves the opposite way.
+            r.origin.x = min(max(0, s.minX - dx), 1 - s.width)
+            r.origin.y = min(max(0, s.minY - dy), 1 - s.height)
             if cropInsideContent(r) { cropNorm = r }
             return
         case .tl:
@@ -317,10 +419,10 @@ struct CropEditorView: View {
         if !best.isNull, best.width >= minSize, best.height >= minSize { cropNorm = best }
     }
 
-    private func hover(_ phase: HoverPhase, frame: CGRect) {
+    private func hover(_ phase: HoverPhase, cropRect: CGRect) {
         switch phase {
         case .active(let p):
-            let z = zone(at: p, rect: screenRect(in: frame))
+            let z = zone(at: p, rect: cropRect)
             if z != hoveredZone { hoveredZone = z }
             switch z {
             case .rotate: Self.rotateCursor.set()
@@ -353,55 +455,105 @@ struct CropEditorView: View {
         .buttonStyle(.bordered)
     }
 
+    // Crop tab: purely geometry — straighten only. Tone/exposure lives in „Entwickeln".
     private var sliderControls: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "angle").foregroundStyle(.secondary).frame(width: 16)
-                Slider(value: Binding(get: { edit.straighten }, set: { edit.straighten = $0; updateDisplay() }), in: -15...15)
-                Text(String(format: "%+.1f°", edit.straighten)).monospacedDigit().frame(width: 52, alignment: .trailing)
-                Button("0") { edit.straighten = 0; updateDisplay() }
-                    .buttonStyle(.borderless).disabled(edit.straighten == 0).help("Ausrichtung zurücksetzen")
-            }
-            HStack(spacing: 10) {
-                Image(systemName: "sun.max").foregroundStyle(.secondary).frame(width: 16)
-                Slider(value: Binding(get: { edit.exposure }, set: { edit.exposure = $0; updateDisplay() }), in: -5...5)
-                Text(String(format: "%+.2f", edit.exposure)).monospacedDigit().frame(width: 52, alignment: .trailing)
-                Button("0") { edit.exposure = 0; updateDisplay() }
-                    .buttonStyle(.borderless).disabled(edit.exposure == 0).help("Belichtung zurücksetzen")
-            }
-        }
+        LRSlider(title: "Ausrichten", value: $edit.straighten, range: -15...15, neutral: 0,
+                 format: { String(format: "%+.1f°", $0) }, onEdit: { updateDisplay() })
+            .padding(.horizontal, 6).padding(.top, 2)
     }
 
     // MARK: Develop panel
 
+    private func dev() { updateDisplay() }
+
+    /// A develop slider that shows `presetValue + user delta` — so the preset's own
+    /// value appears immediately and „Zurücksetzen" returns to the preset value. The
+    /// binding maps the displayed absolute value back to the stored delta.
+    private func toneSlider(_ title: String, _ field: WritableKeyPath<ImageEdit, Double>, _ key: String,
+                            range: ClosedRange<Double> = -100...100,
+                            baseDefault: Double = 0,
+                            format: @escaping (Double) -> String = { String(format: "%+.0f", $0) },
+                            gradient: [Color]? = nil) -> some View {
+        // Fall back to a sensible neutral (e.g. 6500 K for WB) when the preset doesn't
+        // define this value, so the slider shows a real number instead of 0.
+        let base = presetVals[key] ?? baseDefault
+        return LRSlider(title: title,
+                        value: Binding(get: { base + edit[keyPath: field] },
+                                       set: { edit[keyPath: field] = $0 - base }),
+                        range: range, neutral: base, format: format, gradient: gradient, onEdit: dev)
+    }
+
+    /// One color-mixer slider for the selected band. Like `toneSlider`, the value shows
+    /// the preset's own HSL value + the user delta; the delta is stored in `edit.hsl`
+    /// (zero deltas are pruned so an untouched mixer leaves `developIsZero` true).
+    private func hslSlider(_ title: String, _ channel: String) -> some View {
+        let key = channel + ImageEdit.hslBands[hslBand]
+        let base = presetVals[key] ?? 0
+        return LRSlider(title: title,
+                        value: Binding(get: { base + (edit.hsl[key] ?? 0) },
+                                       set: { v in
+                                           let d = v - base
+                                           if d == 0 { edit.hsl[key] = nil } else { edit.hsl[key] = d }
+                                       }),
+                        range: -100...100, neutral: base,
+                        format: { String(format: "%+.0f", $0) }, onEdit: dev)
+    }
+
     private var developControls: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 7) {
-                    devHeader("Weissabgleich")
-                    devSlider("Temperatur", $edit.temp, -100...100)
-                    devSlider("Tönung", $edit.tint, -100...100)
-                    devHeader("Ton")
-                    devSlider("Belichtung", $edit.exposure, -5...5, format: "%+.2f")
-                    devSlider("Kontrast", $edit.contrast, -100...100)
-                    devSlider("Lichter", $edit.highlights, -100...100)
-                    devSlider("Tiefen", $edit.shadows, -100...100)
-                    devSlider("Weiss", $edit.whites, -100...100)
-                    devSlider("Schwarz", $edit.blacks, -100...100)
-                    devHeader("Präsenz")
-                    devSlider("Klarheit", $edit.clarity, -100...100)
-                    devSlider("Dynamik", $edit.vibrance, -100...100)
-                    devSlider("Sättigung", $edit.saturation, -100...100)
-                    devHeader("Schärfe")
-                    devSlider("Schärfe", $edit.sharpness, 0...150, format: "%.0f")
+                VStack(alignment: .leading, spacing: 10) {
+                    LRSection(title: "Weissabgleich") {
+                        toneSlider("Temperatur", \.temp, "Temperature", range: 2000...12000,
+                                   baseDefault: asShotTemp ?? 6500, format: { String(format: "%.0f", $0) },
+                                   gradient: [Color(red: 0.30, green: 0.52, blue: 0.95), Color(red: 0.96, green: 0.86, blue: 0.36)])
+                        toneSlider("Tönung", \.tint, "Tint", range: -150...150,
+                                   baseDefault: asShotTint ?? 0,
+                                   gradient: [Color(red: 0.36, green: 0.85, blue: 0.42), Color(red: 0.90, green: 0.36, blue: 0.86)])
+                    }
+                    LRSection(title: "Licht") {
+                        toneSlider("Belichtung", \.exposure, "Exposure2012", range: -5...5,
+                                   format: { String(format: "%+.2f", $0) })
+                        toneSlider("Kontrast", \.contrast, "Contrast2012")
+                        toneSlider("Lichter", \.highlights, "Highlights2012")
+                        toneSlider("Tiefen", \.shadows, "Shadows2012")
+                        toneSlider("Weiss", \.whites, "Whites2012")
+                        toneSlider("Schwarz", \.blacks, "Blacks2012")
+                    }
+                    LRSection(title: "Präsenz") {
+                        toneSlider("Klarheit", \.clarity, "Clarity2012")
+                        toneSlider("Dynamik", \.vibrance, "Vibrance")
+                        toneSlider("Sättigung", \.saturation, "Saturation")
+                    }
+                    LRSection(title: "Farbmischer") {
+                        HStack(spacing: 6) {
+                            ForEach(0..<ImageEdit.hslBands.count, id: \.self) { i in
+                                Circle().fill(Self.hslBandColors[i])
+                                    .frame(width: 18, height: 18)
+                                    .overlay(Circle().strokeBorder(.white.opacity(hslBand == i ? 0.95 : 0.15),
+                                                                   lineWidth: hslBand == i ? 2 : 1))
+                                    .contentShape(Circle())
+                                    .onTapGesture { hslBand = i }
+                            }
+                        }
+                        .padding(.bottom, 2)
+                        hslSlider("Farbton", "HueAdjustment")
+                        hslSlider("Sättigung", "SaturationAdjustment")
+                        hslSlider("Luminanz", "LuminanceAdjustment")
+                    }
+                    LRSection(title: "Detail") {
+                        toneSlider("Schärfe", \.sharpness, "Sharpness", range: 0...150,
+                                   format: { String(format: "%.0f", $0) })
+                    }
                 }
-                .padding(.trailing, 6)
+                .padding(12)
             }
-            .frame(maxHeight: 230)
+            .frame(maxHeight: 300)
+            .background(Color(white: 0.12), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.06), lineWidth: 1))
 
             HStack {
-                Text(developNote)
-                    .font(.caption2).foregroundStyle(.tertiary)
+                Text(developNote).font(.caption2).foregroundStyle(.tertiary)
                 Spacer()
                 Button("Entwicklung zurücksetzen") { resetDevelop() }
                     .buttonStyle(.borderless).controlSize(.small)
@@ -419,33 +571,11 @@ struct CropEditorView: View {
         }
     }
 
-    private func devHeader(_ t: String) -> some View {
-        Text(t.uppercased())
-            .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-            .padding(.top, 2)
-    }
-
-    private func devSlider(_ label: String, _ value: Binding<Double>,
-                           _ range: ClosedRange<Double>, format: String = "%+.0f") -> some View {
-        let neutral: Double = range.lowerBound < 0 ? 0 : range.lowerBound
-        return HStack(spacing: 10) {
-            Text(label).font(.callout).frame(width: 92, alignment: .leading)
-            Slider(value: Binding(get: { value.wrappedValue },
-                                  set: { value.wrappedValue = $0; updateDisplay() }), in: range)
-            Text(String(format: format, value.wrappedValue))
-                .font(.callout.monospacedDigit()).frame(width: 46, alignment: .trailing)
-            Button { value.wrappedValue = neutral; updateDisplay() } label: {
-                Image(systemName: "arrow.uturn.backward")
-            }
-            .buttonStyle(.borderless).controlSize(.small)
-            .disabled(value.wrappedValue == neutral)
-        }
-    }
-
     private func resetDevelop() {
         edit.exposure = 0; edit.contrast = 0; edit.highlights = 0; edit.shadows = 0
         edit.whites = 0; edit.blacks = 0; edit.temp = 0; edit.tint = 0
         edit.vibrance = 0; edit.saturation = 0; edit.clarity = 0; edit.sharpness = 0
+        edit.hsl.removeAll()
         updateDisplay()
     }
 
@@ -476,7 +606,14 @@ struct CropEditorView: View {
     }
 
     private func loadImage() async {
-        exactTask?.cancel(); exactCI = nil; exactKey = nil   // reset per photo
+        exactTask?.cancel(); exactCI = nil; exactKey = nil; toneCG = nil; toneKey = nil   // reset per photo
+        asShotTemp = nil; asShotTint = nil
+        zoomFullRes = nil; zoomFullResID = nil; previewZoom.fit()
+        presetVals = XMPPresetBuilder.presetValues(presetURL)   // preset baseline for the sliders
+        // Instant WB base if this RAW was rendered before (survives across sessions).
+        if let rawURL, let wb = await LightroomPreviewService.shared.asShotWB(rawURL: rawURL) {
+            applyAsShotWB(wb)
+        }
         let img = await ThumbnailLoader.shared.thumbnail(for: previewURL, maxPixel: 1600)
         if let cg = img?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
             baseCI = CIImage(cgImage: cg)
@@ -498,6 +635,7 @@ struct CropEditorView: View {
         guard previewURL == target else { return }   // navigated away → ignore stale result
         if let url, let cg = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) {
             baseCI = CIImage(cgImage: cg)
+            toneCG = nil; toneKey = nil          // base changed → invalidate tone cache
             // The preset base is rendered at develop=0, so it IS the exact render for a
             // zero edit. Mark it as such; non-zero edits then trigger a fresh exact render.
             exactCI = baseCI
@@ -507,6 +645,16 @@ struct CropEditorView: View {
         } else {
             presetStatus = .failed
         }
+        // The render reports the photo's actual white balance — adopt it as the slider base.
+        if let wb = await LightroomPreviewService.shared.asShotWB(rawURL: rawURL) { applyAsShotWB(wb) }
+    }
+
+    /// Adopts the photo's real white balance as the WB slider base — but only while the
+    /// user hasn't touched WB yet, so a late-arriving value never shifts an edit in progress.
+    private func applyAsShotWB(_ wb: LightroomPreviewService.WB) {
+        guard edit.temp == 0, edit.tint == 0 else { return }
+        asShotTemp = wb.temp
+        asShotTint = wb.tint
     }
 
     /// After develop values settle (debounced), render the EXACT Adobe image with
@@ -550,69 +698,72 @@ struct CropEditorView: View {
         guard let approxBase = baseCI else { return }
         let snapshot = edit
         let ctx = Self.sharedContext
-        // If an exact Adobe render matches the current develop values, show it directly
-        // (its tone is already baked → don't re-apply DevelopEngine). Otherwise the fast
-        // approximation over the preset base.
+        // Exact Adobe render if it matches the current develop values (tone already
+        // baked → skip DevelopEngine); else the fast approximation over the preset base.
         let useExact = (exactCI != nil && exactKey == snapshot.developSignature)
-        let base = useExact ? exactCI! : approxBase
+        let sourceCI = useExact ? exactCI! : approxBase
+        // Only the DEVELOP values change the tone image; straighten/rotation don't. So
+        // reuse the cached tone when develop is unchanged → dragging the angle just
+        // re-rotates (fast), no filter chain.
+        let key = (useExact ? "e:" : "a:") + snapshot.developSignature
+        let reuse = (toneKey == key) ? toneCG : nil
+        let angle = snapshot.totalAngle
         isRendering = true
         pendingRender = false
         Task { @MainActor in
-            let img = await Task.detached(priority: .userInitiated) {
-                RenderedImage(Self.renderPreview(snapshot, base: base, context: ctx, skipDevelop: useExact))
-            }.value.image
-            if let img { self.displayImage = img }
+            let out = await Task.detached(priority: .userInitiated) { () -> ToneOut in
+                let tone: CGImage?
+                if let reuse { tone = reuse }
+                else {
+                    let ci = useExact ? sourceCI : DevelopEngine.apply(snapshot, to: sourceCI)
+                    tone = ctx.createCGImage(ci, from: ci.extent)
+                }
+                guard let t = tone else { return ToneOut(tone: nil, image: nil) }
+                let ns = NSImage(cgImage: t, size: NSSize(width: t.width, height: t.height))
+                    .rotatedClockwise(byDegrees: angle)
+                return ToneOut(tone: t, image: ns)
+            }.value
+            if reuse == nil, let t = out.tone { self.toneCG = t; self.toneKey = key }
+            if let ns = out.image { self.displayImage = ns }
             self.constrainCropToContent()   // keep the crop off the transparent corners
             self.isRendering = false
             if self.pendingRender { self.renderOnce() }
         }
-    }
-
-    /// Develops (unless the base is already an exact Adobe render) + rotates the preview
-    /// image. Pure and thread-safe so it can run on a background executor.
-    nonisolated private static func renderPreview(_ edit: ImageEdit, base: CIImage,
-                                                  context: CIContext, skipDevelop: Bool) -> NSImage? {
-        let ci = skipDevelop ? base : DevelopEngine.apply(edit, to: base)
-        guard let cg = context.createCGImage(ci, from: ci.extent) else { return nil }
-        let ns = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-        return ns.rotatedClockwise(byDegrees: edit.totalAngle)
     }
 }
 
 /// Ferries a rendered NSImage across the actor boundary. NSImage isn't `Sendable`,
 /// but the instance we pass is freshly created, immutable and handed off exactly
 /// once — so the unchecked conformance is safe here.
-private struct RenderedImage: @unchecked Sendable {
+private struct ToneOut: @unchecked Sendable {
+    let tone: CGImage?
     let image: NSImage?
-    init(_ image: NSImage?) { self.image = image }
 }
+
+/// On-screen crop frame + the image draw rect that maps `cropNorm` onto that frame.
+struct CropLayout { let cropView: CGRect; let imgRect: CGRect }
 
 // MARK: - Visual overlay (no gestures)
 
 private struct CropVisual: View {
-    let cropNorm: CGRect
-    let imageFrame: CGRect
+    let cropRect: CGRect
+    let bounds: CGRect
     let hovered: CropZone?
 
     private let bracketLen: CGFloat = 20
     private let bracketWidth: CGFloat = 3
 
-    private var r: CGRect {
-        CGRect(x: imageFrame.minX + cropNorm.minX * imageFrame.width,
-               y: imageFrame.minY + cropNorm.minY * imageFrame.height,
-               width: cropNorm.width * imageFrame.width,
-               height: cropNorm.height * imageFrame.height)
-    }
+    private var r: CGRect { cropRect }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Dim outside the crop.
-            Rectangle().fill(.black.opacity(0.5))
-                .frame(width: imageFrame.width, height: imageFrame.height)
-                .position(x: imageFrame.midX, y: imageFrame.midY)
+            // Dim everything outside the fixed crop frame.
+            Rectangle().fill(.black.opacity(0.55))
+                .frame(width: bounds.width, height: bounds.height)
+                .position(x: bounds.midX, y: bounds.midY)
                 .mask(ZStack {
-                    Rectangle().frame(width: imageFrame.width, height: imageFrame.height)
-                        .position(x: imageFrame.midX, y: imageFrame.midY)
+                    Rectangle().frame(width: bounds.width, height: bounds.height)
+                        .position(x: bounds.midX, y: bounds.midY)
                     Rectangle().frame(width: r.width, height: r.height)
                         .position(x: r.midX, y: r.midY).blendMode(.destinationOut)
                 })
