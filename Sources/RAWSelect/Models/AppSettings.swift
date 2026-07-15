@@ -24,10 +24,6 @@ enum RawJpgExport: String, CaseIterable, Identifiable { case both, rawOnly, jpgO
     var id: String { rawValue }
     var label: String { switch self { case .both: return "RAW + JPG"; case .rawOnly: return "Nur RAW"; case .jpgOnly: return "Nur JPG" } }
 }
-enum SmartExposure: String, CaseIterable, Identifiable { case off, soft, standard, strong
-    var id: String { rawValue }
-    var label: String { switch self { case .off: return "Aus"; case .soft: return "Sanft"; case .standard: return "Standard"; case .strong: return "Stark" } }
-}
 
 /// App appearance, independent of the system setting.
 enum AppAppearance: String, CaseIterable, Identifiable { case system, light, dark
@@ -36,9 +32,12 @@ enum AppAppearance: String, CaseIterable, Identifiable { case system, light, dar
     var colorScheme: ColorScheme? { switch self { case .system: return nil; case .light: return .light; case .dark: return .dark } }
 }
 
-enum ConflictMode: String, CaseIterable, Identifiable { case rename, skip, ask, overwrite
+/// How a name clash at the destination is handled.
+/// There used to be an "ask every time" option here. It never asked — it silently fell
+/// through to `rename`. An option that lies is worse than no option.
+enum ConflictMode: String, CaseIterable, Identifiable { case rename, skip, overwrite
     var id: String { rawValue }
-    var label: String { switch self { case .rename: return "Automatisch _1, _2, _3 anhängen"; case .skip: return "Überspringen"; case .ask: return "Jedes Mal fragen"; case .overwrite: return "Überschreiben" } }
+    var label: String { switch self { case .rename: return "Automatisch _1, _2, _3 anhängen"; case .skip: return "Überspringen"; case .overwrite: return "Überschreiben" } }
 }
 
 // MARK: - Mark definitions
@@ -136,7 +135,6 @@ final class AppSettings: ObservableObject {
     var rememberPreset: Bool { get { b("rs.rememberPreset", true) } set { set("rs.rememberPreset", newValue) } }
     var recentPresets: [String] { get { cod("rs.recentPresets", []) } set { setCod("rs.recentPresets", newValue) } }
     // Storage keys kept as rs.ps* so existing user values (e.g. last target) survive.
-    var exportFolderStructure: ExportFolderStructure { get { en("rs.psFolderStructure", .single) } set { setEnum("rs.psFolderStructure", newValue) } }
     var exportConflict: ConflictMode { get { en("rs.psConflict", .rename) } set { setEnum("rs.psConflict", newValue) } }
     var lastExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
 

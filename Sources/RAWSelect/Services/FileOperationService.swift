@@ -82,7 +82,7 @@ struct FileOperationService {
                     switch conflict {
                     case .skip: completedWholeGroup = false; continue
                     case .overwrite: try? fm.removeItem(at: destination)
-                    case .rename, .ask: destination = uniqueDestination(for: file.lastPathComponent, in: dir, avoiding: used)
+                    case .rename: destination = uniqueDestination(for: file.lastPathComponent, in: dir, avoiding: used)
                     }
                 }
                 do {

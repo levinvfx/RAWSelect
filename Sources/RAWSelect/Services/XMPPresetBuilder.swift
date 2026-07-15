@@ -7,10 +7,9 @@ enum XMPPresetBuilder {
 
     /// Returns sidecar XMP text where the exposure is SET to `exposure` (absolute,
     /// authoritative — the preset never controls brightness), based on `presetURL`
-    /// if provided (otherwise a minimal default-develop sidecar). When
-    /// `denoise` > 0, Camera-Raw noise reduction is written on top (0…100).
+    /// if provided (otherwise a minimal default-develop sidecar).
     static func sidecarXMP(presetURL: URL?, evDelta exposure: Double,
-                           edit: ImageEdit? = nil, denoise: Double = 0,
+                           edit: ImageEdit? = nil,
                            stripMasks: Bool = false,
                            asShotWB: (temp: Double, tint: Double)? = nil) -> String {
         var text: String
@@ -24,7 +23,6 @@ enum XMPPresetBuilder {
             text = minimalSidecar(evDelta: exposure)
         }
         if let edit { text = applyDevelop(to: text, edit: edit, asShotWB: asShotWB) }
-        if denoise > 0 { text = applyDenoise(to: text, amount: denoise) }
         return text
     }
 
@@ -153,36 +151,6 @@ enum XMPPresetBuilder {
         return minimalSidecar(evDelta: exposure)
     }
 
-    /// Writes Camera-Raw noise reduction driven by a single 0…100 strength.
-    /// Existing NR attributes/elements from the preset are removed first so the
-    /// result stays valid XML (no duplicate keys). Applies to both engines'
-    /// render (Lightroom Classic's Camera Raw).
-    private static func applyDenoise(to xmp: String, amount: Double) -> String {
-        let a = max(0, min(100, amount))
-        let luminance = Int(a.rounded())
-        let color = Int(min(100, 25 + a * 0.5).rounded())   // gentle chroma NR alongside
-        var text = xmp
-
-        // Strip any preset-provided NR so we don't emit duplicate attributes.
-        let keys = ["LuminanceSmoothing", "LuminanceNoiseReductionDetail",
-                    "LuminanceNoiseReductionContrast", "ColorNoiseReduction",
-                    "ColorNoiseReductionDetail", "ColorNoiseReductionSmoothness"]
-        for k in keys {
-            text = text.replacingOccurrences(of: "\\s*crs:\(k)=\"[^\"]*\"", with: "", options: .regularExpression)
-            text = text.replacingOccurrences(of: "\\s*<crs:\(k)>[^<]*</crs:\(k)>", with: "", options: .regularExpression)
-        }
-
-        let attrs = " crs:LuminanceSmoothing=\"\(luminance)\""
-            + " crs:LuminanceNoiseReductionDetail=\"50\""
-            + " crs:LuminanceNoiseReductionContrast=\"0\""
-            + " crs:ColorNoiseReduction=\"\(color)\""
-            + " crs:ColorNoiseReductionDetail=\"50\""
-            + " crs:ColorNoiseReductionSmoothness=\"50\""
-        if let r = text.range(of: "<rdf:Description") {
-            text.insert(contentsOf: attrs, at: r.upperBound)
-        }
-        return text
-    }
 
     /// The Basic-panel develop values a preset sets, so the editor can DISPLAY them
     /// (slider shows preset value + user delta). Keys map to `ImageEdit` fields.

@@ -1,2 +1,11 @@
--- Stoppt die Watcher-Schleife sauber, wenn Lightroom das Plugin entlädt/beendet.
-_G.RAWSelectGen = (_G.RAWSelectGen or 0) + 1
+-- Absichtlich leer.
+--
+-- Hier stand ein `_G.RAWSelectGen = _G.RAWSelectGen + 1`, um die Watcher-Schleife zu stoppen.
+-- Das hat sie beim Neuladen umgebracht: Lightroom ruft dabei ERST Init und DANN Shutdown,
+-- also erhöhte Shutdown den Zähler, den der gerade gestartete Watcher bewacht — er beendete
+-- sich sofort wieder (gemessen: "gestartet (gen 1)" / "beendet (gen 1)" in derselben Sekunde).
+-- Danach war die Bridge bis zum nächsten Lightroom-Neustart tot.
+--
+-- Es braucht das auch gar nicht: Init erhöht den Zähler selbst, womit eine ältere Schleife
+-- beim nächsten Durchlauf merkt, dass sie überholt wurde, und aussteigt. Beim Beenden von
+-- Lightroom stirbt die Schleife ohnehin mit.

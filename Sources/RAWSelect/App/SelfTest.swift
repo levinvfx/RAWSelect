@@ -43,16 +43,38 @@ enum SelfTest {
         // 2. Thumbnail from the real image
         check(ThumbnailLoader.makeThumbnail(url: realJPG, maxPixel: 1280) != nil, "ImageIO produces a preview")
 
-        // 3. Mark persistence via volume identity
+        // 3. Mark persistence via volume identity.
+        //    NEVER save under the real `identity.id`: this test root lives in the temp folder,
+        //    which sits on the boot volume — so its id is the exact same one every real folder
+        //    on the internal disk uses. Saving here overwrote the user's own marks on every
+        //    single build (measured). The identity LOGIC is still tested, just not by clobbering.
         let identity = FolderIdentity(root: root)
-        let key = identity.persistKey(directory: paired!.directory, baseName: paired!.baseName)
-        SessionStore.save(identityID: identity.id, states: [key: .init(mark: 3)])
-        let loadedState = SessionStore.load(identityID: identity.id)[key]
-        check(loadedState?.mark == 3, "mark persists under volume-identity key")
-        // Same physical volume, different subfolder opened later → still remembered.
         let identity2 = FolderIdentity(root: sub)
+        let key = identity.persistKey(directory: paired!.directory, baseName: paired!.baseName)
         let key2 = identity2.persistKey(directory: paired!.directory, baseName: paired!.baseName)
-        check(SessionStore.load(identityID: identity2.id)[key2]?.mark == 3, "state survives opening a different subfolder")
+        check(identity.id == identity2.id, "same volume → same identity from a subfolder")
+        check(key == key2, "same photo → same persist key from either folder")
+
+        let testID = "selftest-" + UUID().uuidString
+        SessionStore.save(identityID: testID, states: [key: .init(mark: 3)], scope: [key])
+        check(SessionStore.load(identityID: testID)[key]?.mark == 3, "mark persists under volume-identity key")
+        check(SessionStore.load(identityID: testID)[key2]?.mark == 3, "state survives opening a different subfolder")
+
+        // 3b) The whole point of `scope`: one file holds a whole VOLUME, and saving one folder
+        //     must not wipe another. Before this, opening a second folder and pressing a single
+        //     key erased every mark made in the first one.
+        let folderA = ["A/img_0001": SessionStore.PhotoState(mark: 1),
+                       "A/img_0002": SessionStore.PhotoState(mark: 2)]
+        SessionStore.save(identityID: testID, states: folderA, scope: Set(folderA.keys))
+        SessionStore.save(identityID: testID, states: ["B/img_0001": .init(mark: 5)], scope: ["B/img_0001"])
+        let both = SessionStore.load(identityID: testID)
+        check(both["A/img_0001"]?.mark == 1 && both["A/img_0002"]?.mark == 2, "other folder's marks survive a save")
+        check(both["B/img_0001"]?.mark == 5, "new folder's marks are stored")
+        // …but clearing a mark inside the scope must still remove it.
+        SessionStore.save(identityID: testID, states: [:], scope: Set(folderA.keys))
+        let afterClear = SessionStore.load(identityID: testID)
+        check(afterClear["A/img_0001"] == nil, "unmarking inside the scope removes the entry")
+        check(afterClear["B/img_0001"]?.mark == 5, "…without touching the other folder")
 
         // 4. Flat copy WITH sidecars, twice, to exercise conflicts
         let target = root.appendingPathComponent("out")
@@ -88,19 +110,6 @@ enum SelfTest {
         check(!filter.matches(untagged) && filter.matches(marked5), "toggling 'Alle' hides only untagged")
         filter.toggle(0); filter.toggle(5)   // show all again, then hide mark 5
         check(filter.matches(untagged) && !filter.matches(marked5), "toggling mark 5 hides only mark-5 photos")
-
-        // 7. Smart Exposure (local histogram analysis)
-        let dark = sub.appendingPathComponent("dark.png"); writeGrayPNG(to: dark, size: 64, level: 40)
-        let bright = sub.appendingPathComponent("bright.png"); writeGrayPNG(to: bright, size: 64, level: 210)
-        let midGray = sub.appendingPathComponent("mid.png"); writeGrayPNG(to: midGray, size: 64, level: 118)
-        let cfg = SmartExposureAnalyzer.Config()
-        let rd = SmartExposureAnalyzer.analyze(url: dark, config: cfg)
-        let rb = SmartExposureAnalyzer.analyze(url: bright, config: cfg)
-        let rm = SmartExposureAnalyzer.analyze(url: midGray, config: cfg)
-        check(rd.clampedEV > 0.05, "dark image → positive EV (\(rd.evLabel))")
-        check(rb.clampedEV < -0.05, "bright image → negative EV (\(rb.evLabel))")
-        check(abs(rm.clampedEV) < 0.15, "mid-grey image → ~0 EV (\(rm.evLabel))")
-        check(abs(rd.clampedEV) <= cfg.maxEV + 0.001, "EV clamped to max")
 
         // 8. XMP sidecar builder never needs the original; produces valid crs block
         let xmp = XMPPresetBuilder.sidecarXMP(presetURL: nil, evDelta: 0.35)
@@ -324,31 +333,70 @@ enum SelfTest {
         check(!SessionStore.PhotoState(mark: 0, edit: editState).isDefault, "edited-but-unmarked photo is not default")
         check(SessionStore.PhotoState(mark: 0, edit: ImageEdit()).isDefault, "identity edit → default (not stored)")
         let editKey = "edit-roundtrip"
-        SessionStore.save(identityID: identity.id, states: [
+        SessionStore.save(identityID: testID, states: [
             key: .init(mark: 3),
             editKey: .init(mark: 0, edit: editState)
-        ])
-        let reloaded = SessionStore.load(identityID: identity.id)
+        ], scope: [key, editKey])
+        let reloaded = SessionStore.load(identityID: testID)
         check(reloaded[editKey]?.edit == editState, "ImageEdit round-trips through the session store")
         check(reloaded[key]?.edit == nil, "mark-only photo reloads without an edit")
 
+        // 15a) Placing an export must never destroy the user's existing file before the new
+        //      one is safely there. The old code did `removeItem` then `moveItem` — a failed
+        //      write (disk full, share gone) left the photo deleted and nothing in its place.
+        let placeDir = root.appendingPathComponent("place", isDirectory: true)
+        try? fm.createDirectory(at: placeDir, withIntermediateDirectories: true)
+        let placeTarget = placeDir.appendingPathComponent("photo.jpg")
+        try? Data("ALT".utf8).write(to: placeTarget)
+        let fresh = placeDir.appendingPathComponent("fresh.jpg")
+        try? Data("NEU".utf8).write(to: fresh)
+        try? LightroomExportService.place(fresh, at: placeTarget)
+        check((try? String(contentsOf: placeTarget, encoding: .utf8)) == "NEU", "place() replaces an existing file")
+        check(!fm.fileExists(atPath: fresh.path), "place() consumes the produced file")
+
+        // The regression itself: the source is gone (render failed) → the original must survive.
+        let missing = placeDir.appendingPathComponent("does-not-exist.jpg")
+        let threw = (try? LightroomExportService.place(missing, at: placeTarget)) == nil
+        check(threw, "place() reports failure when there is nothing to place")
+        check((try? String(contentsOf: placeTarget, encoding: .utf8)) == "NEU", "failed place() leaves the user's file intact")
+        check((try? fm.contentsOfDirectory(atPath: placeDir.path))?
+                .contains(where: { $0.hasPrefix(".rawselect-") }) == false, "place() leaves no staging files behind")
+
+        // 15b) A damaged file must never be silently overwritten — the marks in it may still
+        //      be rescuable. It gets moved aside, and work continues on a fresh one.
+        let brokenID = "selftest-broken-" + UUID().uuidString
+        SessionStore.save(identityID: brokenID, states: ["x": .init(mark: 1)], scope: ["x"])
+        check(SessionStore.read(identityID: brokenID) != .none, "precondition: file exists")
+        // Corrupt it the way a half-finished write or a bad sector would.
+        if case .states = SessionStore.read(identityID: brokenID) {
+            let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("RAW Select/Sessions", isDirectory: true)
+            if let f = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil))?
+                .first(where: { $0.lastPathComponent.hasSuffix(".json") &&
+                                (try? String(contentsOf: $0, encoding: .utf8))?.contains(brokenID) == true }) {
+                try? Data("{ kaputt".utf8).write(to: f)
+            }
+        }
+        check(SessionStore.read(identityID: brokenID) == .unreadable, "damaged file is reported unreadable, not empty")
+        let res = SessionStore.save(identityID: brokenID, states: ["y": .init(mark: 2)], scope: ["y"])
+        if case .quarantined(let name) = res {
+            check(true, "damaged file is quarantined, not clobbered")
+            // Clean up after ourselves — leaving a file per run is the very habit being fixed.
+            let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("RAW Select/Sessions", isDirectory: true)
+            try? fm.removeItem(at: dir.appendingPathComponent(name))
+        } else {
+            check(false, "damaged file is quarantined, not clobbered (got \(res))")
+        }
+        check(SessionStore.load(identityID: brokenID)["y"]?.mark == 2, "work continues on a fresh file")
+        SessionStore.delete(identityID: brokenID)
+
+        SessionStore.delete(identityID: testID)
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")
         if failures > 0 { exit(1) }
     }
 
-    private static func writeGrayPNG(to url: URL, size: Int, level: Int) {
-        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
-                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
-                                   isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-        let ctx = NSGraphicsContext(bitmapImageRep: rep)!
-        NSGraphicsContext.current = ctx
-        let g = CGFloat(level) / 255.0
-        NSColor(red: g, green: g, blue: g, alpha: 1).setFill()
-        NSRect(x: 0, y: 0, width: size, height: size).fill()
-        ctx.flushGraphics()
-        if let data = rep.representation(using: .png, properties: [:]) { try? data.write(to: url) }
-    }
 
     private static func writePNG(to url: URL, size: Int) {
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,

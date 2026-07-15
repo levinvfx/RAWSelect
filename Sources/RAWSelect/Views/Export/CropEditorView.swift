@@ -465,13 +465,25 @@ struct CropEditorView: View {
 
     /// A white-balance slider: a plain relative nudge around 0, so it never has to wait for
     /// Lightroom to reveal the photo's actual Kelvin. The stored value IS the delta.
+    ///
+    /// Disabled without a preset — and that is not cosmetic. Camera Raw only honours ABSOLUTE
+    /// Kelvin on a RAW, so the nudge needs a base, and the base only ever arrives with a
+    /// Lightroom render. No preset means no render, which means no base, which means the
+    /// export silently writes no white balance at all — while the live preview happily shows
+    /// the picture getting warmer. Better to say "not available" than to lie.
     private func wbSlider(_ title: String, _ field: WritableKeyPath<ImageEdit, Double>,
                           range: ClosedRange<Double>, gradient: [Color]) -> some View {
         LRSlider(title: title,
                  value: Binding(get: { edit[keyPath: field] }, set: { edit[keyPath: field] = $0 }),
                  range: range, neutral: 0,
                  format: { String(format: "%+.0f", $0) }, gradient: gradient, onEdit: dev)
+            .disabled(!wbAvailable)
+            .opacity(wbAvailable ? 1 : 0.4)
     }
+
+    /// The WB sliders only work once Lightroom has told us the photo's Kelvin, which only
+    /// happens on a preset render.
+    private var wbAvailable: Bool { rawURL != nil && presetURL != nil }
 
     /// One color-mixer slider for the selected band. Like `toneSlider`, the value shows
     /// the preset's own HSL value + the user delta; the delta is stored in `edit.hsl`
@@ -504,6 +516,10 @@ struct CropEditorView: View {
                                  gradient: [Color(red: 0.30, green: 0.52, blue: 0.95), Color(red: 0.96, green: 0.86, blue: 0.36)])
                         wbSlider("Tönung", \.tint, range: -60...60,
                                  gradient: [Color(red: 0.36, green: 0.85, blue: 0.42), Color(red: 0.90, green: 0.36, blue: 0.86)])
+                        if !wbAvailable {
+                            Text("Ohne Preset nicht verfügbar – Lightroom verrät den Weissabgleich des Bildes nur beim Rendern.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
                     }
                     LRSection(title: "Licht") {
                         toneSlider("Belichtung", \.exposure, "Exposure2012", range: -5...5,

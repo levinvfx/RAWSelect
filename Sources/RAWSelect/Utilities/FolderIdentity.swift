@@ -12,20 +12,28 @@ struct FolderIdentity {
 
     init(root: URL) {
         let keys: Set<URLResourceKey> = [.volumeUUIDStringKey, .volumeURLKey,
-                                         .volumeNameKey, .volumeTotalCapacityKey]
+                                         .volumeNameKey, .volumeTotalCapacityKey,
+                                         .volumeCreationDateKey]
         let values = try? root.resourceValues(forKeys: keys)
         if let volumeURL = values?.volume {
             if let uuid = values?.volumeUUIDString, !uuid.isEmpty {
                 // Best case: a real volume UUID – survives re-mounting at any path.
                 self.id = "vol-" + uuid
             } else {
-                // SD/exFAT/FAT cards frequently expose NO volume UUID. Instead of
-                // keying on the mount path (which changes to "Untitled 1" etc. on
-                // re-insert and loses the marks), build a stable fingerprint from
-                // immutable volume traits. Nothing is ever written to the card.
+                // SD/exFAT/FAT cards frequently expose NO volume UUID. Instead of keying on
+                // the mount path (which becomes "Untitled 1" on re-insert and loses the
+                // marks), build a fingerprint from traits that survive ejecting.
+                //
+                // The creation date is what makes it a fingerprint at all: name + capacity
+                // alone are identical on two factory-formatted cards — both "Untitled", both
+                // 64 GB — so the second card showed the first one's marks on its own photos,
+                // and the first mark on it wiped the other's. Formatting a card changes the
+                // date, which is right: a reformatted card is a new card.
+                // Nothing is ever written to the card.
                 let name = values?.volumeName ?? volumeURL.lastPathComponent
                 let capacity = values?.volumeTotalCapacity ?? 0
-                self.id = "fp-\(name)-\(capacity)"
+                let born = values?.volumeCreationDate.map { Int($0.timeIntervalSince1970) } ?? 0
+                self.id = "fp-\(name)-\(capacity)-\(born)"
             }
             self.keyBase = volumeURL
         } else {

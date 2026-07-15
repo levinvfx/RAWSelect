@@ -16,64 +16,13 @@ enum ExportSizeChoice: String, CaseIterable, Identifiable { case original, edge3
     func longEdge(custom: Int) -> Int? { switch self { case .original: return nil; case .edge3000: return 3000; case .edge4000: return 4000; case .custom: return custom } }
 }
 
-/// How noise reduction is applied on export.
-/// - noiseReduction: Camera-Raw luminance/chroma NR written to the sidecar
-///   (renders immediately, no extra compute).
-/// - aiEnhance: Adobe's real AI "Enhance → Denoise" (creates an enhanced DNG).
-///   Only reachable via Lightroom + the RAW Select bridge; slower than
-///   plain Camera-Raw noise reduction.
-enum DenoiseMode: String, CaseIterable, Identifiable { case off, noiseReduction, aiEnhance
-    var id: String { rawValue }
-    var label: String { switch self {
-        case .off: return "Aus"
-        case .noiseReduction: return "Rauschreduzierung"
-        case .aiEnhance: return "Adobe KI-Denoise (Enhance)" } }
-    var isOn: Bool { self != .off }
-    var usesEnhance: Bool { self == .aiEnhance }
-}
-
-
-enum ExportFolderStructure: String, CaseIterable, Identifiable { case single, perMark, mirror
-    var id: String { rawValue }
-    var label: String { switch self { case .single: return "Alle in einen Ordner"; case .perMark: return "Unterordner pro Markierung"; case .mirror: return "Struktur wie Original" } }
-}
-
 /// Which photos feed the export.
 enum ExportImageSource: Hashable {
     case current, selected, allMarked, filtered
     case mark(Int)
 }
 
-// MARK: - Smart Exposure
-
-struct SmartExposureResult: Identifiable {
-    var id: String { fileURL.path }
-    let fileURL: URL
-    let fileName: String
-    var averageLuminance: Double = 0    // 0…1
-    var medianLuminance: Double = 0
-    var p5: Double = 0
-    var p95: Double = 0
-    var shadowClippingPercent: Double = 0
-    var highlightClippingPercent: Double = 0
-    var suggestedEV: Double = 0
-    var clampedEV: Double = 0
-    var confidence: Double = 1
-    var notes: String = ""
-
-    var evLabel: String {
-        let v = clampedEV
-        if abs(v) < 0.02 { return "0.00 EV" }
-        return String(format: "%+.2f EV", v)
-    }
-}
-
 // MARK: - Export job
-
-enum ExposureMode: String, CaseIterable, Identifiable { case smart, manual
-    var id: String { rawValue }
-    var label: String { self == .smart ? "Smart Exposure" : "Manuelle Belichtung" }
-}
 
 /// Non-destructive per-image edit. Held centrally in `AppState.edits` (keyed by
 /// group id), persisted per source via `SessionStore`, and applied on export.
@@ -84,7 +33,7 @@ struct ImageEdit: Equatable, Codable {
     var straighten: Double = 0
     /// Crop rectangle in normalised coordinates (0…1) of the rotated+straightened frame; nil = full.
     var crop: CGRect? = nil
-    /// Manual exposure (EV) chosen in the live preview; used when ExposureMode == .manual.
+    /// Manual exposure (EV) chosen in the live preview.
     var exposure: Double = 0
 
     // MARK: Develop (Camera-Raw "Basic" panel)

@@ -11,8 +11,18 @@ actor LightroomPreviewService {
     private var inFlight: [String: Task<URL?, Never>] = [:]
     /// As-shot (or preset) white balance per RAW, harvested from the render. Cached in
     /// memory and on disk so the WB sliders can default to the real value instantly on
-    /// a later visit. Keyed by RAW path + mtime.
+    /// a later visit. Keyed by RAW path + mtime — the mtime matters, because a changed file
+    /// is a different photo and its old white balance would be a wrong base to nudge from.
     private var wbMemo: [String: WB] = [:]
+
+    /// Memory-cache key. Must match `wbFile`'s key: the comment above claimed both used
+    /// path + mtime, but this one used the path alone — so within a session an edited RAW
+    /// kept handing out its previous white balance.
+    private func wbKey(_ rawURL: URL) -> String {
+        let m = (try? rawURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)?
+            .timeIntervalSince1970 ?? 0
+        return fnv1a("\(rawURL.path)#\(Int(m))")
+    }
 
     struct WB { let temp: Double; let tint: Double }
 
@@ -106,19 +116,19 @@ actor LightroomPreviewService {
     private func storeWB(rawURL: URL, temp: Double?, tint: Double?) {
         guard let temp, let tint, temp > 0 else { return }
         let wb = WB(temp: temp, tint: tint)
-        wbMemo[fnv1a(rawURL.path)] = wb
+        wbMemo[wbKey(rawURL)] = wb
         try? "\(temp),\(tint)".data(using: .utf8)?.write(to: wbFile(rawURL))
     }
 
     /// The as-shot (or preset) white balance for a RAW, from memory or the disk cache,
     /// or nil if it hasn't been rendered yet. Never triggers a render.
     func asShotWB(rawURL: URL) -> WB? {
-        if let wb = wbMemo[fnv1a(rawURL.path)] { return wb }
+        if let wb = wbMemo[wbKey(rawURL)] { return wb }
         guard let text = try? String(contentsOf: wbFile(rawURL), encoding: .utf8) else { return nil }
         let parts = text.split(separator: ",")
         guard parts.count == 2, let t = Double(parts[0]), let n = Double(parts[1]) else { return nil }
         let wb = WB(temp: t, tint: n)
-        wbMemo[fnv1a(rawURL.path)] = wb
+        wbMemo[wbKey(rawURL)] = wb
         return wb
     }
 }

@@ -192,8 +192,9 @@ private struct ScanningView: View {
             ProgressView().controlSize(.large)
             Text(name.isEmpty ? "Ordner wird gescannt…" : "\(name) wird gescannt…")
                 .font(.headline).foregroundStyle(.secondary)
-            Text("Bilder werden gesucht und gruppiert.")
+            Text(app.scanFound > 0 ? "\(app.scanFound) Dateien gefunden…" : "Bilder werden gesucht und gruppiert.")
                 .font(.callout).foregroundStyle(.tertiary)
+                .monospacedDigit()
             Button("Abbrechen") { app.cancelScan() }
                 .keyboardShortcut(.cancelAction)
                 .padding(.top, 4)

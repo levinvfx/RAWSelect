@@ -4,7 +4,7 @@ import CoreGraphics
 
 /// Drives Adobe Lightroom Classic as a LOCAL rendering engine to export JPEGs from
 /// RAW files with a Camera-Raw/Lightroom preset (INCLUDING local masks — AI subject
-/// & gradients) plus a manual/Smart-Exposure delta.
+/// & gradients) plus a manual exposure delta.
 ///
 /// Lightroom cannot be driven headlessly. Instead a background
 /// watcher plugin (`RAWSelectBridge.lrplugin`) runs inside Lightroom and processes
@@ -24,14 +24,10 @@ struct LightroomExportService {
         var colorSpace: String           // "sRGB" | "AdobeRGB" | "ProPhotoRGB"
         var longEdge: Int                // 0 = keep original size
         var targetRoot: URL
-        var folderStructure: ExportFolderStructure
-        var sourceRoot: URL?
         var conflict: ConflictMode
         var deleteTemp: Bool
         var lightroomPath: String
         var autoConfirmDialogs: Bool
-        var denoise: Double = 0          // noise reduction strength 0…100 (0 = off)
-        var denoiseUseEnhance: Bool = false   // true = real Adobe AI Enhance-Denoise (slow)
     }
 
     struct Outcome {
@@ -101,44 +97,64 @@ struct LightroomExportService {
             struct Entry { let item: ExportItem; let id: String; let raw: URL; let stage: URL; let desired: URL; let name: String }
             var manifest: [Entry] = []
             var usedOut = Set<String>()
+            var failures: [ExportFailure] = []
             for (idx, item) in items.enumerated() {
-                let base0 = item.rawURL.deletingPathExtension().lastPathComponent
-                let ext = item.rawURL.pathExtension
-                let inDir = tempDir.appendingPathComponent("in/\(idx)", isDirectory: true)
-                let stageDir = tempDir.appendingPathComponent("stage/\(idx)", isDirectory: true)
-                try fm.createDirectory(at: inDir, withIntermediateDirectories: true)
-                try fm.createDirectory(at: stageDir, withIntermediateDirectories: true)
+                let name = item.rawURL.lastPathComponent
+                // Every failure here stays WITH ITS PHOTO. This loop used to throw straight out
+                // of the whole export: one unreadable RAW out of fifty meant nothing at all got
+                // exported, reported as a single error called "—" that "Retry" couldn't match.
+                do {
+                    let base0 = item.rawURL.deletingPathExtension().lastPathComponent
+                    let ext = item.rawURL.pathExtension
+                    let inDir = tempDir.appendingPathComponent("in/\(idx)", isDirectory: true)
+                    let stageDir = tempDir.appendingPathComponent("stage/\(idx)", isDirectory: true)
+                    try fm.createDirectory(at: inDir, withIntermediateDirectories: true)
+                    try fm.createDirectory(at: stageDir, withIntermediateDirectories: true)
 
-                let tempRaw = inDir.appendingPathComponent("\(base0).\(ext)")
-                try fm.copyItem(at: item.rawURL, to: tempRaw)
-                let sidecar = inDir.appendingPathComponent("\(base0).xmp")
-                // The absolute WB needs the same base the slider showed: the preset's own
-                // Temperature, or the RAW's as-shot value harvested by the preview render.
-                let wb = await LightroomPreviewService.shared.asShotWB(rawURL: item.rawURL)
-                let xmp = XMPPresetBuilder.sidecarXMP(presetURL: config.presetURL, evDelta: item.evDelta,
-                                                      edit: item.edit, denoise: config.denoise,
-                                                      asShotWB: wb.map { ($0.temp, $0.tint) })
-                try xmp.data(using: .utf8)?.write(to: sidecar)
+                    let tempRaw = inDir.appendingPathComponent("\(base0).\(ext)")
+                    try fm.copyItem(at: item.rawURL, to: tempRaw)
+                    let sidecar = inDir.appendingPathComponent("\(base0).xmp")
+                    // The absolute WB needs the same base the slider showed: the preset's own
+                    // Temperature, or the RAW's as-shot value harvested by the preview render.
+                    let wb = await LightroomPreviewService.shared.asShotWB(rawURL: item.rawURL)
+                    let xmp = XMPPresetBuilder.sidecarXMP(presetURL: config.presetURL, evDelta: item.evDelta,
+                                                          edit: item.edit,
+                                                          asShotWB: wb.map { ($0.temp, $0.tint) })
+                    try xmp.data(using: .utf8)?.write(to: sidecar)
 
-                let dir = outputDir(for: item.group, config: config, item: item)
-                try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-                guard let desired = resolveOutput(base: base0, in: dir, conflict: config.conflict, used: &usedOut) else { continue }
-                usedOut.insert(desired.path)
+                    let dir = config.targetRoot
+                    try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                    guard let desired = resolveOutput(base: base0, in: dir, conflict: config.conflict, used: &usedOut) else {
+                        // Conflict mode "skip". Say so — this used to vanish without a trace,
+                        // and the summary still showed a green tick.
+                        failures.append(ExportFailure(fileName: name, message: "Übersprungen – am Ziel existiert bereits eine Datei mit diesem Namen."))
+                        continue
+                    }
+                    usedOut.insert(desired.path)
 
-                let id = "RS_\(UUID().uuidString)"
-                manifest.append(Entry(item: item, id: id, raw: tempRaw, stage: stageDir, desired: desired, name: item.rawURL.lastPathComponent))
+                    let id = "RS_\(UUID().uuidString)"
+                    manifest.append(Entry(item: item, id: id, raw: tempRaw, stage: stageDir, desired: desired, name: name))
+                } catch {
+                    failures.append(ExportFailure(fileName: name, message: "Konnte nicht vorbereitet werden: \(error.localizedDescription)"))
+                }
             }
 
             if manifest.isEmpty {
                 cleanup(tempDir, config: config)
-                return Outcome(success: 0, failures: [], targetRoot: config.targetRoot, tempWarning: nil)
+                return Outcome(success: 0, failures: failures, targetRoot: config.targetRoot, tempWarning: nil)
             }
 
             // Submit + wait one job at a time (clean progress, no catalog contention).
             var success = 0
-            var failures: [ExportFailure] = []
             for (i, e) in manifest.enumerated() {
-                if isCancelled() { break }
+                if isCancelled() {
+                    // Name what didn't happen. Breaking silently left the summary showing
+                    // "12 JPEGs erfolgreich exportiert" with a green tick — for 50 photos.
+                    for rest in manifest[i...] {
+                        failures.append(ExportFailure(fileName: rest.name, message: "Abgebrochen – nicht exportiert."))
+                    }
+                    break
+                }
                 progress(i, manifest.count, e.name, .rendering)
 
                 // Crop/rotate/straighten are applied locally AFTER Lightroom renders the
@@ -148,10 +164,8 @@ struct LightroomExportService {
                 let jobQuality = needsEdit ? 1.0 : config.jpegQuality01
                 let jobEdge = needsEdit ? 0 : config.longEdge
                 writeJob(id: e.id, raw: e.raw, out: e.stage, quality: jobQuality, maxEdge: jobEdge,
-                         colorSpace: config.colorSpace, denoise: config.denoise,
-                         enhance: config.denoiseUseEnhance, jobsDir: jobsDir)
-                // AI Enhance-Denoise renders a whole new DNG per image → allow much longer.
-                let timeout: TimeInterval = config.denoiseUseEnhance ? 600 : 180
+                         colorSpace: config.colorSpace, jobsDir: jobsDir)
+                let timeout: TimeInterval = 180
                 let result = await waitForDone(id: e.id, doneDir: doneDir, timeout: timeout, isCancelled: isCancelled)
 
                 switch result {
@@ -166,8 +180,7 @@ struct LightroomExportService {
                             }
                         } else {
                             do {
-                                try? fm.removeItem(at: e.desired)
-                                try fm.moveItem(at: produced, to: e.desired)
+                                try place(produced, at: e.desired)
                                 success += 1
                             } catch {
                                 failures.append(ExportFailure(fileName: e.name, message: "Konnte JPEG nicht ablegen: \(error.localizedDescription)"))
@@ -243,7 +256,7 @@ struct LightroomExportService {
 
             let id = "RSPREV_\(UUID().uuidString)"
             writeJob(id: id, raw: tempRaw, out: stageDir, quality: 0.85, maxEdge: maxEdge,
-                     colorSpace: "sRGB", denoise: 0, enhance: false, jobsDir: jobsDir)
+                     colorSpace: "sRGB", jobsDir: jobsDir)
             let result = await waitForDone(id: id, doneDir: doneDir, timeout: 120, isCancelled: isCancelled)
 
             guard case let .some(done) = result, done.status == "ok",
@@ -276,10 +289,8 @@ struct LightroomExportService {
     // MARK: Spool I/O
 
     private static func writeJob(id: String, raw: URL, out: URL, quality: Double, maxEdge: Int,
-                                 colorSpace: String, denoise: Double, enhance: Bool, jobsDir: URL) {
+                                 colorSpace: String, jobsDir: URL) {
         let (maxW, maxH) = maxEdge > 0 ? (maxEdge, maxEdge) : (0, 0)
-        // `enhance=1` tells the bridge plugin to run Adobe's AI Enhance-Denoise
-        // (creates a denoised DNG) before exporting; `denoise` is its 0…100 amount.
         let body = """
         id=\(id)
         raw=\(raw.path)
@@ -288,8 +299,6 @@ struct LightroomExportService {
         maxheight=\(maxH)
         quality=\(String(format: "%.2f", quality))
         colorspace=\(colorSpace)
-        denoise=\(Int(denoise.rounded()))
-        enhance=\(enhance ? 1 : 0)
         """
         let tmp = jobsDir.appendingPathComponent("\(id).tmp")
         let final = jobsDir.appendingPathComponent("\(id).job")
@@ -365,8 +374,16 @@ struct LightroomExportService {
 
         let rep = NSBitmapImageRep(cgImage: outCG)
         guard let data = rep.representation(using: .jpeg, properties: [.compressionFactor: quality]) else { return false }
-        do { try? FileManager.default.removeItem(at: out); try data.write(to: out); return true }
-        catch { return false }
+        // Write beside the target first, then swap — never delete the user's file up front.
+        let staged = out.deletingLastPathComponent().appendingPathComponent(".rawselect-\(UUID().uuidString).jpg")
+        do {
+            try data.write(to: staged)
+            try place(staged, at: out)
+            return true
+        } catch {
+            try? FileManager.default.removeItem(at: staged)
+            return false
+        }
     }
 
     // MARK: Auto-confirm Lightroom's AI-model dialog
@@ -436,15 +453,42 @@ struct LightroomExportService {
         p.arguments = [tmp.path]
         p.standardError = Pipe()
         p.standardOutput = Pipe()
-        do { try p.run(); return p } catch { return nil }
+        // Delete the script once osascript has finished with it — every export used to leave
+        // one behind forever (measured: nine of them lying around).
+        p.terminationHandler = { _ in try? FileManager.default.removeItem(at: tmp) }
+        do { try p.run(); return p } catch {
+            try? FileManager.default.removeItem(at: tmp)
+            return nil
+        }
     }
 
     // MARK: Output layout
 
     /// Always the chosen target folder — RAW Select never creates subfolders on export.
-    private static func outputDir(for group: PhotoGroup, config: Config, item: ExportItem) -> URL {
-        config.targetRoot
+    /// Puts a finished JPEG at `dest` without ever leaving the user with nothing.
+    ///
+    /// The old code deleted the existing file and *then* wrote the new one. If that write
+    /// failed — disk full, network share gone, permissions changed in between — the user's
+    /// existing photo was destroyed and no replacement existed, and the message said only
+    /// "Konnte JPEG nicht ablegen". Now the new file is always fully in place next to the
+    /// target before anything is replaced, and the swap itself is atomic.
+    static func place(_ produced: URL, at dest: URL) throws {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: dest.path) else {
+            try fm.moveItem(at: produced, to: dest)   // nothing to lose
+            return
+        }
+        let staged = dest.deletingLastPathComponent()
+            .appendingPathComponent(".rawselect-\(UUID().uuidString).jpg")
+        try fm.moveItem(at: produced, to: staged)     // must succeed BEFORE we touch the original
+        do {
+            _ = try fm.replaceItemAt(dest, withItemAt: staged)
+        } catch {
+            try? fm.removeItem(at: staged)            // original untouched
+            throw error
+        }
     }
+
 
     private static func resolveOutput(base: String, in dir: URL, conflict: ConflictMode, used: inout Set<String>) -> URL? {
         let first = dir.appendingPathComponent("\(base).jpg")
@@ -458,7 +502,7 @@ struct LightroomExportService {
             // just-written batch output (same basename twice in one export).
             if !inBatch { return first }
             fallthrough
-        case .rename, .ask:
+        case .rename:
             var i = 1
             while true {
                 let u = dir.appendingPathComponent("\(base)_\(i).jpg")

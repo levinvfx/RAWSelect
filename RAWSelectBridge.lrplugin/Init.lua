@@ -177,11 +177,28 @@ end
 _G.RAWSelectGen = (_G.RAWSelectGen or 0) + 1
 local myGen = _G.RAWSelectGen
 
+-- Jeder Job schreibt sein eigenes Log. Die blieben bisher für immer liegen (gemessen: 692
+-- Dateien, 2.7 MB). Beim Start räumen wir die Logs vergangener Sitzungen weg — die laufende
+-- Sitzung behält ihre, damit man einen Fehler noch nachlesen kann.
+local function purgeOldJobLogs()
+    if not LrFileUtils.exists(logDir) then return end
+    local n = 0
+    for p in LrFileUtils.directoryEntries(logDir) do
+        if LrPathUtils.extension(p) == 'log' and LrPathUtils.leafName(p) ~= 'watcher.log' then
+            LrFileUtils.delete(p)
+            n = n + 1
+        end
+    end
+    return n
+end
+
 LrTasks.startAsyncTask(function()
     ensureDir(jobsDir); ensureDir(doneDir); ensureDir(logDir)
+    local purged = purgeOldJobLogs() or 0
     appendLog(LrPathUtils.child(logDir, 'watcher.log'),
               'Watcher gestartet (gen ' .. myGen .. ')  SDK=' ..
-              tostring(LrApplication.versionString and LrApplication.versionString()))
+              tostring(LrApplication.versionString and LrApplication.versionString()) ..
+              '  (' .. purged .. ' alte Job-Logs entfernt)')
 
     while _G.RAWSelectGen == myGen do
         for filePath in LrFileUtils.directoryEntries(jobsDir) do

@@ -40,6 +40,10 @@ private struct LargePreview: View {
     @State private var hiResTask: Task<Void, Never>?  // cancellable full-res decode
     @State private var loadingID: String?     // photo whose full-res decode is in flight
     @State private var attemptedID: String?   // photo already tried once (no reload-spam)
+    /// Photo that could not be decoded at all. Without this, `lastGood` kept the PREVIOUS
+    /// photo on screen under this one's file name and mark pill — so a corrupt RAW looked
+    /// like a perfectly good frame and got culled blind.
+    @State private var failedID: String?
 
     /// Best preview available *right now*, read straight from the in-memory cache.
     /// This is called synchronously from `body`, so switching photos NEVER waits on
@@ -58,7 +62,10 @@ private struct LargePreview: View {
     var body: some View {
         let _ = version                       // depend on `version` so upgrades re-render
         let best = bestCached()
-        let display = best?.image ?? lastGood  // fall back to previous frame, never black
+        let broken = failedID == group.id
+        // Carry the previous frame over WHILE LOADING (no black flash) — but never once we
+        // know this photo can't be decoded, or the user judges the wrong picture.
+        let display = broken ? nil : (best?.image ?? lastGood)
         return ZStack {
             // Neutral dark surround like the crop editor – keeps the eye on the
             // photo and stays consistent across the app.
@@ -66,6 +73,8 @@ private struct LargePreview: View {
             if let shown = (hiResID == group.id ? hiRes : nil) ?? display {
                 ZoomableImageView(imageID: group.id, image: shown, controller: app.zoom)
                     .padding(16)
+            } else if broken {
+                brokenNotice
             }
 
             VStack {
@@ -192,8 +201,23 @@ private struct LargePreview: View {
             _ = await loader.thumbnail(for: url, maxPixel: settings.instantPixels)
             version &+= 1
         }
-        _ = await loader.thumbnail(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
+        let sharp = await loader.thumbnail(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
         version &+= 1
+        // Nothing decoded at any tier → this file is unreadable. Say so instead of leaving
+        // the previous photo on screen pretending to be this one.
+        if sharp == nil, bestCached() == nil {
+            failedID = group.id
+            lastGood = nil
+        }
+    }
+
+    private var brokenNotice: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 34)).foregroundStyle(.orange)
+            Text("Bild kann nicht gelesen werden").font(.callout.weight(.medium))
+            Text(group.displayName).font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     private var markPill: some View {

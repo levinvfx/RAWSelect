@@ -89,6 +89,13 @@ struct ExportWizard: View {
             app.saveEditsNow()   // persist any crop-step edits
             Task { await LightroomPreviewService.shared.clearCache() }   // previews are session-scoped
         }
+        // Lives on the ROOT, not on the configure screen: the warning used to exist only on
+        // the "export without editing" button, so the normal route (crop → export) replaced
+        // the user's files without ever asking.
+        .confirmationDialog("Vorhandene Dateien überschreiben?", isPresented: $confirmOverwrite) {
+            Button("Überschreiben", role: .destructive) { beginExport() }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { Text("Gleichnamige JPEGs im Zielordner werden ersetzt.") }
     }
 
     private var header: some View {
@@ -137,7 +144,7 @@ struct ExportWizard: View {
 
                     card("Preset") {
                         HStack {
-                            Text(presetURL?.lastPathComponent ?? "Kein Preset (nur Smart Exposure)")
+                            Text(presetURL?.lastPathComponent ?? "Kein Preset – Bilder werden unverändert exportiert")
                                 .foregroundStyle(presetURL == nil ? .secondary : .primary).lineLimit(1)
                             Spacer()
                             if presetURL != nil { Button("Entfernen") { presetURL = nil } }
@@ -190,10 +197,6 @@ struct ExportWizard: View {
                     .disabled(!canExport)
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
-            .confirmationDialog("Vorhandene Dateien überschreiben?", isPresented: $confirmOverwrite) {
-                Button("Überschreiben", role: .destructive) { runExport() }
-                Button("Abbrechen", role: .cancel) {}
-            } message: { Text("Gleichnamige JPEGs im Zielordner werden ersetzt.") }
         }
     }
 
@@ -358,7 +361,9 @@ struct ExportWizard: View {
                 .font(.system(size: 48)).foregroundStyle(failures.isEmpty ? .green : .orange)
             Text(resultTitle).font(.title3.weight(.semibold))
             if !failures.isEmpty {
-                Text("\(failures.count) Fehler").foregroundStyle(.secondary)
+                // "nicht exportiert" covers all three: real errors, skipped conflicts and
+                // whatever a cancel left behind. All of them used to be invisible.
+                Text("\(failures.count) nicht exportiert").foregroundStyle(.secondary)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(failures) { f in
@@ -377,7 +382,7 @@ struct ExportWizard: View {
             HStack {
                 if let t = targetURL { Button("Im Finder anzeigen") { app.revealFolder(t) } }
                 if !failures.isEmpty {
-                    Button("Fehlgeschlagene erneut (\(failures.count))") { retryFailed() }
+                    Button("Erneut versuchen (\(failures.count))") { retryFailed() }
                 }
                 Spacer()
                 Button("Fertig") { dismiss() }.buttonStyle(.borderedProminent)
@@ -388,7 +393,7 @@ struct ExportWizard: View {
 
     private var resultTitle: String {
         if failures.isEmpty { return "\(successCount) JPEGs erfolgreich exportiert" }
-        return "\(successCount) von \(attempted) Bildern erfolgreich exportiert"
+        return "\(successCount) von \(attempted) Bildern exportiert"
     }
 
     // MARK: Actions
@@ -436,7 +441,14 @@ struct ExportWizard: View {
     private func startExport(skipCrop: Bool) {
         errorMessage = nil
         guard validate() else { return }
-        if conflict == .overwrite { confirmOverwrite = true } else { runExport() }
+        runExport()
+    }
+
+    /// The single door every export goes through. The overwrite warning used to sit on one
+    /// button only ("Ohne Bearbeitung exportieren"), while the normal route — crop, then
+    /// export — replaced the user's files without a word.
+    private func runExport() {
+        if conflict == .overwrite { confirmOverwrite = true } else { beginExport() }
     }
 
     private func validate() -> Bool {
@@ -446,7 +458,9 @@ struct ExportWizard: View {
         return true
     }
 
-    private func runExport() {
+    /// Collects the images and starts the export. Only `runExport()` may call this — going
+    /// straight here is what let the crop route skip the overwrite warning.
+    private func beginExport() {
         guard let target = targetURL else { return }
         settings.lastExportTarget = target.path
         if let p = presetURL { settings.rememberRecentPreset(p.path) }
@@ -486,12 +500,10 @@ struct ExportWizard: View {
         let lrConfig = LightroomExportService.Config(
             presetURL: presetURL, jpegQuality01: max(0.1, min(1.0, quality / 100.0)),
             colorSpace: colorSpace.lrColorSpace, longEdge: longEdge,
-            targetRoot: target, folderStructure: .single, sourceRoot: app.rootURL,
+            targetRoot: target,
             conflict: conflict, deleteTemp: settings.deleteTempFiles,
             lightroomPath: settings.lightroomPath,
-            autoConfirmDialogs: settings.autoConfirmLightroomDialogs,
-            denoise: 0,
-            denoiseUseEnhance: false)
+            autoConfirmDialogs: settings.autoConfirmLightroomDialogs)
         Task {
             let outcome = await LightroomExportService.export(
                 items: items, config: lrConfig, progress: progressCB,

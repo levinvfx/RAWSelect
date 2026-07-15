@@ -36,6 +36,9 @@ final class AppState: ObservableObject {
     @Published var showInfo: Bool = AppSettings.shared.metadataPanel
 
     @Published var isScanning = false
+    /// Files seen so far while scanning. The scanner always counted them — nobody asked for
+    /// the number, so a 5000-photo folder showed a spinner with no end in sight.
+    @Published var scanFound = 0
     @Published var statusMessage = "Kein Ordner geöffnet."
 
     @Published var operation: OperationState?
@@ -188,6 +191,10 @@ final class AppState: ObservableObject {
         scanTask?.cancel()
         rootURL = url
         tagFilter.reset()  // opening a folder always shows all images found in it
+        // The undo snapshots belong to the folder we're leaving. Photo ids are relative to the
+        // scan root, so two card folders both hold "/img_0001" — keeping the stack meant ⌘Z
+        // applied the OTHER folder's marks to this folder's photos, and persisted them.
+        markUndoStack.removeAll()
         if setBrowseRoot {
             if url.isOnExternalVolume, let vol = try? url.resourceValues(forKeys: [.volumeURLKey]).volume {
                 browseRoot = vol
@@ -201,6 +208,7 @@ final class AppState: ObservableObject {
         currentID = nil
         anchorID = nil
         isScanning = true
+        scanFound = 0
         statusMessage = "Scanne \(url.lastPathComponent) …"
 
         let identity = FolderIdentity(root: url)
@@ -221,7 +229,8 @@ final class AppState: ObservableObject {
                 var groups = PhotoScanner.scan(root: url, allowedExtensions: allowed, recursive: recursive,
                                                groupPairs: groupPairs, ignoreHidden: ignoreHidden,
                                                cameraFoldersOnly: cameraOnly,
-                                               isCancelled: { token.isCancelled })
+                                               isCancelled: { token.isCancelled },
+                                               onProgress: { n in Task { @MainActor in self.scanFound = n } })
                 for i in groups.indices {
                     let key = identity.persistKey(directory: groups[i].directory, baseName: groups[i].baseName)
                     groups[i].persistKey = key
@@ -410,16 +419,54 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func persistState() {
-        guard let identity else { return }
+    /// Snapshot of what belongs in the session file for the folder that's open right now.
+    private func sessionSnapshot() -> (id: String, states: [String: SessionStore.PhotoState], scope: Set<String>)? {
+        guard let identity else { return nil }
         var states: [String: SessionStore.PhotoState] = [:]
+        var scope = Set<String>()
+        scope.reserveCapacity(groups.count)
         for g in groups {
+            // The scope is EVERY loaded photo, not just the marked ones: the store may only
+            // replace the keys of this folder, and an unmarked photo has to be able to drop
+            // out. Other folders share the same file (one per volume) and must survive.
+            scope.insert(g.persistKey)
             let edit = edits[g.id]
             let hasEdit = !(edit?.isIdentity ?? true)
             guard g.mark != 0 || hasEdit else { continue }
             states[g.persistKey] = SessionStore.PhotoState(mark: g.mark, edit: hasEdit ? edit : nil)
         }
-        SessionStore.save(identityID: identity.id, states: states)
+        return (identity.id, states, scope)
+    }
+
+    private func report(_ result: SessionStore.SaveResult) {
+        switch result {
+        case .ok:
+            break
+        case .quarantined(let name):
+            statusMessage = "Gespeicherte Markierungen waren beschädigt – beiseitegelegt als \(name). Neu wird sauber gespeichert."
+        case .failed(let msg):
+            // Silence here meant marking for hours into the void when the disk was full.
+            statusMessage = "Markierungen konnten NICHT gespeichert werden: \(msg)"
+        }
+    }
+
+    /// Saves in the background. Encoding and writing the file used to happen synchronously on
+    /// the main thread on EVERY keypress — with thousands of photos that is the one place the
+    /// app must never stall, because it's the whole job. The writer serialises the calls, so
+    /// they still land in order.
+    private func persistState() {
+        guard let snap = sessionSnapshot() else { return }
+        Task {
+            let result = await SessionStore.SessionWriter.shared.write(snap.id, snap.states, snap.scope)
+            await MainActor.run { self.report(result) }
+        }
+    }
+
+    /// Saves right now and waits for it. Used when the app is about to lose the state
+    /// (closing the export wizard), where correctness beats the millisecond.
+    private func persistStateNow() {
+        guard let snap = sessionSnapshot() else { return }
+        report(SessionStore.save(identityID: snap.id, states: snap.states, scope: snap.scope))
     }
 
     // MARK: Sorting & view
@@ -465,7 +512,7 @@ final class AppState: ObservableObject {
     func hasEdit(_ id: String) -> Bool { !(edits[id]?.isIdentity ?? true) }
 
     /// Flushes the current edits to disk (e.g. when the export wizard closes).
-    func saveEditsNow() { persistState() }
+    func saveEditsNow() { persistStateNow() }
 
     /// Opens the standalone editor for the active photo (loupe or grid).
     func openEditor() {
