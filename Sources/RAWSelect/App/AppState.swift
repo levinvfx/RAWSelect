@@ -5,6 +5,9 @@ import Combine
 @MainActor
 final class AppState: ObservableObject {
 
+    /// The live browser instance, so the app delegate can flush pending writes on quit.
+    static weak var shared: AppState?
+
     let settings = AppSettings.shared
     private var cancellables = Set<AnyCancellable>()
     private var lastSortSig = ""
@@ -132,6 +135,7 @@ final class AppState: ObservableObject {
 
     // MARK: Lifecycle
     func start() {
+        AppState.shared = self
         refreshVolumes()
         volumeScanner.startWatching { [weak self] in self?.refreshVolumes() }
         installKeyMonitor()
@@ -174,7 +178,6 @@ final class AppState: ObservableObject {
     /// Abort an in-progress scan (large folders / slow network volumes).
     func cancelScan() {
         guard isScanning else { return }
-        scanCancelToken?.cancel()
         scanCancelToken?.cancel()
         scanTask?.cancel()
         isScanning = false
@@ -443,31 +446,61 @@ final class AppState: ObservableObject {
         case .ok:
             break
         case .quarantined(let name):
-            statusMessage = "Gespeicherte Markierungen waren beschädigt – beiseitegelegt als \(name). Neu wird sauber gespeichert."
+            let msg = "Gespeicherte Markierungen waren beschädigt – beiseitegelegt als \(name). Neu wird sauber gespeichert."
+            statusMessage = msg
+            showToast("Session war beschädigt – beiseitegelegt, wird neu gespeichert.", kind: .error)
         case .failed(let msg):
             // Silence here meant marking for hours into the void when the disk was full.
+            // The status line alone is not enough: the next keypress overwrites it, and it is
+            // hidden entirely in focus mode — so an error MUST also raise a lingering toast.
             statusMessage = "Markierungen konnten NICHT gespeichert werden: \(msg)"
+            showToast("Markierungen konnten NICHT gespeichert werden!", kind: .error)
         }
     }
+
+    /// Serialises session writes so the LAST keypress always wins. Independent `Task {}`s
+    /// were not guaranteed to reach the writer in creation order, so a late older snapshot
+    /// (scope = the whole folder) could overwrite a newer one. Each write now awaits the
+    /// previous one, which pins execution order to submission order.
+    private var writeChain: Task<Void, Never>?
+
+    /// Carries a save result across the semaphore in `persistStateNow` without hopping to the
+    /// main actor inside the task (which would deadlock while the main thread is blocked).
+    private final class SaveResultBox: @unchecked Sendable { var value: SessionStore.SaveResult = .ok }
 
     /// Saves in the background. Encoding and writing the file used to happen synchronously on
     /// the main thread on EVERY keypress — with thousands of photos that is the one place the
-    /// app must never stall, because it's the whole job. The writer serialises the calls, so
-    /// they still land in order.
+    /// app must never stall, because it's the whole job. Chained so writes still land in order.
     private func persistState() {
         guard let snap = sessionSnapshot() else { return }
-        Task {
+        let previous = writeChain
+        writeChain = Task { [weak self] in
+            _ = await previous?.value
             let result = await SessionStore.SessionWriter.shared.write(snap.id, snap.states, snap.scope)
-            await MainActor.run { self.report(result) }
+            self?.report(result)
         }
     }
 
-    /// Saves right now and waits for it. Used when the app is about to lose the state
-    /// (closing the export wizard), where correctness beats the millisecond.
+    /// Saves right now and waits for it — draining any queued writes first so the newest state
+    /// is what lands. Used when the app is about to lose the state (export wizard closing, app
+    /// terminating), where correctness beats the millisecond.
     private func persistStateNow() {
         guard let snap = sessionSnapshot() else { return }
-        report(SessionStore.save(identityID: snap.id, states: snap.states, scope: snap.scope))
+        let pending = writeChain
+        let box = SaveResultBox()
+        let sem = DispatchSemaphore(value: 0)
+        Task.detached {
+            _ = await pending?.value   // let queued writes finish in order (last wins)
+            box.value = await SessionStore.SessionWriter.shared.write(snap.id, snap.states, snap.scope)
+            sem.signal()
+        }
+        sem.wait()                     // safe: the detached task never touches the main actor
+        report(box.value)
     }
+
+    /// Flushes any pending marks/edits synchronously. Called when the app is about to quit so
+    /// the very last mark before ⌘Q is never lost to an in-flight background write.
+    func flushPendingWrites() { persistStateNow() }
 
     // MARK: Sorting & view
     func applySort() {
@@ -558,17 +591,6 @@ final class AppState: ObservableObject {
     }
 
     // MARK: Export helpers
-    /// Resolves an export image source to the matching photo groups.
-    func groups(for source: ExportImageSource) -> [PhotoGroup] {
-        switch source {
-        case .current: return currentGroup.map { [$0] } ?? []
-        case .selected: return selectedGroups
-        case .allMarked: return groups.filter { $0.mark != 0 }
-        case .mark(let n): return groups.filter { $0.mark == n }
-        case .filtered: return filteredGroups
-        }
-    }
-
     /// File to develop for a group (RAW preferred).
     func rawURL(for group: PhotoGroup) -> URL {
         group.files.first { PhotoTypes.isRaw($0) } ?? group.previewURL
@@ -616,21 +638,15 @@ final class AppState: ObservableObject {
 
     private func runOperation(_ kind: FileOperationService.Kind, target: URL,
                               groups selection: [PhotoGroup], includeSidecars: Bool) {
-        let useSubfolders = settings.exportSubfolders
-        // In mark-based export mode, optionally skip unmarked photos.
-        var snapshot = selection
-        if useSubfolders && settings.ignoreUnmarked {
-            snapshot = snapshot.filter { $0.mark != 0 }
-        }
+        // Always a flat export into the chosen target — no per-mark subfolders.
+        let snapshot = selection
         guard !snapshot.isEmpty else { statusMessage = "Keine passenden Bilder für den Export."; return }
 
         let conflict = settings.conflictMode
         let rawJpgMode = settings.rawJpgExport
         if conflict == .overwrite && !confirmOverwrite() { return }
 
-        let makeSubfolder: (PhotoGroup) -> String? = useSubfolders
-            ? { [settings] g in settings.exportFolderName(for: g.mark) }
-            : { _ in nil }
+        let makeSubfolder: (PhotoGroup) -> String? = { _ in nil }
 
         let title = kind == .copy ? "Kopiere Bilder …" : "Verschiebe Bilder …"
         let token = CancellationToken()

@@ -194,7 +194,9 @@ final class ThumbnailLoader {
     }
 
     /// Byte range (SOI…EOI) of the embedded JPEG with the largest pixel dimensions.
-    private static func largestJPEGRange(_ p: UnsafeBufferPointer<UInt8>) -> Range<Int>? {
+    /// Internal (not private) so the self-test can exercise this byte parser directly —
+    /// it is the riskiest un-GUI-testable code (a bad SOI/EOI → wrong size or a crash).
+    static func largestJPEGRange(_ p: UnsafeBufferPointer<UInt8>) -> Range<Int>? {
         let n = p.count
         // Collect all JPEG start-of-image markers (FF D8 FF).
         var sois: [Int] = []
@@ -226,8 +228,17 @@ final class ThumbnailLoader {
         return start..<end
     }
 
+    /// Convenience for tests/diagnostics: the pixel size of the largest embedded JPEG in a
+    /// raw byte buffer, or nil if none qualifies. Mirrors the zoom fallback's own selection.
+    static func embeddedJPEGDimensions(in bytes: [UInt8]) -> (Int, Int)? {
+        bytes.withUnsafeBufferPointer { p in
+            guard let range = largestJPEGRange(p) else { return nil }
+            return sofDimensions(p, from: range.lowerBound)
+        }
+    }
+
     /// Reads a JPEG stream's frame dimensions (width, height) from its SOFn marker.
-    private static func sofDimensions(_ p: UnsafeBufferPointer<UInt8>, from soi: Int) -> (Int, Int)? {
+    static func sofDimensions(_ p: UnsafeBufferPointer<UInt8>, from soi: Int) -> (Int, Int)? {
         let n = p.count
         var i = soi + 2
         while i + 9 < n {

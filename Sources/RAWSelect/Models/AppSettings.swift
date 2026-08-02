@@ -175,9 +175,7 @@ final class AppSettings: ObservableObject {
     var zeroClearsMark: Bool { true }
     var advanceDirection: AdvanceDirection { .next }
 
-    // Export — never create subfolders; always write flat into the chosen target.
-    var exportSubfolders: Bool { false }
-    var ignoreUnmarked: Bool { false }
+    // Export — always writes flat into the chosen target; conflicts get renamed.
     var conflictMode: ConflictMode { .rename }
 
     // MARK: Derived helpers
@@ -186,15 +184,6 @@ final class AppSettings: ObservableObject {
     }
     func markColor(_ n: Int) -> Color { markDefinition(n).color }
     func markName(_ n: Int) -> String { markDefinition(n).name }
-
-    /// Subfolder name for a mark on export (format 01_Select), or nil for none.
-    func exportFolderName(for mark: Int) -> String? {
-        guard exportSubfolders, mark >= 1, mark <= 9 else { return nil }
-        return String(format: "%02d_", mark) + sanitize(markName(mark))
-    }
-    private func sanitize(_ s: String) -> String {
-        s.components(separatedBy: CharacterSet(charactersIn: "/:\\")).joined(separator: "-")
-    }
 
     /// Preferred color scheme for the whole app (nil = follow system).
     var systemColorScheme: ColorScheme? { appearance.colorScheme }

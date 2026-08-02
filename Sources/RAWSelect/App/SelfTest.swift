@@ -391,6 +391,32 @@ enum SelfTest {
         check(SessionStore.load(identityID: brokenID)["y"]?.mark == 2, "work continues on a fresh file")
         SessionStore.delete(identityID: brokenID)
 
+        // 17) Embedded-JPEG byte parser (zoom fallback for RAWs macOS can't develop natively).
+        //     This byte-scanning code has no GUI test path; a wrong SOI/EOI or SOF read means a
+        //     wrong zoom resolution or a crash on a new camera format.
+        func jpegStream(w: Int, h: Int) -> [UInt8] {
+            // SOI (FF D8) + SOF0 (FF C0) with a 17-byte frame header, then EOI (FF D9).
+            // largestJPEGRange looks for the 3-byte signature FF D8 FF, so SOF's FF follows SOI.
+            var b: [UInt8] = [0xFF, 0xD8,
+                              0xFF, 0xC0,                 // SOF0
+                              0x00, 0x11,                 // segment length = 17
+                              0x08,                       // sample precision
+                              UInt8((h >> 8) & 0xFF), UInt8(h & 0xFF),
+                              UInt8((w >> 8) & 0xFF), UInt8(w & 0xFF),
+                              0x03]                       // component count
+            b += Array(repeating: 0x00, count: 12)        // rest of the SOF body + padding
+            b += [0xFF, 0xD9]                             // EOI
+            return b
+        }
+        let valid = ThumbnailLoader.embeddedJPEGDimensions(in: jpegStream(w: 1600, h: 1000))
+        check(valid?.0 == 1600 && valid?.1 == 1000, "parser reads embedded JPEG size (got \(valid.map { "\($0.0)×\($0.1)" } ?? "nil"))")
+        check(ThumbnailLoader.embeddedJPEGDimensions(in: jpegStream(w: 256, h: 256)) == nil,
+              "tiny stream below the 800px floor is ignored (no thumbnail chosen as preview)")
+        check(ThumbnailLoader.embeddedJPEGDimensions(in: [UInt8]("not a jpeg at all".utf8)) == nil,
+              "garbage with no SOI marker returns nil, not a crash")
+        let two = ThumbnailLoader.embeddedJPEGDimensions(in: jpegStream(w: 900, h: 900) + jpegStream(w: 2000, h: 1500))
+        check(two?.0 == 2000 && two?.1 == 1500, "of two embedded JPEGs the larger one wins (got \(two.map { "\($0.0)×\($0.1)" } ?? "nil"))")
+
         SessionStore.delete(identityID: testID)
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")
