@@ -2,22 +2,23 @@ import Foundation
 
 /// Keeps the Lightroom bridge plug-in in sync with the app.
 ///
-/// The plug-in ships inside the app bundle and is copied into Lightroom's `Modules` folder,
-/// which Lightroom scans by itself at startup — so a fresh install needs nothing but a
-/// Lightroom restart, and an updated app can never end up talking to an outdated plug-in.
+/// The plug-in ships inside the app bundle and is kept current at a stable location. The app
+/// can then never end up talking to an outdated plug-in — a stale one doesn't fail loudly, it
+/// simply stops reporting the photo's white balance, and the WB controls quietly do nothing.
 ///
-/// That last part is the whole point. A stale plug-in doesn't fail loudly: it simply never
-/// reports the photo's white balance back, the app then has no base to add the slider's
-/// nudge to, and the white-balance controls quietly do nothing at all. Shipping the app
-/// without shipping its plug-in makes that the default experience for everyone who installed
-/// the plug-in by hand once and never touched it again.
+/// ⚠️ Lightroom Classic 15.x no longer runs a Modules-folder plug-in's scripts on auto-load
+/// (measured 02.08.2026: it "half-loads" — the plug-in shows as activated, but Init.lua and the
+/// menus never run, so the watcher stays dead). The plug-in must therefore be ADDED ONCE by hand
+/// via Datei → Zusatzmodul-Manager → Hinzufügen from `installedURL`. The app only keeps the files
+/// at that path in sync; it deliberately does NOT touch Lightroom's Modules folder anymore.
 enum BridgeInstaller {
     static let pluginName = "RAWSelectBridge.lrplugin"
 
-    /// Where Lightroom Classic auto-loads plug-ins from.
+    /// Stable path the plug-in is kept in sync at, and the folder the user adds once in the
+    /// Zusatzmodul-Manager. NOT Lightroom's Modules folder (that path half-loads on LrC 15.x).
     static var installedURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Adobe/Lightroom/Modules")
+            .appendingPathComponent("Library/Application Support/RAW Select")
             .appendingPathComponent(pluginName)
     }
 

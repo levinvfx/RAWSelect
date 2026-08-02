@@ -88,26 +88,21 @@ echo "APPL????" > "${APP_DIR}/Contents/PkgInfo"
 # Ad-hoc code signature so first launch is smoother.
 codesign --force --sign - "${APP_DIR}" >/dev/null 2>&1 || echo "  (ad-hoc signing skipped)"
 
-# Install the plug-in on THIS machine too, so a build alone is enough while developing —
-# the shipped path is BridgeInstaller, which does the same on app launch from the copy
-# inside the bundle. Lightroom auto-scans this folder at startup, no "Add" needed.
+# Keep the plug-in current at the STABLE path the user adds once in Lightroom's
+# Zusatzmodul-Manager (see BridgeInstaller). NOT Lightroom's Modules folder: on LrC 15.x a
+# Modules plug-in only half-loads (activated, but its scripts never run). The one-time manual
+# "Add" from this path is what actually registers the scripts; the app just keeps files fresh.
 #
-# The plug-in in this repo is the SOURCE — the only copy to ever edit. Both the one below
-# and the one in the bundle are build artifacts and get overwritten.
-#
-# Why copy instead of symlink: Lightroom cannot read the .lua files out of ~/Developer (it
-# reads Info.lua once while you pick the folder, then every script load fails with "No
-# script by the name Init.lua"), and a symlink resolves straight back there.
-#
-# Lightroom caches a plug-in's file list, so ADDING a .lua needs a remove + re-add in the
-# Plug-in Manager. Changing existing ones only needs a Lightroom restart.
-MODULES_DIR="${HOME}/Library/Application Support/Adobe/Lightroom/Modules"
+# The plug-in in this repo is the SOURCE — the only copy to ever edit. The one below and the
+# one in the bundle are build artifacts and get overwritten.
+BRIDGE_DIR="${HOME}/Library/Application Support/RAW Select"
 if [[ -d "RAWSelectBridge.lrplugin" ]]; then
-    echo "▶︎ Installing Lightroom bridge plug-in…"
-    mkdir -p "${MODULES_DIR}"
-    rm -rf "${MODULES_DIR}/RAWSelectBridge.lrplugin"
-    cp -R "RAWSelectBridge.lrplugin" "${MODULES_DIR}/"
-    echo "  → ${MODULES_DIR}/RAWSelectBridge.lrplugin"
+    echo "▶︎ Updating Lightroom bridge plug-in (stable path)…"
+    mkdir -p "${BRIDGE_DIR}"
+    rm -rf "${BRIDGE_DIR}/RAWSelectBridge.lrplugin"
+    cp -R "RAWSelectBridge.lrplugin" "${BRIDGE_DIR}/"
+    echo "  → ${BRIDGE_DIR}/RAWSelectBridge.lrplugin"
+    echo "  (einmalig in Lightroom: Datei → Zusatzmodul-Manager → Hinzufügen von diesem Pfad)"
 fi
 
 echo "✓ Done: $(pwd)/${APP_DIR}"
