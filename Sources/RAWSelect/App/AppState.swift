@@ -35,6 +35,10 @@ final class AppState: ObservableObject {
     /// Distraction-free viewing: hides filmstrip, filter bar and status bar.
     @Published var focusMode = false
 
+    /// Current column count of the thumbnail grid, reported by the grid view so ↑/↓
+    /// can move a whole row at once (the layout is adaptive, so only the view knows it).
+    @Published var gridColumns = 1
+
     /// Runtime toggle for the EXIF overlay (default from settings.metadataPanel).
     @Published var showInfo: Bool = AppSettings.shared.metadataPanel
 
@@ -315,6 +319,24 @@ final class AppState: ObservableObject {
         }
         let id = list[next].id
         if extend { selectRange(to: id) } else { selectSingle(id) }
+    }
+
+    /// Jumps to the next/previous still-UNMARKED photo — the core of the second culling
+    /// pass ("show me what I haven't judged yet") without changing the filter.
+    private func jumpUnmarked(forward: Bool) {
+        let list = filteredGroups
+        guard !list.isEmpty else { return }
+        let start = currentID.flatMap { filteredIndexByID[$0] } ?? -1
+        let indices = forward ? Array(stride(from: start + 1, to: list.count, by: 1))
+                              : Array(stride(from: start - 1, through: 0, by: -1))
+        for i in indices where list[i].mark == 0 { selectSingle(list[i].id); return }
+        statusMessage = forward ? "Kein weiteres unmarkiertes Bild." : "Kein vorheriges unmarkiertes Bild."
+    }
+
+    /// Selects the first/last photo in the current filtered list (Home/End).
+    private func jumpToEdge(last: Bool, extend: Bool) {
+        guard let g = last ? filteredGroups.last : filteredGroups.first else { return }
+        if extend { selectRange(to: g.id) } else { selectSingle(g.id) }
     }
 
     /// Warms the preview cache around the current photo so stepping through has no
@@ -733,6 +755,11 @@ final class AppState: ObservableObject {
         switch event.keyCode {
         case 123: step(by: -1, extend: extend); return true   // ←
         case 124: step(by: 1, extend: extend); return true    // →
+        case 126: if viewMode == .grid { step(by: -gridColumns, extend: extend) }; return true  // ↑ (one row up)
+        case 125: if viewMode == .grid { step(by: gridColumns, extend: extend) }; return true   // ↓ (one row down)
+        case 115: jumpToEdge(last: false, extend: extend); return true   // Home → first
+        case 119: jumpToEdge(last: true, extend: extend); return true    // End → last
+        case 48:  jumpUnmarked(forward: !extend); return true            // Tab / ⇧Tab → next/prev unmarked
         case 10:  setMark(0); return true                     // § (ISO-Taste links der 1) → Markierung entfernen
         default: break
         }
