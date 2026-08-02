@@ -417,6 +417,28 @@ enum SelfTest {
         let two = ThumbnailLoader.embeddedJPEGDimensions(in: jpegStream(w: 900, h: 900) + jpegStream(w: 2000, h: 1500))
         check(two?.0 == 2000 && two?.1 == 1500, "of two embedded JPEGs the larger one wins (got \(two.map { "\($0.0)×\($0.1)" } ?? "nil"))")
 
+        // 18) Reject → Trash: files leave the source (recoverable), whole groups are reported,
+        //     and a missing file never aborts the batch. Cleans up the trashed items afterwards
+        //     so the run leaves nothing behind in the user's Trash.
+        let trashDir = root.appendingPathComponent("trashsrc", isDirectory: true)
+        try? fm.createDirectory(at: trashDir, withIntermediateDirectories: true)
+        let tImg = trashDir.appendingPathComponent("REJECT.JPG"); writePNG(to: tImg, size: 24)
+        let tXmp = trashDir.appendingPathComponent("REJECT.xmp"); try? Data("<xmp/>".utf8).write(to: tXmp)
+        let tGroup = PhotoGroup(id: "t", directory: trashDir, baseName: "REJECT",
+                                files: [tImg], sidecars: [tXmp], previewURL: tImg, displayName: "REJECT")
+        let tOut = FileOperationService.trash(groups: [tGroup])
+        check(tOut.files == 2 && tOut.photos == 1, "trash moves image + sidecar (got \(tOut.files) files)")
+        check(tOut.trashedGroupIDs.contains("t"), "fully-trashed group is reported for removal")
+        check(!fm.fileExists(atPath: tImg.path) && !fm.fileExists(atPath: tXmp.path), "source files are gone after trash")
+        check(tOut.failures.isEmpty, "clean trash reports no failures")
+        for u in tOut.trashedURLs { try? fm.removeItem(at: u) }   // don't litter the real Trash
+        // A group whose only file is already gone must be a no-op failure, not a crash.
+        let goneGroup = PhotoGroup(id: "g", directory: trashDir, baseName: "GONE",
+                                   files: [trashDir.appendingPathComponent("GONE.JPG")],
+                                   previewURL: trashDir.appendingPathComponent("GONE.JPG"), displayName: "GONE")
+        let gOut = FileOperationService.trash(groups: [goneGroup])
+        check(gOut.files == 0 && gOut.trashedGroupIDs.isEmpty, "trashing an already-missing file is a safe no-op")
+
         SessionStore.delete(identityID: testID)
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")

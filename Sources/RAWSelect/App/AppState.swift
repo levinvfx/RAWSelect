@@ -647,6 +647,45 @@ final class AppState: ObservableObject {
     func cancelMove() { pendingMoveTarget = nil }
     func cancelOperation() { cancelToken?.cancel() }
 
+    /// Reject flow: moves the selected photos to the macOS Trash (recoverable), then advances
+    /// to the neighbour so culling keeps flowing. Disabled from SD cards/external volumes —
+    /// the source there must never be modified (same rule as Move).
+    func trashSelection() {
+        let sel = selectedGroups
+        guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
+        guard !sourceIsExternal else {
+            statusMessage = "Löschen ist von SD-Karten/externen Datenträgern deaktiviert – bitte erst kopieren."
+            showToast("Löschen von SD-Karten ist deaktiviert.", kind: .error); return
+        }
+        let anchorPos = filteredGroups.firstIndex { $0.id == currentID }
+        Task {
+            let outcome = await Task.detached(priority: .userInitiated) {
+                FileOperationService.trash(groups: sel)
+            }.value
+            let trashed = outcome.trashedGroupIDs
+            guard !trashed.isEmpty || !outcome.failures.isEmpty else { return }
+            self.groups.removeAll { trashed.contains($0.id) }
+            self.selectedIDs.subtract(trashed)
+            for id in trashed { self.edits[id] = nil }
+            self.refreshDerived()
+            self.persistState()
+
+            // Keep the cursor where it was, on the photo that slid into this slot.
+            let list = self.filteredGroups
+            if list.isEmpty { self.selectedIDs = []; self.currentID = nil }
+            else { self.selectSingle(list[min(anchorPos ?? 0, list.count - 1)].id) }
+
+            if outcome.failures.isEmpty {
+                let n = outcome.photos
+                self.statusMessage = "\(n) \(n == 1 ? "Bild" : "Bilder") in den Papierkorb verschoben."
+                self.showToast("\(n) in den Papierkorb.", kind: .success)
+            } else {
+                self.statusMessage = "\(outcome.failures.count) Datei(en) nicht gelöscht – Rest im Papierkorb."
+                self.showToast("\(outcome.failures.count) nicht gelöscht – Rest im Papierkorb.", kind: .error)
+            }
+        }
+    }
+
     /// Extra warning required before overwriting existing files.
     private func confirmOverwrite() -> Bool {
         let alert = NSAlert()
@@ -760,6 +799,7 @@ final class AppState: ObservableObject {
         case 115: jumpToEdge(last: false, extend: extend); return true   // Home → first
         case 119: jumpToEdge(last: true, extend: extend); return true    // End → last
         case 48:  jumpUnmarked(forward: !extend); return true            // Tab / ⇧Tab → next/prev unmarked
+        case 51:  trashSelection(); return true                         // ⌫ Delete → in den Papierkorb (Reject)
         case 10:  setMark(0); return true                     // § (ISO-Taste links der 1) → Markierung entfernen
         default: break
         }
