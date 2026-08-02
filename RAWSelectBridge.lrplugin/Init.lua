@@ -100,12 +100,10 @@ local function processJob(procPath)
     local photo = catalog:findPhotoByPath(job.raw)
     L('bereits im Katalog: ' .. tostring(photo ~= nil))
 
-    local added = false
     if not photo then
         catalog:withWriteAccessDo('RAW Select Import', function()
             photo = catalog:addPhoto(job.raw)
         end, { timeout = 60 })
-        added = (photo ~= nil)
     end
 
     if not photo then
@@ -169,23 +167,6 @@ local function processJob(procPath)
     else
         writeDone(id, 'error', '', 'Render fehlgeschlagen')
         L('FERTIG error')
-    end
-
-    -- Geister-Mitigation: Jedes von uns NEU importierte Temp-RAW landet in der Sammlung
-    -- "RAW Select (löschbar)". Die SDK kann Fotos nicht aus dem Katalog entfernen (Adobe-Limit),
-    -- und ein stabiler Pfad würde die Bearbeitung tot machen (Lightroom liest das Sidecar dann
-    -- nicht neu). Also sammeln wir die Geister wenigstens an EINEM Ort: der Nutzer öffnet die
-    -- Sammlung, markiert alles und entfernt es in einem Rutsch, statt hunderte "fehlende Fotos"
-    -- einzeln zu suchen. Läuft NACH der Antwort und komplett gekapselt — ein Fehler hier darf
-    -- den Export nie beeinflussen. Nur NEU importierte (added) Fotos, nie echte Katalogbilder.
-    if added and photo then
-        local okColl = LrTasks.pcall(function()
-            catalog:withWriteAccessDo('RAW Select Sammlung', function()
-                local coll = catalog:createCollection('RAW Select (löschbar)', nil, true)
-                if coll then coll:addPhotos({ photo }) end
-            end, { timeout = 30 })
-        end)
-        L('Sammlung "RAW Select (löschbar)" aktualisiert: ' .. tostring(okColl))
     end
 
     -- verarbeitete Job-Datei aus jobs/ entfernen, damit der Ordner sauber bleibt

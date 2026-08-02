@@ -16,13 +16,17 @@
 ]]
 
 return {
-    -- 13.0: Lightroom 15.4 lädt ein Modul mit SDK 10.0 nur halb (Skripte werden dann nie
-    -- registriert), obwohl LrSdkMinimumVersion das erlauben würde.
-    LrSdkVersion        = 13.0,
-    LrSdkMinimumVersion = 6.0,
-    -- Kennung bewusst neu (…bridge2): unter der alten hing eine kaputte Registrierung, die
-    -- Entfernen + Hinzufügen überlebt hat.
-    LrToolkitIdentifier = 'ch.anneler.rawselect.bridge2',
+    -- SDK-Version muss ≤ der tatsächlichen LrC-Lua-SDK-Version sein, sonst lädt LR das Modul
+    -- nur HALB (grün/„aktiviert", aber Init.lua + Menüs laufen nie, Watcher tot). Achtung: die
+    -- LrC-App heisst „15.4.1", die Lua-SDK ist aber nur 14.3 (Adobe Developer Console). 15.0 war
+    -- deshalb UNGÜLTIG → half-load. 14.0 ist gültig (02.08.2026 recherchiert).
+    LrSdkVersion        = 14.0,
+    LrSdkMinimumVersion = 10.0,
+    -- Kennung frisch (…bridge3, 02.08.2026): unter …bridge2 hing nach einem Lightroom-Absturz
+    -- (LR 15.4.1) eine kaputte Registrierung, die grün/„aktiviert" anzeigte, aber Init.lua nie
+    -- ausführte (Watcher tot). Eine neue Kennung erzwingt eine saubere Neu-Registrierung.
+    -- Wenn das wieder passiert: hochzählen (…bridge4) und im Zusatzmodul-Manager neu hinzufügen.
+    LrToolkitIdentifier = 'ch.anneler.rawselect.bridge4',
     LrPluginName        = 'RAW Select Bridge',
 
     -- Startet den Hintergrund-Watcher automatisch, sobald Lightroom das Plugin lädt.
