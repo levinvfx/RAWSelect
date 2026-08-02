@@ -73,6 +73,19 @@ final class ThumbnailLoader {
         queue.addOperation(operation)
     }
 
+    /// Cancels prefetch-only decodes whose photo has scrolled out of the current window, so a
+    /// fast scrub or a jump doesn't leave a queue full of decodes for images the user raced past.
+    /// A decode that a VISIBLE request is waiting on is always kept (only its prefetch interest
+    /// is dropped). `wantedPaths` = the file paths still inside the prefetch window.
+    func retainPrefetch(wantedPaths: Set<String>) {
+        lock.lock()
+        for (k, op) in ops where prefetchWanted.contains(k) && !wantedPaths.contains(op.url.path) {
+            if waiters[k]?.isEmpty ?? true { op.cancel(); ops[k] = nil }
+            prefetchWanted.remove(k)
+        }
+        lock.unlock()
+    }
+
     /// Returns the already-cached image for this exact request, or nil. Never
     /// decodes — used to paint a frame *synchronously* while fast-browsing, so
     /// the image shows before any `await` suspension point (and therefore even

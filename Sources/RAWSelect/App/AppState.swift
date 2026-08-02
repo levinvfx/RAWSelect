@@ -422,6 +422,8 @@ final class AppState: ObservableObject {
         let softBack = sharpBack + 12
         let maxOffset = max(softFwd, softBack)
 
+        var wantedPaths = Set<String>()
+        wantedPaths.insert(list[idx].previewURL.path)   // the current photo is always wanted
         for d in 1...maxOffset {
             for dir in [1, -1] {             // forward first at each distance
                 let i = idx + d * dir
@@ -429,6 +431,7 @@ final class AppState: ObservableObject {
                 let softLimit = dir > 0 ? softFwd : softBack
                 guard d <= softLimit else { continue }
                 let url = list[i].previewURL
+                wantedPaths.insert(url.path)
                 // Tiny first (cheapest) so even a fast scrub always finds a frame,
                 // then the soft instant tier.
                 loader.prefetch(for: url, maxPixel: PreviewConfig.tinyMaxPixel, fullQuality: false)
@@ -440,6 +443,8 @@ final class AppState: ObservableObject {
                 }
             }
         }
+        // Drop prefetch work for anything the cursor has moved away from (fast scrub / jump).
+        loader.retainPrefetch(wantedPaths: wantedPaths)
     }
 
     private func reconcileSelection() {
