@@ -706,6 +706,17 @@ struct CropEditorView: View {
     /// live state and debounces one crisp full-res bake after the angle settles.
     private func straightenChanged() {
         straightenLive = true
+        // During an active rotate DRAG the frame is frozen — baking or an exact preset render
+        // landing mid-gesture would swap in an image with a different bounding box and stretch it
+        // into that frozen frame (the "verzieht" with a preset). So while dragging, do NOTHING but
+        // the live layer rotation, and cancel anything that could swap the image; the crisp bake
+        // happens once on release (.onEnded). The Ausrichten SLIDER has no frozen frame (its layout
+        // follows the image), so it debounces a crisp bake as before.
+        guard dragZone == nil else {
+            exactTask?.cancel()
+            straightenSettleTask?.cancel()
+            return
+        }
         straightenSettleTask?.cancel()
         straightenSettleTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 140_000_000)
@@ -756,9 +767,14 @@ struct CropEditorView: View {
                 return ToneOut(tone: t, image: ns)
             }.value
             if reuse == nil, let t = out.tone { self.toneCG = t; self.toneKey = key }
-            if let ns = out.image { self.displayImage = ns }
-            self.renderedStraighten = snapshot.straighten   // this straighten is now baked in
-            self.straightenLive = false                     // stop the live layer rotation
+            // Never swap the image WHILE a drag is in progress — the frame is frozen, so a new
+            // bounding box would be stretched into it (distortion). The bake on release runs with
+            // dragZone == nil, so it applies then.
+            if let ns = out.image, self.dragZone == nil {
+                self.displayImage = ns
+                self.renderedStraighten = snapshot.straighten   // this straighten is now baked in
+                self.straightenLive = false                     // stop the live layer rotation
+            }
             self.constrainCropToContent()   // keep the crop off the transparent corners
             self.isRendering = false
             if self.pendingRender { self.renderOnce() }
