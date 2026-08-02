@@ -69,7 +69,14 @@ final class AppState: ObservableObject {
     /// Pan/zoom state for the loupe, shared with `ZoomableImageView`.
     let zoom = ZoomController()
 
-    enum ViewMode: String, CaseIterable { case grid, loupe }
+    /// Side-by-side compare (A|B): left = `currentID`, right = `compareRightID`. Each pane has
+    /// its own zoom controller; keyboard/button zoom is mirrored to both for a synced check.
+    let compareZoomL = ZoomController()
+    let compareZoomR = ZoomController()
+    @Published var compareRightID: String?
+    var compareRightGroup: PhotoGroup? { compareRightID.flatMap { groupByID[$0] } }
+
+    enum ViewMode: String, CaseIterable { case grid, loupe, compare }
 
     struct OperationState {
         var title: String
@@ -341,6 +348,60 @@ final class AppState: ObservableObject {
         if extend { selectRange(to: g.id) } else { selectSingle(g.id) }
     }
 
+    // MARK: Compare (A|B)
+    /// Enters side-by-side compare with the current photo on the left and its neighbour on the
+    /// right. ←/→ then cycle the right pane through the series; Return promotes B to A.
+    func enterCompare() {
+        guard filteredGroups.count >= 2, let cur = currentID, let idx = filteredIndexByID[cur] else { return }
+        let rightIdx = idx + 1 < filteredGroups.count ? idx + 1 : idx - 1
+        compareRightID = filteredGroups[rightIdx].id
+        viewMode = .compare
+    }
+
+    func exitCompare() { if viewMode == .compare { viewMode = .loupe } }
+
+    private func compareCycleRight(_ delta: Int) {
+        let list = filteredGroups
+        guard let rid = compareRightID, let i = filteredIndexByID[rid], !list.isEmpty else { return }
+        let j = min(max(i + delta, 0), list.count - 1)
+        compareRightID = list[j].id
+    }
+
+    /// Promotes the right photo (B) to the left anchor (A) and moves the old A to the right —
+    /// so you can keep the better frame and keep comparing against the rest.
+    private func compareSwap() {
+        guard let rid = compareRightID, let cur = currentID else { return }
+        selectSingle(rid)
+        compareRightID = cur
+    }
+
+    private func compareZoomBoth(_ action: (ZoomController) -> Void) {
+        action(compareZoomL); action(compareZoomR)
+    }
+
+    /// Keyboard handling while in compare mode (kept separate from the loupe/grid keys).
+    private func handleCompare(_ event: NSEvent) -> Bool {
+        switch event.keyCode {
+        case 123: compareCycleRight(-1); return true          // ← cycle B back
+        case 124: compareCycleRight(1);  return true          // → cycle B forward
+        case 36:  compareSwap();         return true          // Return → promote B to A
+        case 53, 8: exitCompare();       return true          // Esc / C → leave compare
+        case 49:  compareZoomBoth { $0.spaceToggle() }; return true   // Space → both 100%/fit
+        default: break
+        }
+        if let chars = event.charactersIgnoringModifiers, chars.count == 1, let s = chars.unicodeScalars.first {
+            switch s.value {
+            case 48, 0xA7, 0xB0: setMark(0); return true       // 0 / § → clear mark (on A)
+            case 49...57: setMark(Int(s.value) - 48); return true   // 1–9 → mark A
+            case UInt32(UInt8(ascii: "z")), UInt32(UInt8(ascii: "Z")): compareZoomBoth { $0.toggle100() }; return true
+            case UInt32(UInt8(ascii: "+")), UInt32(UInt8(ascii: "=")): compareZoomBoth { $0.zoomIn() }; return true
+            case UInt32(UInt8(ascii: "-")), UInt32(UInt8(ascii: "_")): compareZoomBoth { $0.zoomOut() }; return true
+            default: break
+            }
+        }
+        return true   // swallow everything else so stray keys can't act on the background
+    }
+
     /// Warms the preview cache around the current photo so stepping through has no
     /// load time. Two tiers: a WIDE soft (instant-size) buffer so even fast scrubbing
     /// always finds a ready — if soft — frame, and a narrower sharp (HD) buffer for
@@ -398,8 +459,9 @@ final class AppState: ObservableObject {
                 ? (n == 1 ? "Markierung entfernt." : "Markierung von \(n) Bildern entfernt.")
                 : (n == 1 ? "Markierung \(mark) gesetzt." : "Markierung \(mark) für \(n) Bilder gesetzt.")
         }
-        // Auto-advance for fast culling (Settings → Markierungen).
-        if settings.autoAdvance && mark != 0 && single && currentID == before {
+        // Auto-advance for fast culling (Settings → Markierungen). Never in compare mode —
+        // there the left anchor must stay put while you cycle the right pane.
+        if settings.autoAdvance && mark != 0 && single && currentID == before && viewMode != .compare {
             step(by: settings.advanceDirection == .next ? 1 : -1, extend: false)
         }
     }
@@ -791,6 +853,8 @@ final class AppState: ObservableObject {
         // would silently re-mark the background selection while a modal is up.
         guard !showExportWizard, !showEditor, NSApp.keyWindow === NSApp.mainWindow else { return false }
 
+        if viewMode == .compare { return handleCompare(event) }
+
         let extend = event.modifierFlags.contains(.shift)
 
         switch event.keyCode {
@@ -831,6 +895,8 @@ final class AppState: ObservableObject {
                 setMark(0); return true
             case 49...57:                                   // 1–9 → colour mark
                 setMark(Int(scalar.value) - 48); return true
+            case UInt32(UInt8(ascii: "c")), UInt32(UInt8(ascii: "C")):
+                enterCompare(); return true
             case UInt32(UInt8(ascii: "e")), UInt32(UInt8(ascii: "E")):
                 openEditor(); return true
             case UInt32(UInt8(ascii: "i")), UInt32(UInt8(ascii: "I")):

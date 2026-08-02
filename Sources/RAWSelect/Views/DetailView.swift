@@ -54,6 +54,7 @@ struct DetailView: View {
             switch app.viewMode {
             case .grid: ThumbnailGridView()
             case .loupe: LoupeView()
+            case .compare: CompareView()
             }
         }
     }
@@ -95,6 +96,14 @@ struct DetailView: View {
                 Label("Info", systemImage: app.showInfo ? "info.circle.fill" : "info.circle")
             }
             .help("EXIF-Infos ein/aus (I)")
+
+            Button {
+                if app.viewMode == .compare { app.exitCompare() } else { app.enterCompare() }
+            } label: {
+                Label("Vergleichen", systemImage: "rectangle.split.2x1")
+            }
+            .help("Zwei Bilder nebeneinander vergleichen (C)")
+            .disabled(app.filteredGroups.count < 2)
         }
 
         // Export actions, most important first so they never fall into overflow.
