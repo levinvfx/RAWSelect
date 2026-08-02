@@ -66,10 +66,10 @@ struct StatusBar: View {
     }
 
     private var positionText: String {
-        let list = app.filteredGroups
-        if let id = app.currentID, let idx = list.firstIndex(where: { $0.id == id }) {
-            return "\(idx + 1) / \(list.count)"
+        let count = app.filteredGroups.count
+        if let id = app.currentID, let idx = app.filteredIndex(of: id) {
+            return "\(idx + 1) / \(count)"
         }
-        return "\(list.count)"
+        return "\(count)"
     }
 }

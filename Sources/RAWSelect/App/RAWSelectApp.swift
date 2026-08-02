@@ -81,4 +81,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }
+
+    /// Flush unsaved marks before the process dies. Marks are written asynchronously, so
+    /// rating the last photo and immediately pressing ⌘Q (or closing the window) could drop
+    /// that final mark — the one moment culling data loss is most likely. This runs on the
+    /// main thread at termination, so it's safe to reach the main-actor AppState directly.
+    func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            AppState.shared?.flushPendingWrites()
+        }
+    }
 }

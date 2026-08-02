@@ -9,7 +9,8 @@ import CryptoKit
 struct SessionStore {
 
     /// Per-photo culling state, keyed by persistKey.
-    struct PhotoState: Codable, Equatable {
+    /// `Sendable` so a snapshot can be handed to the off-main session writer.
+    struct PhotoState: Codable, Equatable, Sendable {
         var mark: Int = 0
         /// Non-destructive develop/crop edit; nil when the photo is untouched.
         /// Optional so older session files (mark only) still decode.

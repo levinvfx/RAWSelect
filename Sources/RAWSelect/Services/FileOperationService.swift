@@ -109,6 +109,57 @@ struct FileOperationService {
         return Outcome(photos: photoCount, files: fileCount, failures: failures, movedGroupIDs: movedGroupIDs)
     }
 
+    struct TrashOutcome {
+        var photos: Int                       // photo groups with at least one file trashed
+        var files: Int                        // individual files moved to the Trash (incl. XMP)
+        var failures: [String] = []           // "filename: reason"
+        var trashedGroupIDs: Set<String> = [] // groups whose files ALL trashed → drop from the list
+        var trashedURLs: [URL] = []           // resulting locations in the Trash
+    }
+
+    /// Moves a set of photos (and optional sidecars) to the macOS Trash — recoverable, never a
+    /// hard delete. Like `perform`, a single file failure never aborts the batch. Only groups
+    /// whose files were ALL trashed are reported for removal from the source list.
+    static func trash(groups: [PhotoGroup],
+                      includeSidecars: Bool = true,
+                      progress: (Int, Int) -> Void = { _, _ in },
+                      isCancelled: () -> Bool = { false }) -> TrashOutcome {
+        let fm = FileManager.default
+        func filesToProcess(_ g: PhotoGroup) -> [URL] {
+            includeSidecars ? g.files + g.sidecars : g.files
+        }
+        let totalFiles = groups.reduce(0) { $0 + filesToProcess($1).count }
+        var completed = 0, photoCount = 0, fileCount = 0
+        var failures: [String] = []
+        var trashedGroupIDs = Set<String>()
+        var trashedURLs: [URL] = []
+        progress(0, totalFiles)
+
+        for group in groups {
+            if isCancelled() { break }
+            var didProcessAny = false
+            var completedWholeGroup = true
+            for file in filesToProcess(group) {
+                if isCancelled() { completedWholeGroup = false; break }
+                guard fm.fileExists(atPath: file.path) else { completedWholeGroup = false; continue }
+                do {
+                    var resulting: NSURL?
+                    try fm.trashItem(at: file, resultingItemURL: &resulting)
+                    if let r = resulting as URL? { trashedURLs.append(r) }
+                    fileCount += 1; completed += 1; didProcessAny = true
+                    progress(completed, totalFiles)
+                } catch {
+                    failures.append("\(file.lastPathComponent): \(error.localizedDescription)")
+                    completedWholeGroup = false
+                }
+            }
+            if didProcessAny { photoCount += 1 }
+            if didProcessAny && completedWholeGroup { trashedGroupIDs.insert(group.id) }
+        }
+        return TrashOutcome(photos: photoCount, files: fileCount, failures: failures,
+                            trashedGroupIDs: trashedGroupIDs, trashedURLs: trashedURLs)
+    }
+
     /// Returns a non-colliding destination URL, appending _1, _2, … if needed.
     static func uniqueDestination(for filename: String, in directory: URL,
                                   avoiding used: Set<String> = []) -> URL {

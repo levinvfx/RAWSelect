@@ -16,17 +16,12 @@ enum ExportSizeChoice: String, CaseIterable, Identifiable { case original, edge3
     func longEdge(custom: Int) -> Int? { switch self { case .original: return nil; case .edge3000: return 3000; case .edge4000: return 4000; case .custom: return custom } }
 }
 
-/// Which photos feed the export.
-enum ExportImageSource: Hashable {
-    case current, selected, allMarked, filtered
-    case mark(Int)
-}
-
 // MARK: - Export job
 
 /// Non-destructive per-image edit. Held centrally in `AppState.edits` (keyed by
 /// group id), persisted per source via `SessionStore`, and applied on export.
-struct ImageEdit: Equatable, Codable {
+/// `Sendable` so a snapshot can be handed to the off-main session writer.
+struct ImageEdit: Equatable, Codable, Sendable {
     /// Clockwise 90° steps: 0, 1, 2, 3.
     var rotation: Int = 0
     /// Fine straighten angle in degrees (clockwise), applied on top of `rotation`.
