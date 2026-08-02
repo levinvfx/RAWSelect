@@ -132,6 +132,10 @@ final class AppState: ObservableObject {
         return groupByID[id]
     }
 
+    /// O(1) position of a photo in the filtered list (uses the cached index map instead of
+    /// an O(n) `firstIndex` on every status-bar render).
+    func filteredIndex(of id: String) -> Int? { filteredIndexByID[id] }
+
     var selectedGroups: [PhotoGroup] { groups.filter { selectedIDs.contains($0.id) } }
     var selectionCount: Int { selectedIDs.count }
 
