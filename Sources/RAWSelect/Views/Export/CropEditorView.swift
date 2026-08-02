@@ -56,6 +56,11 @@ struct CropEditorView: View {
 
     @State private var baseCI: CIImage?
     @State private var displayImage: NSImage?
+    /// Small un-rotated copy of the current tone image, used to preview straighten LIVE (rotating
+    /// a ~900px proxy is cheap); the full-res render follows shortly after the gesture settles.
+    @State private var toneProxy: NSImage?
+    /// Debounces the crisp full-res render while the straighten angle is being dragged.
+    @State private var straightenSettleTask: Task<Void, Never>?
 
     // Zoom inspector for the Develop preview: pinch/scroll like the browsing loupe, but it
     // magnifies the DEVELOPED image so an adjustment can be judged on real detail.
@@ -141,7 +146,10 @@ struct CropEditorView: View {
             if editorTab == .crop { sliderControls } else { developControls }
         }
         .task(id: previewURL) { await loadImage() }
-        .onChange(of: cropNorm) { _, v in edit.crop = (v == full) ? nil : v }
+        // Sync the crop into the binding only when NOT actively dragging — writing it on every
+        // drag tick re-rendered the whole editor (and its parent) and made cropping feel laggy.
+        // Programmatic changes (aspect, reset, rotate) still sync here; a drag syncs on release.
+        .onChange(of: cropNorm) { _, v in if dragZone == nil { edit.crop = (v == full) ? nil : v } }
     }
 
     /// In the Develop tab the preview shows the FINAL composition — the base image
@@ -230,7 +238,12 @@ struct CropEditorView: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { dragChanged($0, in: c, imgSize: img.size) }
-                .onEnded { _ in dragZone = nil; startCrop = nil; activeLayout = nil }
+                .onEnded { _ in
+                    let wasRotate = dragZone == .rotate
+                    dragZone = nil; startCrop = nil; activeLayout = nil
+                    edit.crop = (cropNorm == full) ? nil : cropNorm   // sync the deferred crop now
+                    if wasRotate { straightenSettleTask?.cancel(); updateDisplay() }  // crisp full-res
+                }
         )
         .onContinuousHover { hover($0, cropRect: L.cropView) }
         .animation(.easeOut(duration: 0.15), value: showRotate)
@@ -295,7 +308,7 @@ struct CropEditorView: View {
             let ang = atan2(v.location.y - A.cropView.midY, v.location.x - A.cropView.midX)
             var deg = startStraighten + Double((ang - startAngle) * 180 / .pi)
             deg = min(max(deg, -15), 15)
-            if abs(deg - edit.straighten) > 0.01 { edit.straighten = deg; updateDisplay() }
+            if abs(deg - edit.straighten) > 0.01 { edit.straighten = deg; straightenChanged() }
             return
         }
 
@@ -439,7 +452,7 @@ struct CropEditorView: View {
     // Crop tab: purely geometry — straighten only. Tone/exposure lives in „Entwickeln".
     private var sliderControls: some View {
         LRSlider(title: "Ausrichten", value: $edit.straighten, range: -15...15, neutral: 0,
-                 format: { String(format: "%+.1f°", $0) }, onEdit: { updateDisplay() })
+                 format: { String(format: "%+.1f°", $0) }, onEdit: { straightenChanged() })
             .padding(.horizontal, 6).padding(.top, 2)
     }
 
@@ -683,6 +696,44 @@ struct CropEditorView: View {
         }
     }
 
+    /// Live straighten: show the current angle instantly by rotating a small proxy (cheap), then
+    /// debounce a crisp full-res render. Keeps dragging the angle butter-smooth; the preview
+    /// quality dips only while the gesture is in motion, and the export is unaffected.
+    private func straightenChanged() {
+        previewStraighten()
+        straightenSettleTask?.cancel()
+        straightenSettleTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 140_000_000)
+            if Task.isCancelled { return }
+            updateDisplay()
+        }
+    }
+
+    private func previewStraighten() {
+        ensureToneProxy()
+        guard let tp = toneProxy else { updateDisplay(); return }
+        displayImage = tp.rotatedClockwise(byDegrees: edit.totalAngle)
+        // Skip constrainCropToContent here: it needs full-res extents, and the crisp render on
+        // settle re-applies it. A tiny transient overlap into a straighten wedge is acceptable.
+    }
+
+    /// Builds the ~900px un-rotated proxy from the current tone image, once per develop state.
+    /// Invalidated (set to nil) whenever the tone is freshly recomputed in `renderOnce`.
+    private func ensureToneProxy() {
+        guard toneProxy == nil, let t = toneCG else { return }
+        let maxEdge = 900.0
+        let scale = min(1, maxEdge / Double(max(t.width, t.height)))
+        let w = max(1, Int(Double(t.width) * scale)), h = max(1, Int(Double(t.height) * scale))
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+        ctx.interpolationQuality = .low
+        ctx.draw(t, in: CGRect(x: 0, y: 0, width: w, height: h))
+        if let small = ctx.makeImage() {
+            toneProxy = NSImage(cgImage: small, size: NSSize(width: w, height: h))
+        }
+    }
+
     /// Requests a fresh preview. The heavy work (filter chain + rasterise +
     /// rotate) runs off the main thread; while a render is in flight, further
     /// changes just flag a re-render so we always end on the latest edit without
@@ -724,7 +775,7 @@ struct CropEditorView: View {
                     .rotatedClockwise(byDegrees: angle)
                 return ToneOut(tone: t, image: ns)
             }.value
-            if reuse == nil, let t = out.tone { self.toneCG = t; self.toneKey = key }
+            if reuse == nil, let t = out.tone { self.toneCG = t; self.toneKey = key; self.toneProxy = nil }
             if let ns = out.image { self.displayImage = ns }
             self.constrainCropToContent()   // keep the crop off the transparent corners
             self.isRendering = false
