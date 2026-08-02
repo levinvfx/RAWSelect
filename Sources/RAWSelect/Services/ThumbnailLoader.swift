@@ -18,7 +18,14 @@ final class ThumbnailLoader {
     }()
 
     private let lock = NSLock()
-    private var inFlight = Set<String>()
+    // Coalescing registry (guarded by `lock`): one running decode per key, with every waiter
+    // attached to it. A prefetch and a visible request for the SAME image now share ONE decode
+    // instead of two. `prefetchWanted` keeps a shared op alive when only a prefetch wants it.
+    private var ops: [String: ThumbnailOperation] = [:]
+    private var waiters: [String: [UUID: CheckedContinuation<NSImage?, Never>]] = [:]
+    private var prefetchWanted = Set<String>()
+    /// Total decodes actually started — lets the self-test prove requests are coalesced.
+    private(set) var decodeCount = 0
 
     private init() {
         cache.countLimit = 1200
@@ -30,22 +37,38 @@ final class ThumbnailLoader {
     }
 
     /// Warms the cache for an image without waiting for the result. Skips work if
-    /// the image is already cached or currently being decoded.
+    /// the image is already cached or currently being decoded (shares that decode).
     func prefetch(for url: URL, maxPixel: Int, fullQuality: Bool) {
         let cacheKey = key(url, maxPixel, fullQuality)
         if cache.object(forKey: cacheKey) != nil { return }
-        let keyString = cacheKey as String
+        let k = cacheKey as String
         lock.lock()
-        if inFlight.contains(keyString) { lock.unlock(); return }
-        inFlight.insert(keyString)
+        prefetchWanted.insert(k)
+        if ops[k] == nil {
+            startOp(key: k, url: url, maxPixel: maxPixel, fullQuality: fullQuality, priority: .low)
+        }
         lock.unlock()
+    }
 
+    /// Starts one shared decode for `key` and wires its completion to fan the result out to
+    /// every waiter. MUST be called with `lock` held.
+    private func startOp(key k: String, url: URL, maxPixel: Int, fullQuality: Bool,
+                         priority: Operation.QueuePriority) {
         let operation = ThumbnailOperation(url: url, maxPixel: maxPixel, fullQuality: fullQuality)
-        operation.queuePriority = .low
+        operation.queuePriority = priority
+        ops[k] = operation
+        decodeCount += 1
+        let cacheKey = k as NSString
         operation.completionBlock = { [weak self] in
             guard let self else { return }
             if let image = operation.result { self.cache.setObject(image, forKey: cacheKey, cost: operation.cost) }
-            self.lock.lock(); self.inFlight.remove(keyString); self.lock.unlock()
+            let result = operation.isCancelled ? nil : operation.result
+            self.lock.lock()
+            let conts = self.waiters.removeValue(forKey: k) ?? [:]
+            self.ops[k] = nil
+            self.prefetchWanted.remove(k)
+            self.lock.unlock()
+            for cont in conts.values { cont.resume(returning: result) }
         }
         queue.addOperation(operation)
     }
@@ -76,10 +99,11 @@ final class ThumbnailLoader {
         for url in urls { prefetch(for: url, maxPixel: maxPixel, fullQuality: false) }
     }
 
-    /// Empties the in-memory cache (used by Settings → Cache jetzt leeren).
+    /// Empties the in-memory cache (used by Settings → Cache jetzt leeren). Running decodes are
+    /// left alone — they finish and resume their waiters; dropping them would hang the awaiters.
     func clearCache() {
         cache.removeAllObjects()
-        lock.lock(); inFlight.removeAll(); lock.unlock()
+        lock.lock(); prefetchWanted.removeAll(); lock.unlock()
     }
 
     /// Sets the maximum number of concurrent decode jobs (Settings).
@@ -96,20 +120,34 @@ final class ThumbnailLoader {
     func thumbnail(for url: URL, maxPixel: Int, fullQuality: Bool = false) async -> NSImage? {
         let cacheKey = key(url, maxPixel, fullQuality)
         if let cached = cache.object(forKey: cacheKey) { return cached }
-
-        let operation = ThumbnailOperation(url: url, maxPixel: maxPixel, fullQuality: fullQuality)
+        let k = cacheKey as String
+        let id = UUID()
         return await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<NSImage?, Never>) in
-                operation.completionBlock = { [weak self] in
-                    if let image = operation.result {
-                        self?.cache.setObject(image, forKey: cacheKey, cost: operation.cost)
-                    }
-                    continuation.resume(returning: operation.isCancelled ? nil : operation.result)
+                lock.lock()
+                if let cached = cache.object(forKey: cacheKey) {   // filled in while we set up
+                    lock.unlock(); continuation.resume(returning: cached); return
                 }
-                queue.addOperation(operation)
+                waiters[k, default: [:]][id] = continuation
+                if let existing = ops[k] {
+                    existing.queuePriority = .normal               // a visible request now waits on it
+                } else {
+                    startOp(key: k, url: url, maxPixel: maxPixel, fullQuality: fullQuality, priority: .normal)
+                }
+                lock.unlock()
             }
         } onCancel: {
-            operation.cancel()
+            // Drop only THIS waiter. Cancel the shared decode only when nobody else waits and no
+            // prefetch still wants it — otherwise a disappearing grid cell would kill a decode a
+            // visible photo (or a prefetch) still needs.
+            lock.lock()
+            let cont = waiters[k]?.removeValue(forKey: id)
+            if waiters[k]?.isEmpty == true { waiters[k] = nil }
+            if (waiters[k]?.isEmpty ?? true), !prefetchWanted.contains(k), let op = ops[k] {
+                op.cancel(); ops[k] = nil
+            }
+            lock.unlock()
+            cont?.resume(returning: nil)
         }
     }
 

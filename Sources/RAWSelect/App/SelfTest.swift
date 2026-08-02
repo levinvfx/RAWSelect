@@ -439,6 +439,19 @@ enum SelfTest {
         let gOut = FileOperationService.trash(groups: [goneGroup])
         check(gOut.files == 0 && gOut.trashedGroupIDs.isEmpty, "trashing an already-missing file is a safe no-op")
 
+        // 19) Thumbnail loader coalescing: a repeat request for the same key is served from the
+        //     cache instead of decoding again (the decodeCount counter also backs the in-flight
+        //     de-dup that shares one decode between a prefetch and a visible request).
+        let loaderBase = ThumbnailLoader.shared.decodeCount
+        let loaderSem = DispatchSemaphore(value: 0)
+        Task {
+            _ = await ThumbnailLoader.shared.thumbnail(for: realJPG, maxPixel: 997)
+            _ = await ThumbnailLoader.shared.thumbnail(for: realJPG, maxPixel: 997)  // now from cache
+            loaderSem.signal()
+        }
+        loaderSem.wait()
+        check(ThumbnailLoader.shared.decodeCount - loaderBase == 1, "repeat thumbnail request decodes once, then hits cache")
+
         SessionStore.delete(identityID: testID)
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")
