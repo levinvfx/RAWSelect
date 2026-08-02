@@ -56,9 +56,11 @@ struct CropEditorView: View {
 
     @State private var baseCI: CIImage?
     @State private var displayImage: NSImage?
-    /// Small un-rotated copy of the current tone image, used to preview straighten LIVE (rotating
-    /// a ~900px proxy is cheap); the full-res render follows shortly after the gesture settles.
-    @State private var toneProxy: NSImage?
+    /// The straighten angle currently baked into `displayImage`. While a straighten gesture is
+    /// live, the delta to `edit.straighten` is shown as a cheap GPU layer rotation (rotationEffect)
+    /// instead of re-baking the pixels every tick — smooth and never distorted.
+    @State private var renderedStraighten: Double = 0
+    @State private var straightenLive = false
     /// Debounces the crisp full-res render while the straighten angle is being dragged.
     @State private var straightenSettleTask: Task<Void, Never>?
 
@@ -225,6 +227,9 @@ struct CropEditorView: View {
         ZStack {
             Image(nsImage: img).resizable()
                 .frame(width: L.imgRect.width, height: L.imgRect.height)
+                // While straightening, show the angle as a live layer rotation (delta to what's
+                // baked in the image). No pixel work, aspect preserved → smooth, no distortion.
+                .rotationEffect(.degrees(straightenLive ? (edit.straighten - renderedStraighten) : 0))
                 .position(x: L.imgRect.midX, y: L.imgRect.midY)
             CropVisual(cropRect: L.cropView, bounds: CGRect(origin: .zero, size: c), hovered: hoveredZone)
                 .allowsHitTesting(false)
@@ -696,41 +701,16 @@ struct CropEditorView: View {
         }
     }
 
-    /// Live straighten: show the current angle instantly by rotating a small proxy (cheap), then
-    /// debounce a crisp full-res render. Keeps dragging the angle butter-smooth; the preview
-    /// quality dips only while the gesture is in motion, and the export is unaffected.
+    /// Live straighten: the angle is shown instantly via a GPU layer rotation in the view (see
+    /// `rotationEffect` in cropWorkspace), so nothing is re-rendered per tick. This just flags the
+    /// live state and debounces one crisp full-res bake after the angle settles.
     private func straightenChanged() {
-        previewStraighten()
+        straightenLive = true
         straightenSettleTask?.cancel()
         straightenSettleTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 140_000_000)
             if Task.isCancelled { return }
-            updateDisplay()
-        }
-    }
-
-    private func previewStraighten() {
-        ensureToneProxy()
-        guard let tp = toneProxy else { updateDisplay(); return }
-        displayImage = tp.rotatedClockwise(byDegrees: edit.totalAngle)
-        // Skip constrainCropToContent here: it needs full-res extents, and the crisp render on
-        // settle re-applies it. A tiny transient overlap into a straighten wedge is acceptable.
-    }
-
-    /// Builds the ~900px un-rotated proxy from the current tone image, once per develop state.
-    /// Invalidated (set to nil) whenever the tone is freshly recomputed in `renderOnce`.
-    private func ensureToneProxy() {
-        guard toneProxy == nil, let t = toneCG else { return }
-        let maxEdge = 900.0
-        let scale = min(1, maxEdge / Double(max(t.width, t.height)))
-        let w = max(1, Int(Double(t.width) * scale)), h = max(1, Int(Double(t.height) * scale))
-        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: CGColorSpaceCreateDeviceRGB(),
-                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
-        ctx.interpolationQuality = .low
-        ctx.draw(t, in: CGRect(x: 0, y: 0, width: w, height: h))
-        if let small = ctx.makeImage() {
-            toneProxy = NSImage(cgImage: small, size: NSSize(width: w, height: h))
+            updateDisplay()   // bake the crisp full-res render at the settled angle
         }
     }
 
@@ -775,8 +755,10 @@ struct CropEditorView: View {
                     .rotatedClockwise(byDegrees: angle)
                 return ToneOut(tone: t, image: ns)
             }.value
-            if reuse == nil, let t = out.tone { self.toneCG = t; self.toneKey = key; self.toneProxy = nil }
+            if reuse == nil, let t = out.tone { self.toneCG = t; self.toneKey = key }
             if let ns = out.image { self.displayImage = ns }
+            self.renderedStraighten = snapshot.straighten   // this straighten is now baked in
+            self.straightenLive = false                     // stop the live layer rotation
             self.constrainCropToContent()   // keep the crop off the transparent corners
             self.isRendering = false
             if self.pendingRender { self.renderOnce() }
