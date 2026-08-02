@@ -3,7 +3,7 @@ import SwiftUI
 /// Central place for the file types and mark styling used across the app.
 enum AppInfo {
     static let name = "RAW Select"
-    static let version = "1.4"
+    static let version = "1.5"
 
     // Credits / branding
     static let author = "Levin Anneler"
