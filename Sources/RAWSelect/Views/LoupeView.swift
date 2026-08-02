@@ -132,7 +132,12 @@ private struct LargePreview: View {
         }
         // Free the full-res RAW (and cancel any in-flight decode) only when the
         // photo actually changes — so only ever one RAW is held in memory.
-        .onChange(of: group.id) { _, _ in releaseHiRes() }
+        // If the zoom is being HELD across photos, immediately develop the new one to sharp
+        // too (the `$zoomed` edge won't fire again because it never dropped to false).
+        .onChange(of: group.id) { _, _ in
+            releaseHiRes()
+            if app.zoom.zoomed { loadHiRes() }
+        }
     }
 
     /// On zoom-in, develop the actual RAW at native resolution so the zoom is

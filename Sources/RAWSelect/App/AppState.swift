@@ -25,7 +25,9 @@ final class AppState: ObservableObject {
     @Published var currentID: String? {
         didSet {
             prefetchAroundCurrent()
-            if oldValue != currentID { zoom.sliderActive = false }   // leaving a photo exits zoom mode
+            // Leaving a photo exits zoom mode — UNLESS we're zoomed in, then hold it across
+            // photos so a burst can be checked at the same spot (see ZoomableImageView).
+            if oldValue != currentID && !zoom.zoomed { zoom.sliderActive = false }
         }
     }
     private var anchorID: String?

@@ -83,7 +83,10 @@ struct ZoomableImageView: NSViewRepresentable {
         let coord = context.coordinator
         controller.command = { [weak coord] cmd in coord?.handle(cmd) }
         if coord.currentID != imageID {
-            coord.setImage(image, id: imageID, resetToFit: true)   // new photo → refit
+            // Photo change: refit as usual — UNLESS the loupe is currently zoomed in, then hold
+            // the same magnification and centre so a burst can be checked at the AF point while
+            // stepping (Photo-Mechanic-style). Escape/Space still return to fit.
+            coord.setImage(image, id: imageID, resetToFit: !controller.zoomed)
         } else if coord.currentImage !== image {
             coord.setImage(image, id: imageID, resetToFit: false)  // sharper re-decode → keep zoom
         }
