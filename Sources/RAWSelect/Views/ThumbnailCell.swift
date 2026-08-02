@@ -70,10 +70,15 @@ struct ThumbnailCell: View {
         }
         .task(id: group.id) {
             let loader = ThumbnailLoader.shared
+            let sharpPx = Int(side * PreviewConfig.gridSharpFactor)
             if let tiny = await loader.thumbnail(for: group.previewURL, maxPixel: PreviewConfig.tinyMaxPixel) {
                 if !isSharp { image = tiny }
             }
-            let sharpPx = Int(side * PreviewConfig.gridSharpFactor)
+            // Only decode a dedicated sharp size when it is actually LARGER than the tiny
+            // fallback. In the filmstrip the cells are small enough that the "sharp" target
+            // falls below the tiny size — decoding it was pure waste and even downgraded the
+            // picture (a smaller image replacing the bigger tiny one).
+            guard sharpPx > PreviewConfig.tinyMaxPixel else { isSharp = true; return }
             if let sharp = await loader.thumbnail(for: group.previewURL, maxPixel: sharpPx) {
                 image = sharp
                 isSharp = true
@@ -81,10 +86,13 @@ struct ThumbnailCell: View {
         }
     }
 
+    /// Shared formatter — creating a DateFormatter is expensive, so never do it per render.
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "dd.MM.yy HH:mm"; return f
+    }()
     private var dateString: String {
         guard group.fileDate != .distantPast else { return "" }
-        let f = DateFormatter(); f.dateFormat = "dd.MM.yy HH:mm"
-        return f.string(from: group.fileDate)
+        return Self.dateFormatter.string(from: group.fileDate)
     }
 
     private var markBadge: some View {
