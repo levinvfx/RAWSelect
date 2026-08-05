@@ -147,22 +147,24 @@ struct DetailView: View {
             .help("In App öffnen oder im Finder anzeigen")
         }
 
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                app.showExportWizard = true
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "wand.and.stars")
-                    Text("Export JPEG")
-                    Text("Lr")
-                        .font(.caption2.weight(.bold)).foregroundStyle(.white)
-                        .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(Color(red: 0.10, green: 0.45, blue: 0.95)))
+        if AppInfo.lightroomExportEnabled {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    app.showExportWizard = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "wand.and.stars")
+                        Text("Export JPEG")
+                        Text("Lr")
+                            .font(.caption2.weight(.bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(Color(red: 0.10, green: 0.45, blue: 0.95)))
+                    }
                 }
+                .buttonStyle(.bordered)
+                .disabled(app.groups.isEmpty)
+                .help("Export JPEG mit Lightroom Classic")
             }
-            .buttonStyle(.bordered)
-            .disabled(app.groups.isEmpty)
-            .help("Export JPEG mit Lightroom Classic")
         }
     }
 

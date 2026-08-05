@@ -9,7 +9,9 @@ struct SettingsView: View {
             SourcesSettingsTab().tabItem { Label("Quellen", systemImage: "sdcard") }
             ViewSettingsTab().tabItem { Label("Ansicht", systemImage: "photo") }
             MarkSettingsTab().tabItem { Label("Markierungen", systemImage: "tag") }
-            ExportSettingsTab().tabItem { Label("Export", systemImage: "square.and.arrow.up") }
+            if AppInfo.lightroomExportEnabled {
+                ExportSettingsTab().tabItem { Label("Export", systemImage: "square.and.arrow.up") }
+            }
             AdvancedSettingsTab().tabItem { Label("Erweitert", systemImage: "slider.horizontal.3") }
             CreditsSettingsTab().tabItem { Label("Über", systemImage: "info.circle") }
         }
