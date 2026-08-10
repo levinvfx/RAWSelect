@@ -6,7 +6,6 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             GeneralSettingsTab().tabItem { Label("Allgemein", systemImage: "gearshape") }
-            SourcesSettingsTab().tabItem { Label("Quellen", systemImage: "sdcard") }
             ViewSettingsTab().tabItem { Label("Ansicht", systemImage: "photo") }
             MarkSettingsTab().tabItem { Label("Markierungen", systemImage: "tag") }
             if AppInfo.lightroomExportEnabled {

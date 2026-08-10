@@ -3,10 +3,6 @@ import Combine
 
 // MARK: - Enums shown in the (reduced) settings UI
 
-enum SDBehavior: String, CaseIterable, Identifiable { case notify, autoOpen, ignore
-    var id: String { rawValue }
-    var label: String { switch self { case .notify: return "Hinweis anzeigen"; case .autoOpen: return "Automatisch öffnen"; case .ignore: return "Ignorieren" } }
-}
 enum SortField: String, CaseIterable, Identifiable { case filename, captureDate, mark
     var id: String { rawValue }
     var label: String { switch self { case .filename: return "Dateiname"; case .captureDate: return "Aufnahmedatum"; case .mark: return "Markierung" } }
@@ -92,10 +88,6 @@ final class AppSettings: ObservableObject {
     // Allgemein
     /// Light/Dark/System appearance of the app itself.
     var appearance: AppAppearance { get { en("rs.appearance", .system) } set { setEnum("rs.appearance", newValue) } }
-
-    // Quellen
-    var autoDetectVolumes: Bool { get { b("rs.autoDetectVolumes", true) } set { set("rs.autoDetectVolumes", newValue) } }
-    var sdBehavior: SDBehavior { get { en("rs.sdBehavior", .notify) } set { setEnum("rs.sdBehavior", newValue) } }
 
     // Ansicht & Performance
     /// Grid thumbnail cell side in points – freely adjustable via the slider

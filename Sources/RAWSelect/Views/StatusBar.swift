@@ -22,11 +22,13 @@ struct StatusBar: View {
 
             Spacer(minLength: 12)
 
+            // Permanente Auswahl-/Gesamtanzeige: „12 von 348 ausgewählt" bzw. „348 Bilder geöffnet".
+            if !app.filteredGroups.isEmpty {
+                Text(selectionSummary)
+                    .foregroundStyle(app.selectionCount > 0 ? Color.accentColor : Color.secondary)
+            }
+
             if let group = app.currentGroup {
-                if app.selectionCount > 1 {
-                    Text("\(app.selectionCount) ausgewählt")
-                        .foregroundStyle(Color.accentColor)
-                }
                 Text(sizeString(group.fileSize))
                     .foregroundStyle(.tertiary)
                 Text(pathString(group))
@@ -63,6 +65,15 @@ struct StatusBar: View {
 
     private func pathString(_ group: PhotoGroup) -> String {
         (group.files.first ?? group.previewURL).path
+    }
+
+    /// Dauerhaft sichtbare Auswahl-/Gesamtanzeige. Basis ist die aktuell geöffnete
+    /// (gefilterte) Menge – dieselbe, auf die sich auch ⌘A und die Position beziehen.
+    private var selectionSummary: String {
+        let total = app.filteredGroups.count
+        let sel = app.selectionCount
+        if sel > 0 { return "\(sel) ausgewählt" }
+        return total == 1 ? "1 Bild geöffnet" : "\(total) Bilder geöffnet"
     }
 
     private var positionText: String {

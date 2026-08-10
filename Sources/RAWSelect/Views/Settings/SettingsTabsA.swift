@@ -18,28 +18,7 @@ struct GeneralSettingsTab: View {
     }
 }
 
-// MARK: - 2. Quellen
-
-struct SourcesSettingsTab: View {
-    @EnvironmentObject var settings: AppSettings
-    var body: some View {
-        Form {
-            Section {
-                SettingToggle(title: "SD-Karten automatisch erkennen",
-                              help: "Erkennt neu angeschlossene Kameras und Karten.",
-                              isOn: $settings.autoDetectVolumes)
-                SettingPicker(title: "Bei erkannter SD-Karte",
-                              selection: $settings.sdBehavior) {
-                    ForEach(SDBehavior.allCases) { Text($0.label).tag($0) }
-                }
-                .disabled(!settings.autoDetectVolumes)
-            }
-        }
-        .formStyle(.grouped)
-    }
-}
-
-// MARK: - 3. Ansicht & Performance (kurz: „Ansicht“)
+// MARK: - 2. Ansicht & Performance (kurz: „Ansicht“)
 
 struct ViewSettingsTab: View {
     @EnvironmentObject var settings: AppSettings

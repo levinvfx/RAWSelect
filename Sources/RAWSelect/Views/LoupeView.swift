@@ -213,6 +213,8 @@ private struct LargePreview: View {
         if sharp == nil, bestCached() == nil {
             failedID = group.id
             lastGood = nil
+        } else if failedID == group.id {
+            failedID = nil            // decoded on a later visit → clear the stale failure flag
         }
     }
 

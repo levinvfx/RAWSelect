@@ -557,7 +557,11 @@ final class AppState: ObservableObject {
     /// were not guaranteed to reach the writer in creation order, so a late older snapshot
     /// (scope = the whole folder) could overwrite a newer one. Each write now awaits the
     /// previous one, which pins execution order to submission order.
-    private var writeChain: Task<Void, Never>?
+    /// The queued background writes. Deliberately a *main-actor-free* chain that only RETURNS
+    /// its result — `persistStateNow()` blocks the main thread waiting on this chain, so if the
+    /// chain itself ended by hopping back to the main actor (e.g. to call `report`) it would
+    /// deadlock. Reporting is therefore done in a SEPARATE task that nobody waits on (below).
+    private var writeChain: Task<SessionStore.SaveResult, Never>?
 
     /// Carries a save result across the semaphore in `persistStateNow` without hopping to the
     /// main actor inside the task (which would deadlock while the main thread is blocked).
@@ -569,11 +573,15 @@ final class AppState: ObservableObject {
     private func persistState() {
         guard let snap = sessionSnapshot() else { return }
         let previous = writeChain
-        writeChain = Task { [weak self] in
+        // Pure write chain — detached, never touches the main actor, just returns the result.
+        let task = Task.detached { () -> SessionStore.SaveResult in
             _ = await previous?.value
-            let result = await SessionStore.SessionWriter.shared.write(snap.id, snap.states, snap.scope)
-            self?.report(result)
+            return await SessionStore.SessionWriter.shared.write(snap.id, snap.states, snap.scope)
         }
+        writeChain = task
+        // Reporting runs separately and is NOT part of the awaited chain, so blocking the main
+        // thread in persistStateNow() can never deadlock on a report hop.
+        Task { [weak self] in self?.report(await task.value) }
     }
 
     /// Saves right now and waits for it — draining any queued writes first so the newest state
@@ -589,7 +597,7 @@ final class AppState: ObservableObject {
             box.value = await SessionStore.SessionWriter.shared.write(snap.id, snap.states, snap.scope)
             sem.signal()
         }
-        sem.wait()                     // safe: the detached task never touches the main actor
+        sem.wait()                     // safe: writeChain is a detached, main-actor-free chain
         report(box.value)
     }
 
@@ -759,26 +767,14 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Extra warning required before overwriting existing files.
-    private func confirmOverwrite() -> Bool {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "Vorhandene Dateien überschreiben?"
-        alert.informativeText = "Der Konfliktmodus steht auf „Überschreiben“. Gleichnamige Dateien im Zielordner werden ersetzt. Dies kann nicht rückgängig gemacht werden."
-        alert.addButton(withTitle: "Überschreiben")
-        alert.addButton(withTitle: "Abbrechen")
-        return alert.runModal() == .alertFirstButtonReturn
-    }
-
     private func runOperation(_ kind: FileOperationService.Kind, target: URL,
                               groups selection: [PhotoGroup], includeSidecars: Bool) {
         // Always a flat export into the chosen target — no per-mark subfolders.
         let snapshot = selection
         guard !snapshot.isEmpty else { statusMessage = "Keine passenden Bilder für den Export."; return }
 
-        let conflict = settings.conflictMode
+        let conflict = settings.conflictMode   // copy/move always renames on collision (safe default)
         let rawJpgMode = settings.rawJpgExport
-        if conflict == .overwrite && !confirmOverwrite() { return }
 
         let makeSubfolder: (PhotoGroup) -> String? = { _ in nil }
 
@@ -869,8 +865,8 @@ final class AppState: ObservableObject {
         switch event.keyCode {
         case 123: step(by: -1, extend: extend); return true   // ←
         case 124: step(by: 1, extend: extend); return true    // →
-        case 126: if viewMode == .grid { step(by: -gridColumns, extend: extend) }; return true  // ↑ (one row up)
-        case 125: if viewMode == .grid { step(by: gridColumns, extend: extend) }; return true   // ↓ (one row down)
+        case 126: step(by: viewMode == .grid ? -gridColumns : -1, extend: extend); return true  // ↑ Zeile hoch (Raster) / vorheriges Bild (Loupe)
+        case 125: step(by: viewMode == .grid ? gridColumns : 1, extend: extend); return true    // ↓ Zeile runter (Raster) / nächstes Bild (Loupe)
         case 115: jumpToEdge(last: false, extend: extend); return true   // Home → first
         case 119: jumpToEdge(last: true, extend: extend); return true    // End → last
         case 48:  jumpUnmarked(forward: !extend); return true            // Tab / ⇧Tab → next/prev unmarked
