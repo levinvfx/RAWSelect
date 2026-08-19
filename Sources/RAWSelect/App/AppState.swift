@@ -844,6 +844,15 @@ final class AppState: ObservableObject {
            !(NSApp.keyWindow?.firstResponder is NSText) {
             undoMark(); return true
         }
+        // ⌘A selects every photo in the current (filtered) list. Handled here, not via the SwiftUI
+        // menu command, which didn't fire (the system just beeped). Same browser-only guard as ⌘Z
+        // so it never fights a text field or a modal.
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           event.charactersIgnoringModifiers == "a",
+           !showExportWizard, !showEditor, NSApp.keyWindow === NSApp.mainWindow,
+           !(NSApp.keyWindow?.firstResponder is NSText) {
+            selectAllFiltered(); return true
+        }
         if event.modifierFlags.contains(.command) { return false }   // leave ⌘-shortcuts to menus
         if NSApp.keyWindow?.firstResponder is NSText { return false }
 
