@@ -2,6 +2,11 @@ import Foundation
 import AppKit
 import CoreImage
 
+// Dev/test-only: kept out of release builds. Its many chained test expressions overwhelm the
+// release optimizer's type-checker (cascading into module-wide "no member" errors). The debug
+// binary runs it via `--selftest`; build_app.sh verifies against that debug binary before packaging.
+#if DEBUG
+
 /// Headless verification of the core workflow, runnable without the GUI:
 ///   scan → RAW+JPG grouping → XMP sidecars → mark persistence (volume identity)
 ///   → flat copy with/without XMP and conflict handling.
@@ -472,3 +477,5 @@ enum SelfTest {
         if let data = rep.representation(using: .png, properties: [:]) { try? data.write(to: url) }
     }
 }
+
+#endif

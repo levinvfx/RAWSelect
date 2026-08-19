@@ -2,6 +2,12 @@ import Foundation
 import CoreImage
 import AppKit
 
+// Developer-only calibration probe. Kept out of release builds: it is a dev diagnostic with no
+// customer value, and its heavy numeric/CoreImage expressions tripped the release optimizer's
+// type-check time budget (which cascaded into module-wide "no member" errors). `swift build`
+// (debug) keeps it fully available for `--slidercal`.
+#if DEBUG
+
 /// Measurement-only calibration probe: `RAWSelect --slidercal <regler> [raw] [--preset <xmp>]`.
 ///
 /// For one slider it renders, at several values across the working range, the Adobe reference
@@ -386,3 +392,5 @@ enum SliderCal {
         return nil
     }
 }
+
+#endif

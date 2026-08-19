@@ -92,12 +92,22 @@ private struct FolderRow: View {
     }
 
     private func loadChildren() {
-        let urls = (try? FileManager.default.contentsOfDirectory(
-            at: url, includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles])) ?? []
-        children = urls
-            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
-            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+        // Fully explicit types + a plain loop: the previous chained filter+sorted with a
+        // `try?`/`== true` (double-optional Bool) pushed the release-build type-checker past its
+        // time budget, which cascaded into bogus "no member" errors across the whole function.
+        let fm = FileManager.default
+        let keys: [URLResourceKey] = [.isDirectoryKey]
+        let opts: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
+        let urls: [URL] = (try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: opts)) ?? []
+        var dirs: [URL] = []
+        for child in urls {
+            let values = try? child.resourceValues(forKeys: [.isDirectoryKey])
+            if values?.isDirectory == true { dirs.append(child) }
+        }
+        dirs.sort { (a: URL, b: URL) -> Bool in
+            a.lastPathComponent.localizedStandardCompare(b.lastPathComponent) == .orderedAscending
+        }
+        children = dirs
         if isRootLevel && !(children?.isEmpty ?? true) { expanded = true }
     }
 }

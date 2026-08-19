@@ -10,6 +10,12 @@ BUNDLE_ID="ch.anneler.rawselect"
 VERSION="1.6"
 EXECUTABLE="RAWSelect"
 
+# Self-test runs on the DEBUG binary: SelfTest/SliderCal are dev-only (#if DEBUG) because their
+# heavy expressions trip the release optimizer's type-checker. Debug proves the logic first.
+echo "▶︎ Running self-test (debug binary)…"
+swift build
+".build/debug/${EXECUTABLE}" --selftest    # aborts the build (set -e) if any logic check fails
+
 echo "▶︎ Building (release)…"
 swift build -c release
 
@@ -18,9 +24,6 @@ if [[ ! -f "$BIN" ]]; then
     echo "✗ Build produced no binary at $BIN" >&2
     exit 1
 fi
-
-echo "▶︎ Running self-test…"
-"$BIN" --selftest    # aborts the build (set -e) if any logic check fails
 
 APP_DIR="${APP_NAME}.app"
 echo "▶︎ Packaging ${APP_DIR}…"

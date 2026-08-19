@@ -6,18 +6,22 @@ import AppKit
 @main
 enum EntryPoint {
     static func main() {
+        #if DEBUG
         if CommandLine.arguments.contains("--selftest") {
             SelfTest.run()
             exit(0)
         }
+        #endif
         if let idx = CommandLine.arguments.firstIndex(of: "--rawcheck") {
             RawCheck.run(Array(CommandLine.arguments[(idx + 1)...]))
             exit(0)
         }
+        #if DEBUG
         if let idx = CommandLine.arguments.firstIndex(of: "--slidercal") {
             SliderCal.run(Array(CommandLine.arguments[(idx + 1)...]))
             exit(0)
         }
+        #endif
         RAWSelectApp.main()
     }
 }
