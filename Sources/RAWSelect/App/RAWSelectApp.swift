@@ -80,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // an outdated plug-in silently stops reporting the white balance, which makes the
         // WB sliders do nothing without ever saying so.
         BridgeInstaller.installIfNeeded()
+        TelemetryService.pingIfEnabled()   // anonym, opt-out, nur wenn ein Endpunkt konfiguriert ist
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

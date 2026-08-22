@@ -31,6 +31,12 @@ enum AppInfo {
     /// ⚠️ HIER dein echtes ÖFFENTLICHES Repo eintragen, sobald es existiert –
     /// solange das nicht stimmt, findet die App nur „keine Updates“ (404, still).
     static let githubRepo = "levinvfx/RAWSelect"
+
+    /// Endpunkt für die anonyme Nutzungszählung (siehe `TelemetryService`). `nil` = deaktiviert:
+    /// solange hier keine URL steht, sendet die App NICHTS. Für echte Zahlen die eigene Server-URL
+    /// eintragen (z. B. `URL(string: "https://dein-server/rawselect/ping.php")`), die pro Ping nur
+    /// die anonyme Zufalls-ID + Version + grobe OS-Version zählt und die IP NICHT speichert.
+    static let telemetryEndpoint: URL? = nil
 }
 
 /// Loads the bundled brand logo (black on light, white on dark). Both variants

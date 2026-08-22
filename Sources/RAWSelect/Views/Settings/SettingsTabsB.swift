@@ -97,6 +97,11 @@ struct AdvancedSettingsTab: View {
 
     var body: some View {
         Form {
+            Section("Nutzungsstatistik") {
+                SettingToggle(title: "Anonyme Nutzungsstatistik senden",
+                              help: "Sendet beim Start höchstens einmal täglich eine zufällige, anonyme Kennung und die App-Version – damit sichtbar ist, welche Versionen im Einsatz sind. Keine persönlichen Daten, keine Dateien, kein Standort.",
+                              isOn: $settings.sendUsageStats)
+            }
             Section("Bilder öffnen mit") {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {

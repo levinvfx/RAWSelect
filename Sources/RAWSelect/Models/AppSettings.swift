@@ -117,6 +117,10 @@ final class AppSettings: ObservableObject {
     var openWithAppPath: String { get { str("rs.openWithAppPath", "") } set { set("rs.openWithAppPath", newValue) } }
     /// Auto-click Lightroom's "update AI model" / Enhance dialog during export (needs Accessibility permission).
     var autoConfirmLightroomDialogs: Bool { get { b("rs.autoConfirmLightroomDialogs", true) } set { set("rs.autoConfirmLightroomDialogs", newValue) } }
+
+    /// Anonyme Nutzungsstatistik senden (Opt-out, Standard an). Zählt anonym Version + zufällige
+    /// Kennung, keine persönlichen Daten. Siehe `TelemetryService`.
+    var sendUsageStats: Bool { get { b("rs.sendUsageStats", true) } set { set("rs.sendUsageStats", newValue) } }
     var presetPath: String { get { str("rs.presetPath", "") } set { set("rs.presetPath", newValue) } }
 
     // JPEG export (wizard defaults + advanced)
