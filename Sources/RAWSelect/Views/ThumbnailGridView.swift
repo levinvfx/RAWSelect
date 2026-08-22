@@ -48,6 +48,14 @@ struct ThumbnailGridView: View {
                         proxy.scrollTo(id, anchor: .center)
                     }
                 }
+                .onAppear {
+                    // Beim Zurückwechseln aus der Grossansicht bleibt currentID gleich, also feuert
+                    // das onChange oben nicht — und das frisch erstellte Grid stünde ganz oben.
+                    // Darum hier direkt zum aktuellen Bild scrollen (mittig = mit etwas Luft), damit
+                    // die Auswahl in einem Ordner mit hunderten Bildern nie gesucht werden muss.
+                    guard let id = app.currentID else { return }
+                    DispatchQueue.main.async { proxy.scrollTo(id, anchor: .center) }
+                }
             }
             .onAppear { app.gridColumns = columnCount(for: geo.size.width) }
             .onChange(of: geo.size.width) { _, w in app.gridColumns = columnCount(for: w) }
