@@ -1,8 +1,9 @@
-# RAW Select — Stand (25.08.2026)
+# RAW Select — Stand (27.08.2026)
 
 ## Ziel
-RAW Select ist auf **V1.7 öffentlich**. Aktuell keine laufende Code-Arbeit — Working Tree sauber,
-alles committet. Nächster echter Punkt: Telemetrie-Server scharfschalten (unten).
+RAW Select ist auf **V1.8 öffentlich** — die anonyme Nutzungsstatistik ist LIVE
+(Server: `vfxmedia.ch/rawselect/` auf Levins vServer, SSH-Zugang eingerichtet;
+Stats-Ansicht: Token in `~/.config/rawselect/stats-token`). Working Tree sauber.
 
 ## Stand (belegt)
 - **V1.7 public**: Commit `c52d789`, GitHub-Release live, DMG hochgeladen, `releases/latest` = v1.7
@@ -27,8 +28,7 @@ alles committet. Nächster echter Punkt: Telemetrie-Server scharfschalten (unten
 - `git push --force` → vom Classifier blockiert; immer normaler Push (Token-Helper).
 
 ## Offen (Reihenfolge)
-1. **Telemetrie scharfschalten**: Levin lädt `server/ping.php` + `stats.php` auf seinen Hoststar,
-   dann URL in `AppInfo.telemetryEndpoint` eintragen → neues Release. Bis dahin sendet die App NICHTS.
+1. ~~Telemetrie scharfschalten~~ **ERLEDIGT 27.08.** (V1.8 released, Server live, Details im Memory).
 2. Backlog-Task **„RAW Select Änderungen Lorenzo"** — Inhalt noch unklar, mit Levin klären.
 3. Irgendwann: Katalog-Verschmutzung via Wegwerf-Katalog lösen → Export wieder einschalten.
 
