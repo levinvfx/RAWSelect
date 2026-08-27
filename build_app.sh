@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="RAW Select"
 BUNDLE_ID="ch.anneler.rawselect"
-VERSION="1.7"
+VERSION="1.8"
 EXECUTABLE="RAWSelect"
 
 # Self-test runs on the DEBUG binary: SelfTest/SliderCal are dev-only (#if DEBUG) because their
