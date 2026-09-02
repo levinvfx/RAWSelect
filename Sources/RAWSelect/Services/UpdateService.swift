@@ -64,8 +64,8 @@ enum UpdateService {
         }
         let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        let dest = dir.appendingPathComponent("RAW-Select-\(info.version).dmg")
-        try? FileManager.default.removeItem(at: dest)
+        // Never delete anything in the user's Downloads: a name clash gets _1, _2, … instead.
+        let dest = FileOperationService.uniqueDestination(for: "RAW-Select-\(info.version).dmg", in: dir)
         try FileManager.default.moveItem(at: tmp, to: dest)
         NSWorkspace.shared.open(dest)   // mounts the DMG in Finder
         return dest

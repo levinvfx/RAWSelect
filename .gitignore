@@ -3,3 +3,7 @@
 .DS_Store
 
 ._*
+
+# Release DMGs live on GitHub Releases, not in git (each one bloated every clone forever).
+Releases/**/*.dmg
+dist/

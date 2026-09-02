@@ -4,7 +4,7 @@
 import SwiftUI
 
 /// Standalone, non-destructive editor for a single photo, reachable straight from
-/// the browser (toolbar button or the `E` key) — no export needed. It edits a
+/// the browser (the `E` key; development builds only) — no export needed. It edits a
 /// local draft; "Fertig" commits it to `AppState.edits` (and persists), while
 /// "Abbrechen" / Esc discards. The same edit later flows into the export.
 struct ImageEditorSheet: View {

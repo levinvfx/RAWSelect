@@ -14,15 +14,12 @@ enum AppInfo {
     static let email = "levin@annelers.ch"
     static var emailURL: URL { URL(string: "mailto:\(email)")! }
 
-    /// GitHub repository (owner/name) the auto-updater queries for new releases.
-    /// ⚠️ HIER dein echtes ÖFFENTLICHES Repo eintragen, sobald es existiert –
-    /// solange das nicht stimmt, findet die App nur „keine Updates“ (404, still).
+    /// Public GitHub repository the auto-updater queries (`releases/latest`, first `.dmg` asset).
     static let githubRepo = "levinvfx/RAWSelect"
 
-    /// Endpunkt für die anonyme Nutzungszählung (siehe `TelemetryService`). `nil` = deaktiviert:
-    /// solange hier keine URL steht, sendet die App NICHTS. Für echte Zahlen die eigene Server-URL
-    /// eintragen (z. B. `URL(string: "https://dein-server/rawselect/ping.php")`), die pro Ping nur
-    /// die anonyme Zufalls-ID + Version + grobe OS-Version zählt und die IP NICHT speichert.
+    /// Endpoint of the anonymous usage count (see `TelemetryService`): Levin's own server, which
+    /// stores only the random id + version + macOS version, never the IP. `nil` would switch the
+    /// feature off entirely; the user-facing switch is Einstellungen → Erweitert.
     static let telemetryEndpoint: URL? = URL(string: "https://vfxmedia.ch/rawselect/ping.php")
 }
 

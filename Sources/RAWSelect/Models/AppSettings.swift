@@ -162,7 +162,12 @@ final class AppSettings: ObservableObject {
 
     func resetAll() {
         objectWillChange.send()
-        for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") { d.removeObject(forKey: key) }
+        // Keep the anonymous stats identity: a settings reset is not a new installation, and
+        // re-rolling the id would count this Mac twice in the usage numbers.
+        let keep: Set<String> = ["rs.anonID", "rs.lastUsagePing"]
+        for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") && !keep.contains(key) {
+            d.removeObject(forKey: key)
+        }
     }
 }
 

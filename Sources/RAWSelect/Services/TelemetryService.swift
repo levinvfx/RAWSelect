@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 /// Anonyme, datensparsame Nutzungszählung — bewusst minimal und opt-out-bar.
 ///
@@ -13,6 +14,22 @@ import Foundation
 enum TelemetryService {
     private static let idKey = "rs.anonID"
     private static let lastPingKey = "rs.lastUsagePing"
+    private static let noticeKey = "rs.usageNoticeShown"
+
+    /// One-time notice BEFORE the first ping. The stats are opt-out, but nobody should learn
+    /// about them only after data has already left the machine. "Ja" is the default button.
+    static func askOnFirstRunIfNeeded() {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: noticeKey) else { return }
+        d.set(true, forKey: noticeKey)
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Anonyme Nutzungsstatistik"
+        alert.informativeText = "RAW Select sendet beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch – damit sichtbar ist, welche Versionen im Einsatz sind. Keine Dateien, keine Namen, kein Standort.\n\nJederzeit änderbar unter Einstellungen → Erweitert."
+        alert.addButton(withTitle: "Ja, anonym mitzählen")
+        alert.addButton(withTitle: "Nein, nicht senden")
+        AppSettings.shared.sendUsageStats = (alert.runModal() == .alertFirstButtonReturn)
+    }
 
     /// Stabile, rein zufällige Kennung pro Installation. Einmalig erzeugt und lokal gespeichert;
     /// kein Bezug zu Gerät oder Person, jederzeit durch Löschen der Preferences zurücksetzbar.

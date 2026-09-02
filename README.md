@@ -1,210 +1,161 @@
 # RAW Select
 
-Eine schlichte, native und **komplett offline** macOS-App zum schnellen Sichten (Culling)
-von RAW/JPG-Bildern von SD-Karte oder Ordner – als persönliche Alternative zu einem
-Photo-Mechanic-artigen Workflow. Keine Cloud, kein Server, kein Login, kein Netz.
+Schnelles, natives macOS-Werkzeug zum **Sichten (Culling)** von RAW-/JPG-Bildern – von der
+SD-Karte oder aus einem Ordner. Gebaut für Sportfotografie: tausende Bilder nach dem Spiel
+durchsteppen, Treffer markieren, auf Schärfe zoomen, Auswahl kopieren, weiter in Lightroom.
 
-Gebaut mit **Swift + SwiftUI**, AppKit für Datei-Dialoge/Finder, **ImageIO** für schnelle
-Thumbnails/Previews (RAW wird nicht entwickelt, sondern über eingebettete JPEG-Previews
-angezeigt und gecacht).
+Swift + SwiftUI, AppKit für Datei-Dialoge, ImageIO für Vorschauen (RAWs werden über ihre
+eingebettete Kamera-Vorschau angezeigt, beim Zoom auf 100 % voll entwickelt).
 
 ---
 
-## Starten
+## Installation
 
-Es ist **kein volles Xcode** nötig – die Command Line Tools genügen.
+1. Neuestes `RAW-Select-x.y.dmg` von den
+   [GitHub-Releases](https://github.com/levinvfx/RAWSelect/releases) laden, öffnen, App nach
+   `Programme` ziehen.
+2. Beim ersten Start **Rechtsklick → Öffnen** (die App ist nur ad-hoc signiert, nicht notarisiert).
+3. Ab dann meldet sich die App selbst, wenn es ein Update gibt (siehe *Netzwerk* unten).
 
-```bash
-cd "/Volumes/Levin 2TB/Neue App/RAWSelect"
-./build_app.sh          # baut Release + packt "RAW Select.app"
-open "RAW Select.app"   # startet die App
-```
-
-Danach liegt `RAW Select.app` im Projektordner. Du kannst sie z. B. in den
-`Programme`-Ordner ziehen und wie jede App per Doppelklick starten.
-
-> Beim ersten Start evtl. Rechtsklick → „Öffnen“ (die App ist nur ad-hoc signiert).
-
-**Schnell während der Entwicklung** (ohne Bundle, öffnet ein Fenster):
-```bash
-swift run
-```
-
-**Kern-Workflow headless testen** (ohne GUI):
-```bash
-swift run RAWSelect --selftest
-```
+Voraussetzung: macOS 14 oder neuer.
 
 ---
 
 ## Workflow
 
-1. Links einen **Datenträger** wählen – die App **scannt noch nicht**, sondern zeigt die
-   **Ordnerstruktur** zum Navigieren. **Doppelklick** auf einen Ordner lädt dessen Bilder
-   (Einzelklick klappt nur auf/zu). Alternativ **„Ordner öffnen…“** (⌘O).
-2. Die Bilder erscheinen im Raster. Beim Scrollen wird nie ein Ladesymbol gezeigt – zuerst
-   eine kleine Vorschau, die dann in scharf nachlädt.
-3. Mit **Pfeiltasten** navigieren, mit **1–9** markieren, **0** entfernt die Markierung.
-4. **Mehrere Bilder auswählen**: ⌘-Klick fügt einzeln hinzu, Shift-Klick wählt eine
-   ganze Reihe, ⌘A wählt alle im aktuellen Filter. **1–9 markiert dann alle
-   ausgewählten** Bilder gleichzeitig.
-5. Über die **Filterleiste** oben (immer sichtbar) Tags ein-/ausblenden: „Alle" (ohne Markierung)
-   und Markierungen 1–9 sind standardmässig alle an; klick auf einen Chip **blendet** diese Gruppe
-   **aus** (Chip wird ausgegraut). Die Sidebar zeigt nur die **Ordnerstruktur** – du bleibst im
-   selben Ordner und filterst nur.
-6. Auswahl treffen → **„Auswahl kopieren…“** → Zielordner wählen (im Dialog kannst
-   du auch einen neuen Ordner anlegen). Wahl **„Bilder + XMP“** oder **„nur Bilder“**.
-   Die Dateien landen **flach** im Zielordner.
+1. Links einen **Datenträger** wählen oder einen Ordner per **⌘O** / Drag-and-drop öffnen.
+   Im Ordnerbaum: **Einfachklick** klappt auf, **Doppelklick** lädt die Bilder des Ordners.
+2. Die ersten Bilder erscheinen nach etwa einer Sekunde, der Rest lädt weiter, während du schon
+   arbeitest. Es gibt nie ein Ladesymbol im Raster – erst eine kleine Vorschau, dann scharf.
+3. **Pfeiltasten** navigieren, **1–9** markieren (Farbmarkierung), **0** entfernt sie.
+   Nach einer Markierung springt die App automatisch zum nächsten Bild.
+4. **Return** öffnet die grosse Ansicht, **Z** oder das **Mausrad** zoomt auf 100 % – der
+   Zoom-Ausschnitt bleibt beim Weiterblättern erhalten, so prüfst du eine Serie am selben
+   Auge/AF-Punkt. **Tab** springt zum nächsten noch unmarkierten Bild.
+5. Zweiter Durchgang über die **Filterleiste** oben: Klick auf einen Farbchip blendet die
+   Gruppe aus, ⌥-Klick zeigt *nur* diese. Unter jedem Chip steht, wie viele Bilder darin sind.
+6. **Auswahl kopieren…** (Symbolleiste) legt die Originale samt XMP-Sidecars flach in einen
+   Zielordner. Nichts wird je überschrieben (Namenskonflikt → `_1`, `_2`, …).
+
+Markierungen liegen **nicht** in den Dateien, sondern in `~/Library/Application Support/RAW Select`
+– pro Datenträger, per Volume-UUID bzw. Karten-Fingerprint. Eine Karte wird beim nächsten
+Einstecken wiedererkannt, ohne dass je etwas auf sie geschrieben wird.
+
+---
 
 ## Tastaturkürzel
 
 | Taste | Aktion |
-|-------|--------|
+|---|---|
 | **← / →** | vorheriges / nächstes Bild |
-| **Shift + ← / →** | Auswahl erweitern |
-| **1 – 9 / 0** | Farb-Markierung setzen / entfernen (ganze Auswahl) |
-| **I** | EXIF-Info-Overlay ein/aus |
-| **F** | Vollbild ein/aus |
-| **Klick** | einzeln auswählen |
-| **⌘-Klick** | zur Auswahl hinzufügen/entfernen |
-| **Shift-Klick** | Reihe auswählen |
-| **⌘A** | alle im Filter auswählen |
+| **↑ / ↓** | Raster: eine Zeile hoch/runter · Einzelansicht: vor/zurück |
+| **⇧ + Pfeil** | Auswahl erweitern |
+| **Home / End** | erstes / letztes Bild |
+| **⇥ / ⇧⇥** | nächstes / vorheriges **unmarkiertes** Bild |
+| **1 – 9** | Farbmarkierung setzen (für die ganze Auswahl) |
+| **0 / § / °** | Markierung entfernen |
+| **⌘Z** | letzte Markierung rückgängig |
+| **⌘A** | alle Bilder im aktuellen Filter auswählen |
+| **⌫** | Auswahl in den **Papierkorb** (nur von interner Platte; ab 2 Bildern mit Rückfrage) |
+| **Return** | grosse Ansicht · dort: Fokusmodus (ohne Filmstreifen/Leisten) an/aus |
+| **Esc** | Zoom zurück → Fokusmodus aus → zurück ins Raster |
+| **Leertaste** | Zoom-Modus mit Slider (Einzelansicht) |
+| **Z** | 100 % / Einpassen |
+| **+ / −** | rein- / rauszoomen |
+| **C** | Vergleich A\|B · ←/→ blättert B · Return macht B zu A · Esc oder C beendet |
+| **I** | EXIF-Infos ein/aus |
+| **F** | Vollbild |
+| **?** | Kürzel-Übersicht in der App |
 | **⌘O** | Ordner öffnen |
-| **⌘R** | im Finder anzeigen |
-| **Doppelklick** | grosse Vorschau |
+| **⌘R** | aktuelles Bild im Finder zeigen |
+| **⌘,** | Einstellungen |
 
-## Funktionen
+**Maus:** Klick wählt · ⌘-Klick fügt hinzu/entfernt · ⇧-Klick wählt eine Reihe · Doppelklick
+öffnet die grosse Ansicht · **Mausrad zoomt** auf den Zeiger (Trackpad: zwei Finger schwenken,
+Pinch zoomt) · ⌥-Klick auf einen Filterchip = nur diese Gruppe · Ordner aufs Fenster ziehen lädt ihn.
 
-- Erkennt externe Datenträger/SD-Karten unter `/Volumes` (live bei Ein-/Auswerfen).
-- Formate: `.ARW .CR2 .CR3 .NEF .RAF .DNG .JPG .JPEG .HEIC .PNG`.
-- **RAW + JPG desselben Fotos** werden zu einem Eintrag gruppiert: eine Markierung,
-  beide Dateien (und passende XMP-Sidecars) wandern beim Kopieren zusammen.
-- **XMP-Sidecars** (`IMG_0001.xmp` oder `IMG_0001.ARW.xmp`) werden erkannt und beim
-  Kopieren optional mitkopiert.
-- **Vorschau in ~720p HD**, effizient über die eingebettete Kamera-Preview – die
-  volle RAW-Datei wird dabei nie geladen (nur der Pfad gemerkt, das Original erst
-  beim Kopieren von der SD geholt).
-- Raster-Ansicht **und** grosse Loupe-Ansicht mit Filmstreifen (Umschalter oben).
-- **Mehrfachauswahl** (⌘/Shift/⌘A) – Bewerten und Kopieren gilt für die ganze Auswahl.
-- **Farb-Markierungen 1–9** – nur app-intern, nie in die Dateien geschrieben.
-- **EXIF-Info-Overlay** (Taste I): Kamera, Objektiv, Brennweite, Blende, Zeit, ISO, Datum.
-- **Ordner-Navigator** in der Sidebar: in einen Unterordner klicken zeigt sofort alle Bilder
-  dieses Ordners (Filter springt auf „Alle Bilder") – gezielt nur einen Ordner sichten statt
-  der ganzen Karte.
-- **Sortierung** (Dateiname/Datum, umgekehrt), **Thumbnail-Grösse** per Slider, **Vollbild** (F),
-  Prefetching der Nachbar-Previews für Sichten ohne Ladezeit.
-- Lazy geladene Thumbnails, Hintergrund-Decoding, Memory-Cache → bleibt bei
-  1000–3000 Bildern flüssig, UI friert beim Scannen nicht ein.
-- **Kopieren** der Auswahl **flach** in einen frei wählbaren Zielordner, wahlweise
-  mit oder ohne XMP. **Verschieben** nur von internen Platten – von SD-Karten/externen
-  Datenträgern deaktiviert (Originalschutz) und per Bestätigungsdialog abgesichert.
-- Dateikonflikte werden nie überschrieben, sondern `_1`, `_2` … angehängt.
-- Fortschrittsanzeige mit Abbrechen; klare Statusmeldungen
-  („1247 Bilder gefunden“, „32 Bilder kopiert“, „Keine Bilder ausgewählt“).
+---
 
-## Einstellungen (Settings)
+## Was die App kann
 
-Öffnen wie bei jeder macOS-App: **RAW Select → Settings…** oder **⌘,** — eigenes, natives
-Fenster (kein Bereich in der Haupt-App). Bewusst **reduziert auf 6 Tabs**:
+- Erkennt externe Datenträger/SD-Karten live (Ein-/Auswerfen) – wird die offene Karte gezogen,
+  bricht die App laufende Vorgänge ab und sagt es dir.
+- Formate: `ARW CR2 CR3 NEF RAF DNG · JPG JPEG HEIC PNG`. RAW + JPG desselben Fotos werden zu
+  **einem** Eintrag gruppiert (abschaltbar in *Ansicht*); XMP-Sidecars (`IMG_0001.xmp` und
+  `IMG_0001.ARW.xmp`) hängen automatisch dran und werden mitkopiert.
+- Grosse Ansicht mit Filmstreifen, flackerfreie Vorschau in drei Stufen, Full-Res-Zoom mit
+  vorentwickeltem Nachbarbild für Serien.
+- Vergleich A|B mit synchronem Zoom.
+- Sortierung nach Dateiname oder Dateidatum (Symbolleiste), Kachelgrösse per Slider (Statusleiste).
+- Statusleiste: Auswahl-/Gesamtzähler, Position, Dateigrösse, Pfad.
+- Kopieren mit Fortschritt und Abbrechen; Fehler (z. B. eine inzwischen fehlende Datei) werden
+  gemeldet, nie verschwiegen. Kopieren **auf** die Quell-Karte fragt nach.
+- Papierkorb-Ausschuss: nie ein hartes Löschen, immer der macOS-Papierkorb – und nie von SD-Karten.
+- Beschädigte Session-Dateien werden beiseitegelegt statt überschrieben; Speicherfehler (Platte voll)
+  werden sichtbar gemeldet; beim Beenden wird die letzte Markierung synchron gesichert.
 
-- **Allgemein** – Letzte Session wiederherstellen · Warnen bei laufendem Vorgang beim Beenden ·
-  Abschluss-Benachrichtigung
-- **Quellen** – SD-Karten automatisch erkennen · Verhalten bei erkannter Karte (Hinweis/Öffnen/Ignorieren)
-- **Ansicht** – Thumbnail-Grösse · Sortieren (Dateiname/Aufnahmedatum/Markierung) · Sortierung
-  umkehren · RAW+JPG als ein Bild · **Vorschau-Modus** (Schnell/Ausgewogen/Qualität)
-- **Markierungen** – Auto-Advance · editierbare Markierungen 1–9 (Name + Farbe)
-- **Export** – Zielordner im Finder öffnen · RAW+JPG beim Export · Photoshop-Export
-  (experimentell): JPEG-Qualität, Smart Exposure, max. Helligkeitskorrektur
-- **Erweitert** – Photoshop finden/wählen · Standard-Preset (.xmp) · Cache leeren · alle Einstellungen zurücksetzen
+## Einstellungen (⌘,)
 
-**Vorschau-Modus** bündelt die technischen Werte (Instant-Grösse, Perfect-Auflösung, Vorlade-
-Anzahl, parallele Jobs) — der User stellt nur einen Regler statt vieler Einzeloptionen.
+- **Ansicht** – RAW+JPG gruppieren · Vorschau-Modus (Schnell / Ausgewogen / Qualität).
+- **Markierungen** – Auto-Weiterspringen · Namen und Farben der Markierungen 1–9.
+- **Erweitert** – Erscheinungsbild · Zielordner nach dem Kopieren im Finder zeigen ·
+  anonyme Nutzungsstatistik · „Öffnen mit"-App der Symbolleiste · Cache leeren · Zurücksetzen.
+- **Über** – Version, Kontakt.
 
-Alle übrigen früheren Optionen sind als **sichere Defaults fest im Code** hinterlegt (z. B. alle
-Bildtypen an, rekursiv scannen, Kameraordner bevorzugen, versteckte ignorieren, Export in
-`01_Select`-Unterordner, Konflikte automatisch `_1/_2`, Originaldatum behalten, Erscheinungsbild =
-System, Metadaten-Panel an). Photoshop-Export & Smart Exposure sind als Einstellungen vorbereitet
-(Funktion folgt).
+Bewusst wenige Optionen; alles andere sind feste, sinnvolle Defaults.
 
-**Sicherheit (fest, nicht abschaltbar):** RAW-Dateien werden nie verändert, SD-Karten nie
-verschoben/gelöscht, keinerlei Netz/Cloud.
+---
 
-## Export JPEG mit Photoshop [Ps] + Smart Exposure
+## Netzwerk & Datenschutz – ehrlich
 
-Neben **Copy Originals** und **Move Originals** gibt es in der Toolbar den Button
-**„JPEG [Ps]"** — ein autonomer JPEG-Export über Adobe Photoshop / Camera Raw. Ein Klick
-öffnet den Export-Wizard.
+RAW Select arbeitet komplett **lokal** – Bilder, Markierungen, Kopien verlassen den Mac nie.
+Zwei Dinge gehen ins Netz:
 
-**Ablauf im Wizard:** Bilder wählen (aktuell / Auswahl / alle markierten / einzelne Markierung /
-alle sichtbaren) → optionales `.xmp`-Preset (Lightroom/Camera Raw) → Smart Exposure → JPEG
-(Qualität, Farbraum, Grösse, Nachschärfen) → Zielordner + Ordnerstruktur → Export mit Fortschritt.
+1. **Update-Check** beim Start (GitHub-API `releases/latest`, nur die Versionsnummer wird gelesen).
+   Ein Update wird als DMG in *Downloads* abgelegt und geöffnet, nie automatisch installiert.
+2. **Anonyme Nutzungsstatistik** (Standard: an, beim ersten Start wirst du gefragt): höchstens
+   einmal täglich eine zufällige Kennung, App-Version und macOS-Version an `vfxmedia.ch`.
+   Keine Dateien, Namen, Pfade, kein Standort; der Server speichert keine IP-Adressen.
+   Abschaltbar unter *Einstellungen → Erweitert*.
 
-**Voraussetzung:** Adobe Photoshop muss **installiert und aktiviert** sein. RAW Select findet es
-automatisch (Bundle-ID `com.adobe.Photoshop`) oder du wählst es in den Einstellungen. Fehlt es,
-zeigt der Wizard einen klaren Hinweis. Photoshop startet sichtbar und rendert im Hintergrund —
-du musst nichts manuell in Photoshop bedienen.
+Kein Login, keine Cloud, kein Konto.
 
-**Zuschnitt & Drehen (vor dem Export, auch im Batch):** Nach „Zuschneiden & Export →" gehst du
-jedes ausgewählte Bild einzeln durch: Crop-Rahmen ziehen, 90° links/rechts drehen, „Überspringen"
-oder „Weiter". Der Zuschnitt ist **nicht-destruktiv** (nur für den Export) und wird als
-Rotation + normalisierter Crop-Rahmen an Photoshop übergeben (`rotateCanvas` + `crop`), **vor**
-Preset und Belichtung. Alternativ „Direkt exportieren" ohne Crop.
+---
 
-**JPEG-Qualität:** Slider 0–100 % (Default 100), intern korrekt auf Photoshops 0–12-Skala umgerechnet.
+## Für Entwickler
 
-**Smart Exposure (komplett offline):** Analysiert jedes Bild **lokal** über Histogramm,
-Durchschnitts-/Median-Helligkeit und Shadow-/Highlight-Clipping und berechnet eine **sanfte**
-Belichtungskorrektur in EV (Aus / Sanft / Standard / Stark, Clamp ±0.3…±1.5 EV). Highlights/Schatten
-werden geschützt, absichtlich dunkle/helle Bilder respektiert. **Keine Cloud, keine AI-API, kein
-Internet.** Der Preset-Look bleibt erhalten – korrigiert wird nur die Helligkeit.
-
-**Sicherheit (fest):** Original-RAWs und deine Preset-/XMP-Dateien werden **nie** verändert. Der
-Export läuft in einem **temporären Arbeitsordner** (RAW-Kopie + temporäres Sidecar-XMP mit
-Preset + EV), der danach aufgeräumt wird. Bestehende XMP-Sidecars neben den Originalen bleiben
-unangetastet.
-
-**Limitationen (V1):** Die Photoshop-Automation nutzt ExtendScript (`do javascript`,
-`DialogModes.NO`). Wie ein Camera-Raw-Preset exakt greift, hängt von Photoshop-Version und
-Preset-Aufbau ab; bei ungewöhnlichen Presets kann eine Anpassung nötig sein. Abbrechen wirkt
-best-effort (Photoshop beendet ggf. das laufende Bild noch). Bei Problemen wird ein Export-Log im
-Zielordner gespeichert.
-
-## Tags & wie sich die App die SD-Karte merkt
-
-- Markierungen (1–9) sind **rein app-intern** – sie werden **nie** in die Bilder oder
-  XMP geschrieben. Kopierte/verschobene Dateien tragen also **keine** App-Tags.
-- Gespeichert werden sie zentral unter
-  `~/Library/Application Support/RAW Select/Sessions/<hash>.json`.
-- Der Schlüssel basiert auf der **Volume-UUID** der Karte, nicht auf dem Mount-Pfad.
-  Deshalb erkennt die App eine SD-Karte nach **Auswerfen/Wiedereinstecken** wieder und
-  zeigt die Markierungen erneut an – **ohne je etwas auf die Karte zu schreiben**.
-
-## Sicherheit
-
-- Keinerlei Netzwerk-, Server-, FTP-, Cloud- oder Login-Funktionen.
-- Löscht nie etwas von SD-Karten; Verschieben nur mit Warnung und nur von internen Platten.
-- Markierungen werden **nicht** in die Originaldateien geschrieben.
-
-## Bekannte Limitationen (MVP)
-
-- Kein App-Icon (Standard-Systemicon).
-- Nur ad-hoc signiert → beim ersten Start ggf. Gatekeeper-Hinweis.
-- Die grosse Loupe-Vorschau nutzt die **eingebettete Kamera-Vorschau** (bei Sony
-  ~1616×1080, Full HD) – sofort scharf und schnell. Ein voller RAW-Decode für noch
-  höhere Auflösung / 100%-Zoom ist auf einem System mit nur den Command Line Tools
-  nicht verfügbar (dafür bräuchte es das volle Xcode inkl. RAW-Codec).
-- Ein Bild trägt genau **eine** Markierung (1–9), keine Mehrfach-Tags/Sterne.
-- Thumbnail-Cache ist In-Memory (kein Disk-Cache über Neustarts hinweg).
-
-## Projektstruktur
-
+```bash
+swift build                              # Debug-Build
+.build/debug/RAWSelect --selftest        # Logik-Selbsttest (Scan, Sidecars, Sessions, Kopieren, Papierkorb …)
+.build/debug/RAWSelect --rawcheck a.ARW  # kann macOS dieses RAW nativ entwickeln? welche Vorschau, welcher Zoom?
+./build_app.sh                           # Selbsttest + Release-Build + „RAW Select.app"
 ```
-Sources/RAWSelect/
-  App/         RAWSelectApp, AppDelegate, AppState, SelfTest
-  Models/      PhotoGroup, VolumeInfo
-  Services/    PhotoScanner, VolumeScanner, ThumbnailLoader,
-               FileOperationService, SessionStore, FinderService
-  Views/       ContentView, SidebarView, DetailView, ThumbnailGridView,
-               LoupeView, ThumbnailCell, StatusBar, OperationOverlay
-  Utilities/   Constants, CancellationToken
-```
+
+Version bumpen = **zwei Stellen synchron**: `Sources/RAWSelect/Utilities/Constants.swift`
+(`static let version`) und `build_app.sh` (`VERSION=`). Releases liegen als DMG unter `Releases/`
+(nicht im Git) und auf GitHub.
+
+**Nur im Debug-Build** (`#if DEBUG`) existiert zusätzlich ein Lightroom-Export-Stack
+(Export-Wizard, Crop-/Develop-Editor mit Taste **E**, Preset-Sidecars, Bridge-Plugin
+`RAWSelectBridge.lrplugin`). Er ist bewusst **nicht Teil der öffentlichen App**: das Plugin
+importiert beim Rendern jedes RAW als „Geist" in den aktiven Lightroom-Katalog des Nutzers, und das
+Lightroom-SDK kann diese Einträge nicht wieder entfernen. Bis das (via eigenem Wegwerf-Katalog)
+gelöst ist, bleibt er Entwicklungswerkzeug. `RS_DEV_BRIDGE=1 ./build_app.sh` synchronisiert das
+Plugin lokal nach `~/Library/Application Support/RAW Select/`.
+
+### Projektstruktur (`Sources/RAWSelect/`)
+
+- `App/` – `RAWSelectApp` (Einstieg), `AppState` (zentraler Zustand, Navigation, Tastatur), `SelfTest`
+- `Models/` – `PhotoGroup`, `AppSettings`, `VolumeInfo`, `ExportModels`
+- `Services/` – `PhotoScanner`, `VolumeScanner`, `ThumbnailLoader`, `SessionStore`,
+  `FileOperationService`, `MetadataService`, `UpdateService`, `TelemetryService`
+- `Views/` – Raster, Loupe, Vergleich, Filterleiste, Statusleiste, Sidebar, Settings
+- `Utilities/` – `Constants`, `FolderIdentity`, `CancellationToken`
+- `server/` – die zwei PHP-Dateien der Nutzungsstatistik (Setup in `server/README.md`)
+
+## Bekannte Grenzen
+
+- Nur ad-hoc signiert → beim ersten Start Rechtsklick → Öffnen.
+- „Dateidatum" ist das Dateisystem-Datum, nicht das EXIF-Aufnahmedatum.
+- Der Zoom auf 100 % braucht für ein RAW einen Moment („RAW lädt…"); das jeweils nächste Bild
+  der Serie wird vorentwickelt.

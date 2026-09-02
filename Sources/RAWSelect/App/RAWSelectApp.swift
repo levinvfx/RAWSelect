@@ -77,7 +77,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The public app ships no plug-in and never touches Application Support.
         BridgeInstaller.installIfNeeded()
         #endif
-        TelemetryService.pingIfEnabled()   // anonym, opt-out, nur wenn ein Endpunkt konfiguriert ist
+        TelemetryService.askOnFirstRunIfNeeded()   // einmalig fragen, BEVOR das erste Mal gesendet wird
+        TelemetryService.pingIfEnabled()            // anonym, opt-out, max. 1×/Tag
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
