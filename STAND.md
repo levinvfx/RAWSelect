@@ -16,7 +16,7 @@ Merge → main + V1.9. Plan: `Audit/2026-09-02-Sprint-Fix.md`.
 - `server/stats.php` wird von einer anderen Session (Dashboard) bearbeitet — nicht Teil dieses Sprints.
 
 ## Entscheide (mit Grund — nicht neu ausdiskutieren)
-- **Lightroom-Export bleibt in Release ausgeblendet** (`AppInfo.lightroomExportEnabled` = `#if DEBUG`):
+- **Lightroom-Export ist nicht Teil der Release-App** (ganzer Stack datei-weit `#if DEBUG`, seit 02.09.):
   Bridge verschmutzt fremde Lightroom-Kataloge mit Geister-Importen, SDK kann sie nicht entfernen.
 - **Engine MUSS Lightroom bleiben**: Photoshop/ACR rendert Levins KI-Masken (Motiv/Objekt) NICHT.
   Späterer Export-Fix = **eigener Wegwerf-Katalog**, NICHT Engine-Wechsel.
