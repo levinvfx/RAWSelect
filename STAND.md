@@ -1,9 +1,10 @@
 # RAW Select — Stand (02.09.2026)
 
 ## Ziel
-**Sprint-Fix abgeschlossen** auf Branch `sprint-fix` (5 Wellen, 6 Commits ab `e758f66`, Rückfall-Tag
-`pre-sprint-2026-09-02`). Öffentlich ist noch **V1.8.1**; der Sprint wartet auf Levins Test + Go für
-Merge → main + V1.9. Plan: `Audit/2026-09-02-Sprint-Fix.md`.
+**Sprint-Fix gemerged auf `main` und gepusht** (02.09., Fast-Forward bis `b423150`, Rückfall-Tag
+`pre-sprint-2026-09-02` ebenfalls auf GitHub). Öffentlich ist noch **V1.8.1** — Levin wollte bewusst
+„nur mergen"; **V1.9-Release erst nach seinem Live-Test** (Version-Bump an beiden Stellen, DMG, Release).
+Plan: `Audit/2026-09-02-Sprint-Fix.md`.
 
 ## Stand (belegt)
 - W1 Datenverlust `6396038` · W2 Async/Tempo `41a32a6` · W3 Release-Grenze `d7593ed` ·
