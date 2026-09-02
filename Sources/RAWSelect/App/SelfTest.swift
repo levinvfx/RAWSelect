@@ -488,6 +488,9 @@ enum SelfTest {
         loaderSem.wait()
         check(ThumbnailLoader.shared.decodeCount - loaderBase == 1, "repeat thumbnail request decodes once, then hits cache")
 
+        // Loupe zoom view (mouse wheel, fit, photo swap) — headless AppKit.
+        zoomTests(check)
+
         SessionStore.delete(identityID: testID)
         try? fm.removeItem(at: root)
         print(failures == 0 ? "\nALL PASSED ✅" : "\n\(failures) FAILED ❌")

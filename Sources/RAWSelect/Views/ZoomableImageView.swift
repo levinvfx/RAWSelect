@@ -153,9 +153,7 @@ struct ZoomableImageView: NSViewRepresentable {
             scroll.magnification = max(newFit, min(scroll.maxMagnification, targetMag))
             let centerDoc = CGPoint(x: normCenter.x * newSize.width, y: normCenter.y * newSize.height)
             let vis = scroll.contentView.bounds.size
-            scroll.contentView.scroll(to: NSPoint(x: centerDoc.x - vis.width / 2,
-                                                  y: centerDoc.y - vis.height / 2))
-            scroll.reflectScrolledClipView(scroll.contentView)
+            scrollClamped(to: NSPoint(x: centerDoc.x - vis.width / 2, y: centerDoc.y - vis.height / 2))
             updatePercent()
         }
 
@@ -221,6 +219,11 @@ struct ZoomableImageView: NSViewRepresentable {
                 let p = scroll.convert(wp, from: nil)
                 fx = min(max((p.x - viewport.minX) / viewport.width, 0), 1)
                 fy = min(max((p.y - viewport.minY) / viewport.height, 0), 1)
+                // NSScrollView is flipped (y grows downwards) but the document is not: the
+                // fraction is measured from the top, yet applied in bottom-up doc coordinates.
+                // Without this the anchor only holds at the vertical centre — near the top or
+                // bottom edge the viewport is thrown thousands of pixels outside the image.
+                if scroll.isFlipped { fy = 1 - fy }
             }
 
             let startTime = CACurrentMediaTime()
@@ -232,8 +235,7 @@ struct ZoomableImageView: NSViewRepresentable {
                 scroll.magnification = m
                 if let a = anchorDoc {
                     let visW = viewport.width / m, visH = viewport.height / m
-                    scroll.contentView.scroll(to: NSPoint(x: a.x - fx * visW, y: a.y - fy * visH))
-                    scroll.reflectScrolledClipView(scroll.contentView)
+                    self.scrollClamped(to: NSPoint(x: a.x - fx * visW, y: a.y - fy * visH))
                 }
                 self.updatePercent()
                 if progress >= 1 { t.invalidate(); self.animTimer = nil }
@@ -256,11 +258,11 @@ struct ZoomableImageView: NSViewRepresentable {
                 let anchorDoc = doc.convert(wp, from: nil)
                 let p = scroll.convert(wp, from: nil)
                 let fx = min(max((p.x - viewport.minX) / viewport.width, 0), 1)
-                let fy = min(max((p.y - viewport.minY) / viewport.height, 0), 1)
+                var fy = min(max((p.y - viewport.minY) / viewport.height, 0), 1)
+                if scroll.isFlipped { fy = 1 - fy }              // see animateMagnification
                 scroll.magnification = end
                 let visW = viewport.width / end, visH = viewport.height / end
-                scroll.contentView.scroll(to: NSPoint(x: anchorDoc.x - fx * visW, y: anchorDoc.y - fy * visH))
-                scroll.reflectScrolledClipView(scroll.contentView)
+                scrollClamped(to: NSPoint(x: anchorDoc.x - fx * visW, y: anchorDoc.y - fy * visH))
             } else {
                 scroll.magnification = end
                 recenter()
@@ -272,8 +274,19 @@ struct ZoomableImageView: NSViewRepresentable {
             guard let scroll, let doc = scroll.documentView else { return }
             let mid = NSPoint(x: doc.frame.midX, y: doc.frame.midY)
             let vis = scroll.contentView.bounds.size
-            scroll.contentView.scroll(to: NSPoint(x: mid.x - vis.width / 2, y: mid.y - vis.height / 2))
-            scroll.reflectScrolledClipView(scroll.contentView)
+            scrollClamped(to: NSPoint(x: mid.x - vis.width / 2, y: mid.y - vis.height / 2))
+        }
+
+        /// Scrolls the clip view to `origin`, clamped through `constrainBoundsRect` first.
+        /// `NSClipView.scroll(to:)` on its own does NOT constrain — a computed origin outside the
+        /// document leaves the viewport showing nothing but background (a "black" loupe), and the
+        /// centring of `CenteringClipView` only takes effect through this clamp as well.
+        private func scrollClamped(to origin: NSPoint) {
+            guard let scroll else { return }
+            let clip = scroll.contentView
+            let target = NSRect(origin: origin, size: clip.bounds.size)
+            clip.scroll(to: clip.constrainBoundsRect(target).origin)
+            scroll.reflectScrolledClipView(clip)
         }
 
         func handle(_ cmd: ZoomController.Command) {
@@ -332,8 +345,7 @@ struct ZoomableImageView: NSViewRepresentable {
             var origin = clip.bounds.origin
             origin.x -= t.x
             origin.y -= t.y
-            clip.scroll(to: origin)
-            scroll.reflectScrolledClipView(clip)
+            scrollClamped(to: origin)
             g.setTranslation(.zero, in: clip)
         }
 
@@ -357,9 +369,8 @@ struct ZoomableImageView: NSViewRepresentable {
             guard let scroll, let doc = scroll.documentView, doc.frame.width > 1 else { return }
             suppressCenterReport = true
             let vis = scroll.contentView.bounds.size
-            scroll.contentView.scroll(to: NSPoint(x: c.x * doc.frame.width - vis.width / 2,
-                                                  y: c.y * doc.frame.height - vis.height / 2))
-            scroll.reflectScrolledClipView(scroll.contentView)
+            scrollClamped(to: NSPoint(x: c.x * doc.frame.width - vis.width / 2,
+                                      y: c.y * doc.frame.height - vis.height / 2))
             suppressCenterReport = false
         }
 
@@ -416,8 +427,10 @@ final class CenteringClipView: NSClipView {
         var rect = super.constrainBoundsRect(proposedBounds)
         guard let doc = documentView else { return rect }
         let df = doc.frame
-        if rect.width > df.width  { rect.origin.x = (df.width  - rect.width)  / 2 }
-        if rect.height > df.height { rect.origin.y = (df.height - rect.height) / 2 }
+        // `>=` with a little slack: at exact fit the viewport equals the image up to float
+        // noise, and that must still centre instead of falling through to an arbitrary offset.
+        if rect.width >= df.width - 0.5  { rect.origin.x = (df.width  - rect.width)  / 2 }
+        if rect.height >= df.height - 0.5 { rect.origin.y = (df.height - rect.height) / 2 }
         return rect
     }
 }
