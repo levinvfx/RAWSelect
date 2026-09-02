@@ -36,18 +36,19 @@ struct ContentView: View {
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: app.toast)
         .sheet(isPresented: $app.showShortcuts) { ShortcutsSheet() }
+        // ⌫ on more than one photo asks first (one photo goes straight away, culling stays fast).
         .confirmationDialog(
-            "Markierte Bilder verschieben?",
+            "\(app.pendingTrash?.count ?? 0) Bilder in den Papierkorb?",
             isPresented: Binding(
-                get: { app.pendingMoveTarget != nil },
-                set: { if !$0 { app.cancelMove() } }
+                get: { app.pendingTrash != nil },
+                set: { if !$0 { app.cancelTrash() } }
             ),
             titleVisibility: .visible
         ) {
-            Button("Verschieben", role: .destructive) { app.confirmMove() }
-            Button("Abbrechen", role: .cancel) { app.cancelMove() }
+            Button("In den Papierkorb", role: .destructive) { app.confirmTrash() }
+            Button("Abbrechen", role: .cancel) { app.cancelTrash() }
         } message: {
-            Text("\(app.selectionCount) Bilder werden aus dem Quellordner entfernt und in den Zielordner verschoben. Die Originale bleiben nicht am ursprünglichen Ort.")
+            Text("Die Dateien (inkl. XMP) landen im macOS-Papierkorb und können dort wiederhergestellt werden.")
         }
     }
 }

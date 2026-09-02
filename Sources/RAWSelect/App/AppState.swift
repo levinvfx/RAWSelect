@@ -51,7 +51,6 @@ final class AppState: ObservableObject {
     @Published var statusMessage = "Kein Ordner geöffnet."
 
     @Published var operation: OperationState?
-    @Published var pendingMoveTarget: URL?
     @Published var showExportWizard = false
 
     /// Non-destructive per-photo edits (crop/rotate/develop), keyed by group id.
@@ -108,6 +107,16 @@ final class AppState: ObservableObject {
     private var cancelToken: CancellationToken?
     private var keyMonitor: Any?
     private var identity: FolderIdentity?
+    /// Bumped on every open()/browse(). Async completions (scan, copy, trash, decodes) capture it
+    /// and must NOT touch state once the folder changed: photo ids are scan-root-relative, so a
+    /// late completion would hit the WRONG folder's photos (and persist that).
+    private var folderGeneration = 0
+    /// Persist keys of photos removed from this folder (trashed). sessionSnapshot() only scopes
+    /// photos still loaded, so without this their marks would linger as orphans in the session
+    /// file and re-attach to a later file of the same name.
+    private var removedPersistKeys = Set<String>()
+    /// Photos waiting for the trash confirmation (⌫ on more than one photo).
+    @Published var pendingTrash: [PhotoGroup]?
 
     // MARK: Derived (cached — rebuilt only when groups/filter/marks change, so the
     // navigation hot path stays O(1) even with thousands of photos).
@@ -182,6 +191,7 @@ final class AppState: ObservableObject {
     func browse(_ url: URL) {
         scanCancelToken?.cancel()
         scanTask?.cancel()
+        folderGeneration += 1
         browseRoot = url
         rootURL = nil
         groups = []
@@ -209,6 +219,9 @@ final class AppState: ObservableObject {
     func open(_ url: URL, setBrowseRoot: Bool = true) {
         scanCancelToken?.cancel()
         scanTask?.cancel()
+        folderGeneration += 1
+        removedPersistKeys = []
+        pendingTrash = nil
         rootURL = url
         tagFilter.reset()  // opening a folder always shows all images found in it
         // The undo snapshots belong to the folder we're leaving. Photo ids are relative to the
@@ -244,15 +257,16 @@ final class AppState: ObservableObject {
 
         let token = CancellationToken()
         scanCancelToken = token
+        let gen = folderGeneration
         scanTask = Task {
             let found: [PhotoGroup] = await Task.detached(priority: .userInitiated) {
                 var groups = PhotoScanner.scan(root: url, allowedExtensions: allowed, recursive: recursive,
                                                groupPairs: groupPairs, ignoreHidden: ignoreHidden,
                                                cameraFoldersOnly: cameraOnly,
                                                isCancelled: { token.isCancelled },
-                                               onProgress: { n in Task { @MainActor in self.scanFound = n } })
+                                               onProgress: { n in Task { @MainActor in if self.folderGeneration == gen { self.scanFound = n } } })
                 for i in groups.indices {
-                    let key = identity.persistKey(directory: groups[i].directory, baseName: groups[i].baseName)
+                    let key = identity.persistKey(for: groups[i], groupPairs: groupPairs)
                     groups[i].persistKey = key
                     if let state = savedMarks[key] {
                         groups[i].mark = state.mark
@@ -261,6 +275,9 @@ final class AppState: ObservableObject {
                 return groups
             }.value
 
+            // A newer folder took over while we scanned → its state is not ours to touch
+            // (this used to switch OFF the new scan's spinner and count).
+            guard gen == self.folderGeneration else { return }
             if Task.isCancelled || token.isCancelled { self.isScanning = false; return }
             self.groups = found
             // Re-attach saved non-destructive edits to their photos.
@@ -533,6 +550,7 @@ final class AppState: ObservableObject {
             guard g.mark != 0 || hasEdit else { continue }
             states[g.persistKey] = SessionStore.PhotoState(mark: g.mark, edit: hasEdit ? edit : nil)
         }
+        scope.formUnion(removedPersistKeys)   // wipe trashed photos from the file, not just from memory
         return (identity.id, states, scope)
     }
 
@@ -705,27 +723,28 @@ final class AppState: ObservableObject {
         guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
         let what = includeSidecars ? "Bilder + XMP" : "nur Bilder"
         guard let target = FinderService.chooseDestination(title: "Ziel für \(sel.count) Bilder (\(what))") else { return }
+        // The card is the one place we promise never to write to. Copying INTO it is allowed,
+        // but only knowingly — a wrong click in the folder picker must not fill the card up.
+        if sourceIsExternal, let src = rootURL, isSameVolume(src, target), !confirmCopyOntoCard() { return }
         runOperation(.copy, target: target, groups: sel, includeSidecars: includeSidecars)
     }
 
-    func requestMoveSelection() {
-        let sel = selectedGroups
-        guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
-        guard !sourceIsExternal else {
-            statusMessage = "Verschieben ist von SD-Karten/externen Datenträgern deaktiviert – bitte kopieren."
-            return
-        }
-        guard let target = FinderService.chooseDestination(title: "Ziel für \(sel.count) Bilder (Verschieben)") else { return }
-        pendingMoveTarget = target
+    private func isSameVolume(_ a: URL, _ b: URL) -> Bool {
+        let va = try? a.resourceValues(forKeys: [.volumeURLKey]).volume
+        let vb = try? b.resourceValues(forKeys: [.volumeURLKey]).volume
+        return va != nil && va == vb
     }
 
-    func confirmMove() {
-        guard let target = pendingMoveTarget else { return }
-        pendingMoveTarget = nil
-        runOperation(.move, target: target, groups: selectedGroups, includeSidecars: true)
+    private func confirmCopyOntoCard() -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Zielordner liegt auf der Quell-Karte"
+        alert.informativeText = "Die Bilder würden auf dieselbe SD-Karte kopiert, von der sie stammen. Trotzdem kopieren?"
+        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: "Trotzdem kopieren")
+        return alert.runModal() == .alertSecondButtonReturn
     }
 
-    func cancelMove() { pendingMoveTarget = nil }
     func cancelOperation() { cancelToken?.cancel() }
 
     /// Reject flow: moves the selected photos to the macOS Trash (recoverable), then advances
@@ -738,13 +757,45 @@ final class AppState: ObservableObject {
             statusMessage = "Löschen ist von SD-Karten/externen Datenträgern deaktiviert – bitte erst kopieren."
             showToast("Löschen von SD-Karten ist deaktiviert.", kind: .error); return
         }
+        // One photo goes straight away (fast culling). More than one asks first: ⌘A + ⌫ was a
+        // whole folder in the Trash on a single keypress, with no in-app undo.
+        if sel.count > 1 { pendingTrash = sel; return }
+        performTrash(sel)
+    }
+
+    func confirmTrash() {
+        guard let sel = pendingTrash else { return }
+        pendingTrash = nil
+        performTrash(sel)
+    }
+
+    func cancelTrash() { pendingTrash = nil }
+
+    private func performTrash(_ sel: [PhotoGroup]) {
         let anchorPos = filteredGroups.firstIndex { $0.id == currentID }
+        let gen = folderGeneration
+        let token = CancellationToken()
+        cancelToken = token
+        operation = OperationState(title: "In den Papierkorb …", completed: 0, total: 0)
         Task {
-            let outcome = await Task.detached(priority: .userInitiated) {
-                FileOperationService.trash(groups: sel)
+            let outcome = await Task.detached(priority: .userInitiated) { [weak self] in
+                FileOperationService.trash(groups: sel,
+                    progress: { completed, total in
+                        Task { @MainActor in
+                            self?.operation?.completed = completed
+                            self?.operation?.total = total
+                        }
+                    },
+                    isCancelled: { token.isCancelled })
             }.value
+            self.operation = nil
+            guard gen == self.folderGeneration else {
+                self.showToast("Papierkorb-Vorgang beendet – der Ordner wurde inzwischen gewechselt.", kind: .info)
+                return
+            }
             let trashed = outcome.trashedGroupIDs
-            guard !trashed.isEmpty || !outcome.failures.isEmpty else { return }
+            guard !trashed.isEmpty || !outcome.failures.isEmpty || outcome.cancelled else { return }
+            for g in self.groups where trashed.contains(g.id) { self.removedPersistKeys.insert(g.persistKey) }
             self.groups.removeAll { trashed.contains($0.id) }
             self.selectedIDs.subtract(trashed)
             for id in trashed { self.edits[id] = nil }
@@ -756,7 +807,10 @@ final class AppState: ObservableObject {
             if list.isEmpty { self.selectedIDs = []; self.currentID = nil }
             else { self.selectSingle(list[min(anchorPos ?? 0, list.count - 1)].id) }
 
-            if outcome.failures.isEmpty {
+            if outcome.cancelled {
+                self.statusMessage = "Abgebrochen – \(outcome.photos) Bilder im Papierkorb."
+                self.showToast("Abgebrochen – \(outcome.photos) im Papierkorb.", kind: .info)
+            } else if outcome.failures.isEmpty {
                 let n = outcome.photos
                 self.statusMessage = "\(n) \(n == 1 ? "Bild" : "Bilder") in den Papierkorb verschoben."
                 self.showToast("\(n) in den Papierkorb.", kind: .success)
@@ -802,24 +856,17 @@ final class AppState: ObservableObject {
                 self.operation = nil
                 let verb = kind == .copy ? "kopiert" : "verschoben"
 
-                if kind == .move {
-                    // Only remove groups whose files ALL moved (partial moves stay).
-                    let moved = outcome.movedGroupIDs
-                    self.groups.removeAll { moved.contains($0.id) }
-                    self.selectedIDs.subtract(moved)
-                    self.refreshDerived()
-                    self.persistState()
-                    self.reconcileSelection()
-                }
-
-                if outcome.failures.isEmpty {
+                if outcome.cancelled {
+                    self.statusMessage = "Abgebrochen – \(outcome.files) Dateien \(verb)."
+                    self.showToast("Abgebrochen – \(outcome.files) Dateien \(verb).", kind: .info)
+                } else if outcome.failures.isEmpty {
                     self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) \(verb)."
                     self.showToast("\(outcome.photos) Bilder \(verb).", kind: .success)
+                    if self.settings.revealAfterExport { FinderService.revealFolder(target) }
                 } else {
                     self.statusMessage = "\(outcome.files) Dateien \(verb) – \(outcome.failures.count) fehlgeschlagen."
                     self.showToast("\(outcome.failures.count) Datei(en) nicht \(verb) – Rest ok.", kind: .error)
                 }
-                if self.settings.revealAfterExport { FinderService.revealFolder(target) }
             } catch {
                 self.operation = nil
                 self.statusMessage = "Fehler: \(error.localizedDescription)"
@@ -840,7 +887,7 @@ final class AppState: ObservableObject {
         // ⌘Z undoes the last marking — only in the browser (not Settings/sheets/text fields).
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
            event.charactersIgnoringModifiers == "z",
-           !showExportWizard, !showEditor, NSApp.keyWindow === NSApp.mainWindow,
+           !showExportWizard, !showEditor, operation == nil, NSApp.keyWindow === NSApp.mainWindow,
            !(NSApp.keyWindow?.firstResponder is NSText) {
             undoMark(); return true
         }
@@ -849,7 +896,7 @@ final class AppState: ObservableObject {
         // so it never fights a text field or a modal.
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
            event.charactersIgnoringModifiers == "a",
-           !showExportWizard, !showEditor, NSApp.keyWindow === NSApp.mainWindow,
+           !showExportWizard, !showEditor, operation == nil, NSApp.keyWindow === NSApp.mainWindow,
            !(NSApp.keyWindow?.firstResponder is NSText) {
             selectAllFiltered(); return true
         }
@@ -865,7 +912,10 @@ final class AppState: ObservableObject {
         // CRITICAL: only the browser window (no export sheet / Settings window
         // open) may react to ANY culling/navigation key. Otherwise digit keys
         // would silently re-mark the background selection while a modal is up.
-        guard !showExportWizard, !showEditor, NSApp.keyWindow === NSApp.mainWindow else { return false }
+        // `operation`: the progress overlay is an .overlay in the SAME window, not a sheet — so
+        // without this, ⌘A + ⌫ during a copy trashed the originals while they were being read.
+        guard !showExportWizard, !showEditor, operation == nil, pendingTrash == nil,
+              NSApp.keyWindow === NSApp.mainWindow else { return false }
 
         if viewMode == .compare { return handleCompare(event) }
 

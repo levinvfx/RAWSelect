@@ -32,8 +32,15 @@ struct FolderIdentity {
                 // Nothing is ever written to the card.
                 let name = values?.volumeName ?? volumeURL.lastPathComponent
                 let capacity = values?.volumeTotalCapacity ?? 0
-                let born = values?.volumeCreationDate.map { Int($0.timeIntervalSince1970) } ?? 0
-                self.id = "fp-\(name)-\(capacity)-\(born)"
+                if let born = values?.volumeCreationDate.map({ Int($0.timeIntervalSince1970) }) {
+                    self.id = "fp-\(name)-\(capacity)-\(born)"
+                } else {
+                    // No creation date either (some FAT/exFAT cards). Falling back to 0 here
+                    // merged two factory-formatted cards into ONE session — exactly the bug the
+                    // date was meant to prevent. Fingerprint the card's own content instead:
+                    // stable across re-inserts, different per card, new after a format.
+                    self.id = "fp-\(name)-\(capacity)-c\(FolderIdentity.contentSample(of: volumeURL))"
+                }
             }
             self.keyBase = volumeURL
         } else {
@@ -41,6 +48,40 @@ struct FolderIdentity {
             self.id = "path-" + root.standardizedFileURL.path
             self.keyBase = root
         }
+    }
+
+    /// Persist key for a scanned group. In ungrouped mode the runtime id keeps RAW and JPG
+    /// apart, so the key must carry the extension too — otherwise IMG_0001.ARW and
+    /// IMG_0001.JPG share one saved mark and overwrite each other on every save.
+    func persistKey(for group: PhotoGroup, groupPairs: Bool) -> String {
+        let name = groupPairs ? group.baseName
+            : group.baseName + "." + (group.files.first?.pathExtension.lowercased() ?? "")
+        return persistKey(directory: group.directory, baseName: name)
+    }
+
+    /// Hash over a sample of photo files on the volume (path relative to the mount point +
+    /// size, in stable name order). A camera appends new shots at the END of its numbering,
+    /// so the first files stay the same for a card in use; a format or a different card
+    /// changes them. Read-only, bounded, cheap.
+    private static func contentSample(of volume: URL) -> String {
+        let fm = FileManager.default
+        let base = volume.standardizedFileURL.path
+        var entries: [String] = []
+        if let en = fm.enumerator(at: volume, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+                                  options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
+            for case let url as URL in en {
+                guard PhotoTypes.isSupported(url),
+                      let v = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                      v.isRegularFile == true else { continue }
+                let rel = String(url.standardizedFileURL.path.dropFirst(base.count)).lowercased()
+                entries.append(rel + ":" + String(v.fileSize ?? 0))
+                if entries.count >= 200 { break }
+            }
+        }
+        let sample = entries.sorted().prefix(40).joined(separator: "|")
+        var h: UInt64 = 14_695_981_039_346_656_037            // FNV-1a
+        for b in sample.utf8 { h ^= UInt64(b); h = h &* 1_099_511_628_211 }
+        return String(h, radix: 16)
     }
 
     /// Stable key for a photo group (directory + base name), relative to the

@@ -204,9 +204,13 @@ private struct LargePreview: View {
         // Quick soft tier first (fast to decode), then the sharp one.
         if loader.cached(for: url, maxPixel: settings.instantPixels) == nil {
             _ = await loader.thumbnail(for: url, maxPixel: settings.instantPixels)
+            if Task.isCancelled { return }
             version &+= 1
         }
         let sharp = await loader.thumbnail(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
+        // Moved on while decoding: a cancelled decode returns nil, which must NOT brand this
+        // (perfectly fine) photo as unreadable — that is how healthy frames got culled blind.
+        if Task.isCancelled { return }
         version &+= 1
         // Nothing decoded at any tier → this file is unreadable. Say so instead of leaving
         // the previous photo on screen pretending to be this one.

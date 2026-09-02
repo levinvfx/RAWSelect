@@ -13,6 +13,7 @@ struct FileOperationService {
         var files: Int    // number of individual files copied/moved (incl. XMP)
         var failures: [String] = []          // "filename: reason" for files that failed
         var movedGroupIDs: Set<String> = []  // groups whose files ALL moved (move only)
+        var cancelled = false                // stopped early by the user — never report as "done"
     }
 
     /// - Parameters:
@@ -53,11 +54,12 @@ struct FileOperationService {
         var fileCount = 0
         var failures: [String] = []
         var movedGroupIDs = Set<String>()
+        var cancelled = false
         var used = Set<String>()            // destinations already written in THIS run
         progress(0, totalFiles)
 
         for group in groups {
-            if isCancelled() { break }
+            if isCancelled() { cancelled = true; break }
             var didProcessAny = false
             var completedWholeGroup = true   // false if any file skipped/failed/cancelled
 
@@ -71,8 +73,15 @@ struct FileOperationService {
             }
 
             for file in filesToProcess(group) {
-                if isCancelled() { completedWholeGroup = false; break }
-                guard fm.fileExists(atPath: file.path) else { completedWholeGroup = false; continue }
+                if isCancelled() { cancelled = true; completedWholeGroup = false; break }
+                guard fm.fileExists(atPath: file.path) else {
+                    // A vanished source is a FAILURE, not a silent skip — otherwise the report
+                    // says "done" while photos are missing at the destination.
+                    failures.append("\(file.lastPathComponent): Quelldatei nicht gefunden")
+                    completedWholeGroup = false
+                    completed += 1; progress(completed, totalFiles)
+                    continue
+                }
 
                 var destination = dir.appendingPathComponent(file.lastPathComponent)
                 if used.contains(destination.path) {
@@ -106,7 +115,8 @@ struct FileOperationService {
             if kind == .move && didProcessAny && completedWholeGroup { movedGroupIDs.insert(group.id) }
         }
 
-        return Outcome(photos: photoCount, files: fileCount, failures: failures, movedGroupIDs: movedGroupIDs)
+        return Outcome(photos: photoCount, files: fileCount, failures: failures,
+                       movedGroupIDs: movedGroupIDs, cancelled: cancelled)
     }
 
     struct TrashOutcome {
@@ -115,6 +125,7 @@ struct FileOperationService {
         var failures: [String] = []           // "filename: reason"
         var trashedGroupIDs: Set<String> = [] // groups whose files ALL trashed → drop from the list
         var trashedURLs: [URL] = []           // resulting locations in the Trash
+        var cancelled = false
     }
 
     /// Moves a set of photos (and optional sidecars) to the macOS Trash — recoverable, never a
@@ -133,14 +144,15 @@ struct FileOperationService {
         var failures: [String] = []
         var trashedGroupIDs = Set<String>()
         var trashedURLs: [URL] = []
+        var cancelled = false
         progress(0, totalFiles)
 
         for group in groups {
-            if isCancelled() { break }
+            if isCancelled() { cancelled = true; break }
             var didProcessAny = false
             var completedWholeGroup = true
             for file in filesToProcess(group) {
-                if isCancelled() { completedWholeGroup = false; break }
+                if isCancelled() { cancelled = true; completedWholeGroup = false; break }
                 guard fm.fileExists(atPath: file.path) else { completedWholeGroup = false; continue }
                 do {
                     var resulting: NSURL?
@@ -157,7 +169,7 @@ struct FileOperationService {
             if didProcessAny && completedWholeGroup { trashedGroupIDs.insert(group.id) }
         }
         return TrashOutcome(photos: photoCount, files: fileCount, failures: failures,
-                            trashedGroupIDs: trashedGroupIDs, trashedURLs: trashedURLs)
+                            trashedGroupIDs: trashedGroupIDs, trashedURLs: trashedURLs, cancelled: cancelled)
     }
 
     /// Returns a non-colliding destination URL, appending _1, _2, … if needed.

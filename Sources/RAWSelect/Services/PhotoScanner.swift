@@ -67,10 +67,30 @@ struct PhotoScanner {
         var groups: [PhotoGroup] = []
         groups.reserveCapacity(buckets.count)
 
+        // Ungrouped mode: a plain "IMG_0001.xmp" is filed under the base name, but the bucket
+        // keys carry the extension — so it matched neither the ARW nor the JPG and was dropped.
+        // Give it to the RAW of that base (or the first file if there is none), never to both:
+        // a copy would otherwise write the same sidecar twice.
+        func baseKey(_ key: String, _ files: [URL]) -> String {
+            let ext = files[0].pathExtension.lowercased()
+            return groupPairs ? key : String(key.dropLast(ext.count + 1))
+        }
+        var plainSidecarOwner: [String: String] = [:]
+        if !groupPairs {
+            for (key, files) in buckets {
+                let bk = baseKey(key, files)
+                if plainSidecarOwner[bk] == nil || PhotoTypes.isRaw(files[0]) { plainSidecarOwner[bk] = key }
+            }
+        }
+
         for (key, files) in buckets {
             let sorted = files.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
             let base = sorted[0].deletingPathExtension().lastPathComponent
-            let matchedSidecars = (sidecars[key] ?? [])
+            var candidates = sidecars[key] ?? []
+            if !groupPairs, plainSidecarOwner[baseKey(key, sorted)] == key {
+                candidates += sidecars[baseKey(key, sorted)] ?? []
+            }
+            let matchedSidecars = candidates
                 .reduce(into: [URL]()) { acc, url in if !acc.contains(url) { acc.append(url) } }
 
             var totalSize = 0

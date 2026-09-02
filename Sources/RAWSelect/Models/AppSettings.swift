@@ -5,7 +5,7 @@ import Combine
 
 enum SortField: String, CaseIterable, Identifiable { case filename, captureDate, mark
     var id: String { rawValue }
-    var label: String { switch self { case .filename: return "Dateiname"; case .captureDate: return "Aufnahmedatum"; case .mark: return "Markierung" } }
+    var label: String { switch self { case .filename: return "Dateiname"; case .captureDate: return "Dateidatum"; case .mark: return "Markierung" } }
 }
 enum PreviewMode: String, CaseIterable, Identifiable { case fast, balanced, quality
     var id: String { rawValue }

@@ -60,6 +60,23 @@ enum SelfTest {
         check(identity.id == identity2.id, "same volume → same identity from a subfolder")
         check(key == key2, "same photo → same persist key from either folder")
 
+        // 3b. Ungrouped mode (RAW and JPG kept apart): the persist keys MUST differ too —
+        //     they used to collide on the base name, so both files shared one saved mark.
+        let ungrouped = PhotoScanner.scan(root: root, groupPairs: false)
+        let arw = ungrouped.first { $0.files.first?.pathExtension.lowercased() == "arw" }
+        let jpg = ungrouped.first { $0.baseName == "IMG_0001" && $0.files.first?.pathExtension.lowercased() == "jpg" }
+        check(ungrouped.count == 3, "ungrouped scan keeps ARW and JPG apart (got \(ungrouped.count))")
+        if let arw, let jpg {
+            let kA = identity.persistKey(for: arw, groupPairs: false)
+            let kJ = identity.persistKey(for: jpg, groupPairs: false)
+            check(kA != kJ, "ungrouped: ARW and JPG get different persist keys")
+            check(kA.hasSuffix(".arw") && kJ.hasSuffix(".jpg"), "ungrouped persist keys carry the extension")
+            check(arw.sidecars.count == 2, "ungrouped: RAW owns both sidecars (plain + .ARW.xmp), got \(arw.sidecars.count)")
+            check(jpg.sidecars.isEmpty, "ungrouped: JPG does not duplicate the plain sidecar")
+        } else {
+            check(false, "ungrouped scan produced ARW and JPG groups")
+        }
+
         let testID = "selftest-" + UUID().uuidString
         SessionStore.save(identityID: testID, states: [key: .init(mark: 3)], scope: [key])
         check(SessionStore.load(identityID: testID)[key]?.mark == 3, "mark persists under volume-identity key")
@@ -94,6 +111,20 @@ enum SelfTest {
             check(contents.contains("IMG_0001_1.ARW"), "conflict appended _1 instead of overwriting")
             check(contents.count == 8, "no overwrite: 8 files after two copies (got \(contents.count))")
         } catch { check(false, "copy threw: \(error.localizedDescription)") }
+
+        // 4b. A source that vanished mid-way is a FAILURE in the report (it used to be skipped
+        //     silently, so "done" could be shown while photos were missing at the destination).
+        do {
+            var ghost = paired!
+            ghost.files = [sub.appendingPathComponent("IMG_0001.ARW"), sub.appendingPathComponent("GONE_9999.ARW")]
+            let out = try FileOperationService.perform(.copy, groups: [ghost], targetRoot: root.appendingPathComponent("out_ghost"),
+                                                       includeSidecars: false, progress: { _, _ in }, isCancelled: { false })
+            check(out.failures.count == 1 && out.failures[0].contains("GONE_9999"), "missing source file is reported as a failure")
+            check(out.files == 1 && !out.cancelled, "the existing file still copies; not marked cancelled")
+            let cancelled = try FileOperationService.perform(.copy, groups: [paired!], targetRoot: root.appendingPathComponent("out_cancel"),
+                                                             includeSidecars: false, progress: { _, _ in }, isCancelled: { true })
+            check(cancelled.cancelled && cancelled.files == 0, "cancelled before the first file → outcome says cancelled, nothing copied")
+        } catch { check(false, "ghost copy threw: \(error.localizedDescription)") }
 
         // 5. Flat copy WITHOUT sidecars
         let target2 = root.appendingPathComponent("out_noxmp")
