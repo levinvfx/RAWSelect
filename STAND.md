@@ -1,10 +1,8 @@
-# RAW Select — Stand (02.09.2026)
+# RAW Select — Stand (02.09.2026, nachmittags)
 
 ## Ziel
-**Sprint-Fix gemerged auf `main` und gepusht** (02.09., Fast-Forward bis `b423150`, Rückfall-Tag
-`pre-sprint-2026-09-02` ebenfalls auf GitHub). Öffentlich ist noch **V1.8.1** — Levin wollte bewusst
-„nur mergen"; **V1.9-Release erst nach seinem Live-Test** (Version-Bump an beiden Stellen, DMG, Release).
-Plan: `Audit/2026-09-02-Sprint-Fix.md`.
+**V1.9 veröffentlicht** (02.09., Tag `v1.9`, Sprint-Fix + Zoom-Hotfix). Kollegen bekommen sie per
+Auto-Update. Plan des Sprints: `Audit/2026-09-02-Sprint-Fix.md`.
 
 ## Stand (belegt)
 - W1 Datenverlust `6396038` · W2 Async/Tempo `41a32a6` · W3 Release-Grenze `d7593ed` ·
@@ -12,8 +10,12 @@ Plan: `Audit/2026-09-02-Sprint-Fix.md`.
 - **Produktgrenze:** Release = reines Culling. Lightroom-Export/Editor/Bridge/Preset-Stack sind datei-weit
   `#if DEBUG`; Release-Bundle enthält kein Plugin, keinen Lightroom-Plist-Key, keine Export-Symbole.
   Lokal (`swift build`) alles da; `RS_DEV_BRIDGE=1 ./build_app.sh` synct das Plugin.
-- Von Levin **noch nicht live getestet**: Vergleich A|B (Pan/Zoom-Sync, ⇧1–9 für B), First-Run-Dialog der
-  Statistik, progressiver Scan bei grossem Ordner, ⌫-Rückfrage, Zähler unter den Filter-Chips.
+- **Zoom-Hotfix `89363e5`** (Kollegen-Meldung „schwarze Grossansicht" seit 1.8.1): NSScrollView ist flipped,
+  der Anker-Anteil fy war verkehrt herum; zudem klemmt `NSClipView.scroll(to:)` nie ans Dokument → neuer
+  `scrollClamped(to:)`. Headless-Test `App/SelfTestZoom.swift` (14 Checks) reproduziert und sichert es ab.
+- Levin hat 1.9 lokal getestet und freigegeben („veröffentliche").
+- **Projekt liegt auf OneDrive** → `.build` ist Symlink nach `~/Library/Caches/RAWSelect-build`, sonst hängen
+  git/swift build (fileproviderd). DMGs in `Releases/` sind untracked (gitignored) und lokal wiederhergestellt.
 - `server/stats.php` wird von einer anderen Session (Dashboard) bearbeitet — nicht Teil dieses Sprints.
 
 ## Entscheide (mit Grund — nicht neu ausdiskutieren)
@@ -38,7 +40,8 @@ Plan: `Audit/2026-09-02-Sprint-Fix.md`.
 
 ## Dateien
 - Version bumpen: `Sources/RAWSelect/Utilities/Constants.swift` **und** `build_app.sh` (beide!).
-- Deploy: Token in `~/.config/rawselect/gh-token`; Release-Muster `scratchpad/make_release_17.py`.
+- Deploy: Token in `~/.config/rawselect/gh-token`; Release-Muster im Session-Scratchpad `make_release_19.py`
+  (Release + DMG-Upload via REST-API; Tag vorher pushen, sonst legt GitHub ihn auf altem main an).
 - Telemetrie: `Services/TelemetryService.swift`, `Constants.telemetryEndpoint` (nil), Toggle in
   `Views/Settings/SettingsTabsB.swift` (Advanced), `server/` (PHP + README).
 
