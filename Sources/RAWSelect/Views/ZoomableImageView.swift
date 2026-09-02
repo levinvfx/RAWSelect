@@ -66,6 +66,9 @@ struct ZoomableImageView: NSViewRepresentable {
         coord.scroll = scroll
         coord.imageView = iv
         scroll.onLayout = { [weak coord] in coord?.layoutTick() }
+        scroll.onWheelZoom = { [weak coord] factor, point in
+            coord?.wheelZoom(by: factor, anchorWindowPoint: point)
+        }
         controller.command = { [weak coord] cmd in coord?.handle(cmd) }
         NotificationCenter.default.addObserver(
             coord, selector: #selector(Coordinator.magnifyEnded(_:)),
@@ -229,6 +232,34 @@ struct ZoomableImageView: NSViewRepresentable {
             }
         }
 
+        /// One mouse-wheel step: instant, anchored under the pointer. Deliberately NOT animated —
+        /// a wheel fires a rapid burst of ticks, and animating each one would make them fight
+        /// each other and feel laggy instead of direct.
+        func wheelZoom(by factor: CGFloat, anchorWindowPoint wp: NSPoint) {
+            guard let scroll else { return }
+            animTimer?.invalidate(); animTimer = nil
+            scroll.minMagnification = fitMagnification()
+            let start = scroll.magnification
+            let end = max(scroll.minMagnification, min(scroll.maxMagnification, start * factor))
+            guard abs(end - start) > 0.00001 else { return }
+
+            let viewport = scroll.contentView.frame           // fixed viewport, in points
+            if let doc = scroll.documentView, viewport.width > 0, viewport.height > 0 {
+                let anchorDoc = doc.convert(wp, from: nil)
+                let p = scroll.convert(wp, from: nil)
+                let fx = min(max((p.x - viewport.minX) / viewport.width, 0), 1)
+                let fy = min(max((p.y - viewport.minY) / viewport.height, 0), 1)
+                scroll.magnification = end
+                let visW = viewport.width / end, visH = viewport.height / end
+                scroll.contentView.scroll(to: NSPoint(x: anchorDoc.x - fx * visW, y: anchorDoc.y - fy * visH))
+                scroll.reflectScrolledClipView(scroll.contentView)
+            } else {
+                scroll.magnification = end
+                recenter()
+            }
+            updatePercent()
+        }
+
         private func recenter() {
             guard let scroll, let doc = scroll.documentView else { return }
             let mid = NSPoint(x: doc.frame.midX, y: doc.frame.midY)
@@ -319,9 +350,29 @@ struct ZoomableImageView: NSViewRepresentable {
 /// initial fit can be computed once the view is actually on screen.
 final class ZoomScrollView: NSScrollView {
     var onLayout: (() -> Void)?
+
+    /// Mouse-wheel zoom: (factor, anchor point in window coords).
+    var onWheelZoom: ((CGFloat, NSPoint) -> Void)?
+
     override func layout() {
         super.layout()
         onLayout?()
+    }
+
+    /// A classic mouse wheel zooms in/out at the pointer (requested by users culling with a
+    /// mouse). Only the wheel: trackpads and the Magic Mouse send PRECISE deltas and keep
+    /// their normal two-finger panning — they zoom by pinching, so hijacking their scroll
+    /// would break panning for them.
+    override func scrollWheel(with event: NSEvent) {
+        guard !event.hasPreciseScrollingDeltas, let onWheelZoom else {
+            super.scrollWheel(with: event)
+            return
+        }
+        let dy = event.scrollingDeltaY
+        guard dy != 0 else { return }
+        // Clamped so one flick of a fast/free-spinning wheel can't jump the whole zoom range.
+        let steps = max(-3, min(3, dy))
+        onWheelZoom(pow(1.15, steps), event.locationInWindow)
     }
 }
 

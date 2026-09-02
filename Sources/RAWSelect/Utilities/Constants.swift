@@ -3,7 +3,7 @@ import SwiftUI
 /// Central place for the file types and mark styling used across the app.
 enum AppInfo {
     static let name = "RAW Select"
-    static let version = "1.8"
+    static let version = "1.8.1"
 
     /// Der Lightroom-JPEG-Export (via Bridge-Plugin) ist noch in Entwicklung und in
     /// öffentlichen Release-Builds ausgeblendet: das Bridge-Plugin importiert jedes
