@@ -1,7 +1,9 @@
 # RAW Select — Stand (27.08.2026)
 
 ## Ziel
-RAW Select ist auf **V1.8 öffentlich** — die anonyme Nutzungsstatistik ist LIVE
+RAW Select ist auf **V1.8.1 öffentlich** (02.09.2026, Mausrad-Zoom aus Nutzer-Feedback:
+klassisches Rad zoomt auf den Zeiger, Trackpad unverändert — `ZoomableImageView.swift`).
+Davor V1.8 — die anonyme Nutzungsstatistik ist LIVE
 (Server: `vfxmedia.ch/rawselect/` auf Levins vServer, SSH-Zugang eingerichtet;
 Stats-Ansicht: Token in `~/.config/rawselect/stats-token`). Working Tree sauber.
 
