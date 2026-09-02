@@ -44,10 +44,11 @@ struct DetailView: View {
             ScanningView(name: app.rootURL?.lastPathComponent ?? "")
         } else if app.filteredGroups.isEmpty {
             ContentUnavailableView(
-                app.groups.isEmpty ? "Keine Bilder gefunden" : "Nichts in diesem Filter",
-                systemImage: "photo",
+                app.groups.isEmpty ? (app.scanCancelled ? "Scan abgebrochen" : "Keine Bilder gefunden") : "Nichts in diesem Filter",
+                systemImage: app.scanCancelled && app.groups.isEmpty ? "stop.circle" : "photo",
                 description: Text(app.groups.isEmpty
-                    ? "In diesem Ordner wurden keine unterstützten Bilder gefunden."
+                    ? (app.scanCancelled ? "Der Scan wurde abgebrochen, bevor Bilder geladen waren. Ordner erneut öffnen, um fortzufahren."
+                                         : "In diesem Ordner wurden keine unterstützten Bilder gefunden.")
                     : "Für diesen Filter gibt es keine Bilder.")
             )
         } else {

@@ -44,6 +44,12 @@ private struct LargePreview: View {
     /// photo on screen under this one's file name and mark pill — so a corrupt RAW looked
     /// like a perfectly good frame and got culled blind.
     @State private var failedID: String?
+    /// Full-res decodes kept warm: the photo on screen plus the NEXT one in stepping direction,
+    /// pre-developed while zoomed. Hard cap 2 — a developed RAW is 100+ MB. Checking a burst at
+    /// 100 % used to restart a cold 12 000-px decode on every single step.
+    @State private var hiResStore: [(id: String, image: NSImage)] = []
+    @State private var neighborTask: Task<NSImage?, Never>?
+    @State private var neighborID: String?
 
     /// Best preview available *right now*, read straight from the in-memory cache.
     /// This is called synchronously from `body`, so switching photos NEVER waits on
@@ -121,7 +127,10 @@ private struct LargePreview: View {
         }
         .animation(.easeOut(duration: 0.15), value: isLoadingHiRes)
         .task(id: group.id) { await upgrade() }
-        .task(id: group.id) {
+        // EXIF is read only while the overlay is on — it was one extra file read per photo on
+        // every step through a series, even with the overlay hidden (I/O on the card).
+        .task(id: "\(group.id)|\(app.showInfo)") {
+            guard app.showInfo else { return }
             let url = group.files.first ?? group.previewURL
             metadata = await Task.detached { MetadataService.metadata(for: url) }.value
         }
@@ -147,6 +156,12 @@ private struct LargePreview: View {
     /// again on zoom-out so browsing stays light. See `releaseHiRes()`.
     private func loadHiRes() {
         if hiResID == group.id, hiRes != nil { return }   // already sharp for this photo
+        // Pre-developed while we were on the previous photo → instant, no "RAW lädt…".
+        if let hit = hiResStore.first(where: { $0.id == group.id }) {
+            hiRes = hit.image; hiResID = group.id
+            prefetchNeighborHiRes()
+            return
+        }
         if attemptedID == group.id { return }             // already tried once → don't retry
         if loadingID == group.id { return }               // already decoding this photo →
                                                           // ignore the per-frame zoom events
@@ -158,18 +173,53 @@ private struct LargePreview: View {
         let url = app.rawURL(for: g)                       // the RAW file if present
         loadingID = g.id
         isLoadingHiRes = true
+        // If the neighbour pre-decode is already working on exactly this photo, wait for it
+        // instead of starting a second 100-MB decode of the same file.
+        let pending: Task<NSImage?, Never>? = (neighborID == g.id) ? neighborTask : nil
         hiResTask = Task {
             // Develops the RAW, or (if the OS lacks a codec, e.g. A7 V) falls back to
             // the largest embedded preview inside fullDecode.
-            let big = await ThumbnailLoader.shared.fullDecode(for: url, maxPixel: PreviewConfig.zoomMaxPixel)
+            let big: NSImage?
+            if let pending { big = await pending.value }
+            else { big = await ThumbnailLoader.shared.fullDecode(for: url, maxPixel: PreviewConfig.zoomMaxPixel) }
             await MainActor.run {
                 guard loadingID == g.id else { return }    // superseded or released
                 loadingID = nil
                 isLoadingHiRes = false
                 attemptedID = g.id                         // one attempt per photo → no reload-spam
                 guard let big else { return }              // decode failed entirely
-                if pixelCount(big) > shownPx { hiRes = big; hiResID = g.id }  // only if genuinely sharper
+                if pixelCount(big) > shownPx { hiRes = big; hiResID = g.id; remember(g.id, big) }  // only if genuinely sharper
+                prefetchNeighborHiRes()
             }
+        }
+    }
+
+    private func remember(_ id: String, _ image: NSImage) {
+        hiResStore.removeAll { $0.id == id }
+        hiResStore.append((id, image))
+        // Evict the oldest entry that is not the photo on screen.
+        while hiResStore.count > 2, let i = hiResStore.firstIndex(where: { $0.id != group.id }) {
+            hiResStore.remove(at: i)
+        }
+    }
+
+    /// Develops the next RAW in stepping direction while the user still looks at this one.
+    private func prefetchNeighborHiRes() {
+        guard app.zoom.zoomed,
+              let nid = app.neighborID(of: group.id, direction: app.lastStepDirection),
+              nid != neighborID,
+              !hiResStore.contains(where: { $0.id == nid }),
+              let ng = app.group(nid) else { return }
+        neighborTask?.cancel()
+        neighborID = nid
+        let url = app.rawURL(for: ng)
+        neighborTask = Task {
+            let img = await ThumbnailLoader.shared.fullDecode(for: url, maxPixel: PreviewConfig.zoomMaxPixel)
+            await MainActor.run {
+                if let img { remember(nid, img) }
+                if neighborID == nid { neighborID = nil; neighborTask = nil }
+            }
+            return img
         }
     }
 
@@ -178,8 +228,9 @@ private struct LargePreview: View {
         max(img.representations.first?.pixelsWide ?? 0, img.representations.first?.pixelsHigh ?? 0)
     }
 
-    /// Cancels any in-flight full-res decode and drops the full-res image, so the
-    /// 200+ MB RAW is released the moment the zoom is left or the photo changes.
+    /// Cancels any in-flight full-res decode and drops the on-screen full-res image when the
+    /// photo changes. The small `hiResStore` (current + pre-developed neighbour) is kept so
+    /// stepping through a burst at 100 % stays instant; it is capped at two entries.
     private func releaseHiRes() {
         hiResTask?.cancel()
         hiResTask = nil

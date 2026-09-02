@@ -33,11 +33,16 @@ final class VolumeScanner {
 
     private var observers: [NSObjectProtocol] = []
 
-    /// Calls `onChange` on the main queue whenever a volume mounts/unmounts.
-    func startWatching(onChange: @escaping () -> Void) {
+    /// Calls `onChange` on the main queue whenever a volume mounts/unmounts/renames, and
+    /// `onUnmount(volumeURL)` when one disappears — so the app can react if it was the open one.
+    func startWatching(onChange: @escaping () -> Void, onUnmount: @escaping (URL) -> Void = { _ in }) {
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
-            let token = center.addObserver(forName: name, object: nil, queue: .main) { _ in
+            let token = center.addObserver(forName: name, object: nil, queue: .main) { note in
+                if name == NSWorkspace.didUnmountNotification,
+                   let url = note.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL {
+                    onUnmount(url)
+                }
                 onChange()
             }
             observers.append(token)

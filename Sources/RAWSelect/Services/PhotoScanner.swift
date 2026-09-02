@@ -14,7 +14,8 @@ struct PhotoScanner {
                      ignoreHidden: Bool = true,
                      cameraFoldersOnly: Bool = false,
                      isCancelled: () -> Bool = { false },
-                     onProgress: (Int) -> Void = { _ in }) -> [PhotoGroup] {
+                     onProgress: (Int) -> Void = { _ in },
+                     onBatch: (([PhotoGroup]) -> Void)? = nil) -> [PhotoGroup] {
 
         let fm = FileManager.default
         let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey]
@@ -83,7 +84,12 @@ struct PhotoScanner {
             }
         }
 
-        for (key, files) in buckets {
+        // Name order so progressive batches grow the grid at the END instead of reshuffling it.
+        let orderedKeys = buckets.keys.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        var batch: [PhotoGroup] = []
+        for key in orderedKeys {
+            if isCancelled() { break }   // the stat phase is the slow part on a card — must be stoppable too
+            let files = buckets[key]!
             let sorted = files.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
             let base = sorted[0].deletingPathExtension().lastPathComponent
             var candidates = sidecars[key] ?? []
@@ -114,7 +120,12 @@ struct PhotoScanner {
             group.fileSize = totalSize
             group.fileDate = date
             groups.append(group)
+            if let onBatch {
+                batch.append(group)
+                if batch.count >= 200 { onBatch(batch); batch.removeAll(keepingCapacity: true) }
+            }
         }
+        if let onBatch, !batch.isEmpty { onBatch(batch) }
 
         groups.sort { $0.id.localizedStandardCompare($1.id) == .orderedAscending }
         return groups

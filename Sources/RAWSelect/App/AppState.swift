@@ -45,6 +45,8 @@ final class AppState: ObservableObject {
     @Published var showInfo: Bool = AppSettings.shared.metadataPanel
 
     @Published var isScanning = false
+    /// The user stopped the scan — the empty state must say so instead of "Keine Bilder gefunden".
+    @Published var scanCancelled = false
     /// Files seen so far while scanning. The scanner always counted them — nobody asked for
     /// the number, so a 5000-photo folder showed a spinner with no end in sight.
     @Published var scanFound = 0
@@ -134,6 +136,11 @@ final class AppState: ObservableObject {
         for (i, g) in filteredGroups.enumerated() { filteredIndexByID[g.id] = i }
         groupByID.removeAll(keepingCapacity: true)
         for g in groups { groupByID[g.id] = g }
+        var counts: [Int: Int] = [:]
+        var unmarked = 0
+        for g in groups { if g.mark == 0 { unmarked += 1 } else { counts[g.mark, default: 0] += 1 } }
+        markCounts = counts
+        unmarkedCount = unmarked
     }
 
     var currentGroup: PhotoGroup? {
@@ -151,19 +158,29 @@ final class AppState: ObservableObject {
     /// Move is only allowed from an internal disk, never from an SD card/external.
     var sourceIsExternal: Bool { rootURL?.isOnExternalVolume ?? false }
 
-    var markCounts: [Int: Int] {
-        var counts: [Int: Int] = [:]
-        for g in groups where g.mark != 0 { counts[g.mark, default: 0] += 1 }
-        return counts
+    /// Per-mark counts, rebuilt in refreshDerived(). They used to be computed properties that
+    /// the filter bar evaluated NINE times per render — each a full pass over every photo.
+    @Published private(set) var markCounts: [Int: Int] = [:]
+    @Published private(set) var unmarkedCount = 0
+    var markedCount: Int { groups.count - unmarkedCount }
+
+    /// Direction of the last keyboard step (+1/−1); the loupe pre-develops the next RAW that way.
+    private(set) var lastStepDirection = 1
+
+    /// Neighbour of a photo in the filtered list, or nil at the edge.
+    func neighborID(of id: String, direction: Int) -> String? {
+        guard let i = filteredIndexByID[id] else { return nil }
+        let j = i + (direction >= 0 ? 1 : -1)
+        return (j >= 0 && j < filteredGroups.count) ? filteredGroups[j].id : nil
     }
-    var unmarkedCount: Int { groups.filter { !$0.hasState }.count }
-    var markedCount: Int { groups.filter { $0.mark != 0 }.count }
+    func group(_ id: String) -> PhotoGroup? { groupByID[id] }
 
     // MARK: Lifecycle
     func start() {
         AppState.shared = self
         refreshVolumes()
-        volumeScanner.startWatching { [weak self] in self?.refreshVolumes() }
+        volumeScanner.startWatching(onChange: { [weak self] in self?.refreshVolumes() },
+                                    onUnmount: { [weak self] vol in self?.sourceUnmounted(vol) })
         installKeyMonitor()
         lastSortSig = sortSignature
         ThumbnailLoader.shared.setMaxConcurrent(Int(settings.maxParallelJobs))
@@ -202,13 +219,34 @@ final class AppState: ObservableObject {
         statusMessage = "Ordner in der Seitenleiste doppelklicken, um die Bilder zu laden."
     }
 
+    /// The volume holding the open folder was ejected/pulled. Until now nothing reacted: the
+    /// list stayed, decodes ran into the void and a running copy failed file by file in silence.
+    /// Marks are already persisted outside the card, so nothing is lost — say so and let go.
+    private func sourceUnmounted(_ volume: URL) {
+        guard let root = rootURL, root.standardizedFileURL.path.hasPrefix(volume.standardizedFileURL.path) else { return }
+        cancelToken?.cancel()
+        scanCancelToken?.cancel(); scanTask?.cancel()
+        folderGeneration += 1
+        let n = markedCount
+        pendingTrash = nil
+        operation = nil
+        rootURL = nil; browseRoot = nil
+        groups = []; refreshDerived()
+        selectedIDs = []; currentID = nil; anchorID = nil
+        isScanning = false; scanCancelled = false
+        viewMode = .grid; compareRightID = nil
+        statusMessage = "Datenträger wurde entfernt" + (n > 0 ? " – \(n) Markierungen sind gespeichert." : ".")
+        showToast("Datenträger entfernt – laufende Vorgänge abgebrochen.", kind: .error)
+    }
+
     /// Abort an in-progress scan (large folders / slow network volumes).
     func cancelScan() {
         guard isScanning else { return }
         scanCancelToken?.cancel()
         scanTask?.cancel()
         isScanning = false
-        statusMessage = "Scan abgebrochen."
+        scanCancelled = true
+        statusMessage = groups.isEmpty ? "Scan abgebrochen." : "Scan abgebrochen – \(groups.count) Bilder geladen."
     }
 
     // MARK: Opening / scanning
@@ -222,6 +260,7 @@ final class AppState: ObservableObject {
         folderGeneration += 1
         removedPersistKeys = []
         pendingTrash = nil
+        scanCancelled = false
         rootURL = url
         tagFilter.reset()  // opening a folder always shows all images found in it
         // The undo snapshots belong to the folder we're leaving. Photo ids are relative to the
@@ -258,31 +297,51 @@ final class AppState: ObservableObject {
         let token = CancellationToken()
         scanCancelToken = token
         let gen = folderGeneration
+        // Attaches persist keys + saved marks; shared by the progressive batches and the final list.
+        let attach: ([PhotoGroup]) -> [PhotoGroup] = { list in
+            var out = list
+            for i in out.indices {
+                let key = identity.persistKey(for: out[i], groupPairs: groupPairs)
+                out[i].persistKey = key
+                if let state = savedMarks[key] { out[i].mark = state.mark }
+            }
+            return out
+        }
         scanTask = Task {
             let found: [PhotoGroup] = await Task.detached(priority: .userInitiated) {
-                var groups = PhotoScanner.scan(root: url, allowedExtensions: allowed, recursive: recursive,
+                let groups = PhotoScanner.scan(root: url, allowedExtensions: allowed, recursive: recursive,
                                                groupPairs: groupPairs, ignoreHidden: ignoreHidden,
                                                cameraFoldersOnly: cameraOnly,
                                                isCancelled: { token.isCancelled },
-                                               onProgress: { n in Task { @MainActor in if self.folderGeneration == gen { self.scanFound = n } } })
-                for i in groups.indices {
-                    let key = identity.persistKey(for: groups[i], groupPairs: groupPairs)
-                    groups[i].persistKey = key
-                    if let state = savedMarks[key] {
-                        groups[i].mark = state.mark
-                    }
-                }
-                return groups
+                                               onProgress: { n in Task { @MainActor in if self.folderGeneration == gen { self.scanFound = n } } },
+                                               onBatch: { batch in
+                                                   // Progressive: the first photos show while the rest is
+                                                   // still being stat'ed — culling starts after a second,
+                                                   // not after the whole card was walked.
+                                                   let ready = attach(batch)
+                                                   Task { @MainActor in self.ingestScanBatch(ready, generation: gen) }
+                                               })
+                return attach(groups)
             }.value
 
             // A newer folder took over while we scanned → its state is not ours to touch
             // (this used to switch OFF the new scan's spinner and count).
             guard gen == self.folderGeneration else { return }
-            if Task.isCancelled || token.isCancelled { self.isScanning = false; return }
-            self.groups = found
+            if Task.isCancelled || token.isCancelled {
+                // Keep what already arrived — a partial folder beats an empty one.
+                self.isScanning = false
+                self.statusMessage = self.groups.isEmpty ? "Scan abgebrochen." : "Scan abgebrochen – \(self.groups.count) Bilder geladen."
+                return
+            }
+            // Batches were handed over as separate main-actor tasks; merge against the full list
+            // to be exact, keeping any mark the user already set on a batch photo mid-scan.
+            var merged = self.groups
+            var known = Set(merged.map { $0.id })
+            for g in found where !known.contains(g.id) { merged.append(g); known.insert(g.id) }
+            self.groups = merged
             // Re-attach saved non-destructive edits to their photos.
             var loadedEdits: [String: ImageEdit] = [:]
-            for g in found {
+            for g in merged {
                 if let e = savedMarks[g.persistKey]?.edit, !e.isIdentity { loadedEdits[g.id] = e }
             }
             self.edits = loadedEdits
@@ -293,12 +352,25 @@ final class AppState: ObservableObject {
             // prefetch window around the current photo (no queue flood at open).
             let initialWarm = self.filteredGroups.prefix(PreviewConfig.initialWarmCount).map { $0.previewURL }
             ThumbnailLoader.shared.warmTiny(initialWarm, maxPixel: PreviewConfig.tinyMaxPixel)
-            if let first = self.filteredGroups.first { self.selectSingle(first.id) }
+            if self.currentID == nil, let first = self.filteredGroups.first { self.selectSingle(first.id) }
             let markedNote = self.markedCount > 0 ? " (\(self.markedCount) bereits markiert)" : ""
-            self.statusMessage = found.isEmpty
+            self.statusMessage = merged.isEmpty
                 ? "Keine Bilder gefunden."
-                : "\(found.count) Bilder gefunden\(markedNote)."
+                : "\(merged.count) Bilder gefunden\(markedNote)."
         }
+    }
+
+    /// Appends a scanner batch while the scan is still running (progressive display).
+    private func ingestScanBatch(_ batch: [PhotoGroup], generation gen: Int) {
+        guard gen == folderGeneration, isScanning else { return }
+        let fresh = batch.filter { groupByID[$0.id] == nil }
+        guard !fresh.isEmpty else { return }
+        groups.append(contentsOf: fresh)
+        applySort()
+        if currentID == nil, let first = filteredGroups.first { selectSingle(first.id) }
+        ThumbnailLoader.shared.warmTiny(fresh.prefix(PreviewConfig.initialWarmCount).map { $0.previewURL },
+                                        maxPixel: PreviewConfig.tinyMaxPixel)
+        statusMessage = "Scanne … \(groups.count) Bilder geladen"
     }
 
     // MARK: Selection
@@ -307,17 +379,22 @@ final class AppState: ObservableObject {
     }
 
     func toggleSelect(_ id: String) {
-        if selectedIDs.contains(id) { selectedIDs.remove(id) } else { selectedIDs.insert(id) }
-        currentID = id; anchorID = id
+        if selectedIDs.contains(id) {
+            selectedIDs.remove(id)
+            // Don't leave the loupe (and 1–9 / copy) on a photo that is no longer selected.
+            let focus = (currentID == id ? selectedIDs.first : nil) ?? id
+            currentID = focus; anchorID = focus
+        } else {
+            selectedIDs.insert(id); currentID = id; anchorID = id
+        }
     }
 
     func selectRange(to id: String) {
-        let list = filteredGroups.map { $0.id }
-        guard let target = list.firstIndex(of: id) else { return }
+        guard let target = filteredIndexByID[id] else { return }
         let anchor = anchorID ?? currentID ?? id
-        let anchorIdx = list.firstIndex(of: anchor) ?? target
+        let anchorIdx = filteredIndexByID[anchor] ?? target
         let range = min(anchorIdx, target)...max(anchorIdx, target)
-        selectedIDs = Set(range.map { list[$0] })
+        selectedIDs = Set(filteredGroups[range].map { $0.id })
         currentID = id
     }
 
@@ -341,6 +418,7 @@ final class AppState: ObservableObject {
         let list = filteredGroups
         guard !list.isEmpty else { return }
         let current = currentID.flatMap { filteredIndexByID[$0] } ?? (delta > 0 ? -1 : 0)
+        if delta != 0 { lastStepDirection = delta > 0 ? 1 : -1 }
         var next = current + delta
         if settings.wrapNavigation && !extend {
             next = (next % list.count + list.count) % list.count   // wrap around
@@ -357,9 +435,12 @@ final class AppState: ObservableObject {
         let list = filteredGroups
         guard !list.isEmpty else { return }
         let start = currentID.flatMap { filteredIndexByID[$0] } ?? -1
-        let indices = forward ? Array(stride(from: start + 1, to: list.count, by: 1))
-                              : Array(stride(from: start - 1, through: 0, by: -1))
-        for i in indices where list[i].mark == 0 { selectSingle(list[i].id); return }
+        lastStepDirection = forward ? 1 : -1
+        var i = forward ? start + 1 : start - 1
+        while i >= 0 && i < list.count {
+            if list[i].mark == 0 { selectSingle(list[i].id); return }
+            i += forward ? 1 : -1
+        }
         statusMessage = forward ? "Kein weiteres unmarkiertes Bild." : "Kein vorheriges unmarkiertes Bild."
     }
 
@@ -498,7 +579,8 @@ final class AppState: ObservableObject {
     private var markUndoStack: [[String: Int]] = []
 
     private func pushUndo(_ ids: Set<String>) {
-        let snap = Dictionary(uniqueKeysWithValues: groups.filter { ids.contains($0.id) }.map { ($0.id, $0.mark) })
+        var snap: [String: Int] = [:]
+        for id in ids { if let g = groupByID[id] { snap[id] = g.mark } }
         markUndoStack.append(snap)
         if markUndoStack.count > 50 { markUndoStack.removeFirst() }
     }
@@ -516,7 +598,7 @@ final class AppState: ObservableObject {
         let targets = selectedIDs.isEmpty ? Set([currentID].compactMap { $0 }) : selectedIDs
         guard !targets.isEmpty else { return }
 
-        let anchorPos = filteredGroups.firstIndex { $0.id == currentID }
+        let anchorPos = currentID.flatMap { filteredIndexByID[$0] }
         pushUndo(targets)
         for i in groups.indices where targets.contains(groups[i].id) { body(&groups[i]) }
         refreshDerived()
@@ -772,7 +854,7 @@ final class AppState: ObservableObject {
     func cancelTrash() { pendingTrash = nil }
 
     private func performTrash(_ sel: [PhotoGroup]) {
-        let anchorPos = filteredGroups.firstIndex { $0.id == currentID }
+        let anchorPos = currentID.flatMap { filteredIndexByID[$0] }
         let gen = folderGeneration
         let token = CancellationToken()
         cancelToken = token

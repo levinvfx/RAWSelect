@@ -13,7 +13,7 @@ struct FilterBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
-            HStack(spacing: 4) {
+            HStack(alignment: .top, spacing: 4) {
                 toggleAllButton
                 Divider().frame(height: size)
                 swatch(bucket: 0, color: nil)
@@ -52,10 +52,12 @@ struct FilterBar: View {
 
     private func swatch(bucket: Int, color: Color?) -> some View {
         let on = app.tagFilter.isShown(bucket)
+        let count = bucket == 0 ? app.unmarkedCount : (app.markCounts[bucket] ?? 0)
         return Button {
             if NSEvent.modifierFlags.contains(.option) { app.tagFilter.solo(bucket) }
             else { app.tagFilter.toggle(bucket) }
         } label: {
+          VStack(spacing: 1) {
             ZStack {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(fill(color: color, on: on))
@@ -75,6 +77,14 @@ struct FilterBar: View {
                     .strokeBorder(borderColor(color: color, on: on), lineWidth: on ? 1.5 : 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: 4))
+            // The count lives right under the swatch: "how many on 1?" used to need a hover
+            // over nine tooltips — in the second culling pass that is the one number you want.
+            Text(count > 0 ? "\(count)" : " ")
+                .font(.system(size: 9, weight: .medium)).monospacedDigit()
+                .foregroundStyle(on ? Color.secondary : Color.secondary.opacity(0.5))
+                .frame(width: size)
+          }
+          .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

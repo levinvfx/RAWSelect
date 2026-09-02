@@ -62,8 +62,14 @@ final class ThumbnailLoader {
         operation.completionBlock = { [weak self] in
             guard let self else { return }
             if let image = operation.result { self.cache.setObject(image, forKey: cacheKey, cost: operation.cost) }
-            let result = operation.isCancelled ? nil : operation.result
+            // Hand back whatever WAS decoded, even if the op got cancelled late — the image is in
+            // the cache anyway, and a nil here left the cell empty until the next re-render.
+            let result = operation.result
             self.lock.lock()
+            // Only THIS op may tear down the registry for its key. A cancelled op finishes late,
+            // after retainPrefetch()/onCancel already registered a NEW op for the same key —
+            // it must not remove that op's waiters (resuming them with nil) or its slot.
+            guard self.ops[k] === operation else { self.lock.unlock(); return }
             let conts = self.waiters.removeValue(forKey: k) ?? [:]
             self.ops[k] = nil
             self.prefetchWanted.remove(k)
