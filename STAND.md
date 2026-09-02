@@ -1,18 +1,19 @@
-# RAW Select — Stand (27.08.2026)
+# RAW Select — Stand (02.09.2026)
 
 ## Ziel
-RAW Select ist auf **V1.8.1 öffentlich** (02.09.2026, Mausrad-Zoom aus Nutzer-Feedback:
-klassisches Rad zoomt auf den Zeiger, Trackpad unverändert — `ZoomableImageView.swift`).
-Davor V1.8 — die anonyme Nutzungsstatistik ist LIVE
-(Server: `vfxmedia.ch/rawselect/` auf Levins vServer, SSH-Zugang eingerichtet;
-Stats-Ansicht: Token in `~/.config/rawselect/stats-token`). Working Tree sauber.
+**Sprint-Fix abgeschlossen** auf Branch `sprint-fix` (5 Wellen, 6 Commits ab `e758f66`, Rückfall-Tag
+`pre-sprint-2026-09-02`). Öffentlich ist noch **V1.8.1**; der Sprint wartet auf Levins Test + Go für
+Merge → main + V1.9. Plan: `Audit/2026-09-02-Sprint-Fix.md`.
 
 ## Stand (belegt)
-- **V1.7 public**: Commit `c52d789`, GitHub-Release live, DMG hochgeladen, `releases/latest` = v1.7
-  (Auto-Updater greift). Build + Selbsttest grün (`bash build_app.sh`).
-- Drin seit 1.6: ⌘A wählt alle aus · ↑/↓ auch in Einzelansicht · permanenter Auswahl-/Gesamtzähler ·
-  Raster scrollt beim Wechsel zum aktuellen Bild · kritischer Deadlock beim Beenden behoben ·
-  anonyme Opt-out-Telemetrie eingebaut (sendet noch nichts, s.u.).
+- W1 Datenverlust `6396038` · W2 Async/Tempo `41a32a6` · W3 Release-Grenze `d7593ed` ·
+  W4 Doku/Datenschutz/Repo `f470aea` · W5 Workflow-UX `88d1877`. Build + Selftest + Release-Build grün.
+- **Produktgrenze:** Release = reines Culling. Lightroom-Export/Editor/Bridge/Preset-Stack sind datei-weit
+  `#if DEBUG`; Release-Bundle enthält kein Plugin, keinen Lightroom-Plist-Key, keine Export-Symbole.
+  Lokal (`swift build`) alles da; `RS_DEV_BRIDGE=1 ./build_app.sh` synct das Plugin.
+- Von Levin **noch nicht live getestet**: Vergleich A|B (Pan/Zoom-Sync, ⇧1–9 für B), First-Run-Dialog der
+  Statistik, progressiver Scan bei grossem Ordner, ⌫-Rückfrage, Zähler unter den Filter-Chips.
+- `server/stats.php` wird von einer anderen Session (Dashboard) bearbeitet — nicht Teil dieses Sprints.
 
 ## Entscheide (mit Grund — nicht neu ausdiskutieren)
 - **Lightroom-Export bleibt in Release ausgeblendet** (`AppInfo.lightroomExportEnabled` = `#if DEBUG`):

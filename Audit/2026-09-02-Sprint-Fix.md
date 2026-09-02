@@ -1,5 +1,7 @@
 # RAW Select — Sprint-Fix (Wellen + Tasks)
 
+> **Status 02.09.2026: W0–W5 umgesetzt** auf Branch `sprint-fix` (`6396038`, `41a32a6`, `d7593ed`, `f470aea`, `88d1877`). Offen: Levins Live-Test, Merge → main, V1.9-Release. W6 bewusst nicht angefasst.
+
 Stand 02.09.2026, Basis Commit `e5cf5cb` (V1.8.1). Quellen: Claude-Audit (3 Lese-Agenten + eigene
 Verifikation) und ChatGPT-Analyse — jede Behauptung am Code geprüft; widerlegte/korrigierte Punkte unten.
 
