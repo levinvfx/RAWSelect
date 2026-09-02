@@ -41,8 +41,8 @@ final class AppState: ObservableObject {
     /// can move a whole row at once (the layout is adaptive, so only the view knows it).
     @Published var gridColumns = 1
 
-    /// Runtime toggle for the EXIF overlay (default from settings.metadataPanel).
-    @Published var showInfo: Bool = AppSettings.shared.metadataPanel
+    /// Runtime toggle for the EXIF overlay (I).
+    @Published var showInfo: Bool = true
 
     @Published var isScanning = false
     /// The user stopped the scan — the empty state must say so instead of "Keine Bilder gefunden".
@@ -288,11 +288,11 @@ final class AppState: ObservableObject {
         let savedMarks = SessionStore.load(identityID: identity.id)
 
         // Capture scan-relevant settings on the main actor.
-        let allowed = Set(settings.enabledTypes.map { $0.lowercased() })
-        let recursive = settings.recursiveScan
+        let allowed = PhotoTypes.all
+        let recursive = true          // fixed: always scan subfolders
         let groupPairs = settings.groupRawJpg
-        let ignoreHidden = settings.ignoreHidden
-        let cameraOnly = settings.cameraFoldersOnly
+        let ignoreHidden = true
+        let cameraOnly = true         // prefer DCIM-style folders when the root has them
 
         let token = CancellationToken()
         scanCancelToken = token
@@ -420,11 +420,7 @@ final class AppState: ObservableObject {
         let current = currentID.flatMap { filteredIndexByID[$0] } ?? (delta > 0 ? -1 : 0)
         if delta != 0 { lastStepDirection = delta > 0 ? 1 : -1 }
         var next = current + delta
-        if settings.wrapNavigation && !extend {
-            next = (next % list.count + list.count) % list.count   // wrap around
-        } else {
-            next = min(max(next, 0), list.count - 1)
-        }
+        next = min(max(next, 0), list.count - 1)
         let id = list[next].id
         if extend { selectRange(to: id) } else { selectSingle(id) }
     }
@@ -510,7 +506,7 @@ final class AppState: ObservableObject {
     /// the immediate neighbours. Warms closest-first so the very next image is ready
     /// soonest.
     private func prefetchAroundCurrent() {
-        guard viewMode == .loupe, settings.preloadPerfect, let id = currentID else { return }
+        guard viewMode == .loupe, let id = currentID else { return }
         let list = filteredGroups
         let count = list.count
         guard let idx = filteredIndexByID[id], count > 1 else { return }
@@ -569,7 +565,7 @@ final class AppState: ObservableObject {
         // Auto-advance for fast culling (Settings → Markierungen). Never in compare mode —
         // there the left anchor must stay put while you cycle the right pane.
         if settings.autoAdvance && mark != 0 && single && currentID == before && viewMode != .compare {
-            step(by: settings.advanceDirection == .next ? 1 : -1, extend: false)
+            step(by: 1, extend: false)
         }
     }
 
@@ -714,9 +710,6 @@ final class AppState: ObservableObject {
             case .captureDate:
                 if a.fileDate != b.fileDate { return a.fileDate < b.fileDate }
                 return a.id.localizedStandardCompare(b.id) == .orderedAscending
-            case .mark:
-                if a.mark != b.mark { return a.mark < b.mark }
-                return a.id.localizedStandardCompare(b.id) == .orderedAscending
             }
         }
         if settings.sortReversed { groups.reverse() }
@@ -736,6 +729,7 @@ final class AppState: ObservableObject {
 
     // MARK: Image editing
     /// Current non-destructive edit for a photo (identity when untouched).
+    #if DEBUG   // editor + Lightroom export exist in development builds only
     func edit(for id: String) -> ImageEdit { edits[id] ?? ImageEdit() }
 
     /// Stores an edit centrally and persists it. Identity edits are dropped so the
@@ -755,6 +749,7 @@ final class AppState: ObservableObject {
         guard currentGroup != nil else { statusMessage = "Kein Bild ausgewählt."; return }
         showEditor = true
     }
+    #endif
 
     // MARK: Open in external app (Lightroom etc.)
     /// Display name of the currently configured "open with" app (default: Lightroom).
@@ -783,7 +778,7 @@ final class AppState: ObservableObject {
         }
         let files = sel.map { rawURL(for: $0) }               // the RAW/original per photo
         if OpenWithService.open(files, withAppAt: settings.openWithAppPath) {
-            showToast("\(sel.count == 1 ? "Bild" : "\(sel.count) Bilder") in \(openWithAppName) geöffnet.")
+            statusMessage = "\(sel.count == 1 ? "Bild" : "\(sel.count) Bilder") in \(openWithAppName) geöffnet."
         } else {
             // App missing → clear the stale path so the next click asks again.
             let missing = openWithAppName
@@ -895,7 +890,6 @@ final class AppState: ObservableObject {
             } else if outcome.failures.isEmpty {
                 let n = outcome.photos
                 self.statusMessage = "\(n) \(n == 1 ? "Bild" : "Bilder") in den Papierkorb verschoben."
-                self.showToast("\(n) in den Papierkorb.", kind: .success)
             } else {
                 self.statusMessage = "\(outcome.failures.count) Datei(en) nicht gelöscht – Rest im Papierkorb."
                 self.showToast("\(outcome.failures.count) nicht gelöscht – Rest im Papierkorb.", kind: .error)
@@ -909,8 +903,7 @@ final class AppState: ObservableObject {
         let snapshot = selection
         guard !snapshot.isEmpty else { statusMessage = "Keine passenden Bilder für den Export."; return }
 
-        let conflict = settings.conflictMode   // copy/move always renames on collision (safe default)
-        let rawJpgMode = settings.rawJpgExport
+        let conflict = ConflictMode.rename     // copying never overwrites: name clash → _1, _2, …
 
         let makeSubfolder: (PhotoGroup) -> String? = { _ in nil }
 
@@ -924,7 +917,7 @@ final class AppState: ObservableObject {
                 let outcome = try await Task.detached(priority: .userInitiated) { [weak self] in
                     try FileOperationService.perform(
                         kind, groups: snapshot, targetRoot: target, includeSidecars: includeSidecars,
-                        rawJpg: rawJpgMode, subfolder: makeSubfolder, conflict: conflict,
+                        subfolder: makeSubfolder, conflict: conflict,
                         progress: { completed, total in
                             Task { @MainActor in
                                 self?.operation?.completed = completed
@@ -943,7 +936,6 @@ final class AppState: ObservableObject {
                     self.showToast("Abgebrochen – \(outcome.files) Dateien \(verb).", kind: .info)
                 } else if outcome.failures.isEmpty {
                     self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) \(verb)."
-                    self.showToast("\(outcome.photos) Bilder \(verb).", kind: .success)
                     if self.settings.revealAfterExport { FinderService.revealFolder(target) }
                 } else {
                     self.statusMessage = "\(outcome.files) Dateien \(verb) – \(outcome.failures.count) fehlgeschlagen."
@@ -1012,7 +1004,6 @@ final class AppState: ObservableObject {
         case 119: jumpToEdge(last: true, extend: extend); return true    // End → last
         case 48:  jumpUnmarked(forward: !extend); return true            // Tab / ⇧Tab → next/prev unmarked
         case 51:  trashSelection(); return true                         // ⌫ Delete → in den Papierkorb (Reject)
-        case 10:  setMark(0); return true                     // § (ISO-Taste links der 1) → Markierung entfernen
         default: break
         }
 
@@ -1035,16 +1026,17 @@ final class AppState: ObservableObject {
            let scalar = chars.unicodeScalars.first {
             switch scalar.value {
             case 48:                                        // 0 → clear mark
-                if settings.zeroClearsMark { setMark(0) }
-                return true
+                setMark(0); return true
             case 0xA7, 0xB0:                                // § / ° (Taste links der 1, CH-Layout) → Markierung entfernen
                 setMark(0); return true
             case 49...57:                                   // 1–9 → colour mark
                 setMark(Int(scalar.value) - 48); return true
             case UInt32(UInt8(ascii: "c")), UInt32(UInt8(ascii: "C")):
                 enterCompare(); return true
+            #if DEBUG
             case UInt32(UInt8(ascii: "e")), UInt32(UInt8(ascii: "E")):
                 openEditor(); return true
+            #endif
             case UInt32(UInt8(ascii: "i")), UInt32(UInt8(ascii: "I")):
                 toggleInfo(); return true
             case UInt32(UInt8(ascii: "f")), UInt32(UInt8(ascii: "F")):

@@ -5,19 +5,6 @@ enum AppInfo {
     static let name = "RAW Select"
     static let version = "1.8.1"
 
-    /// Der Lightroom-JPEG-Export (via Bridge-Plugin) ist noch in Entwicklung und in
-    /// öffentlichen Release-Builds ausgeblendet: das Bridge-Plugin importiert jedes
-    /// exportierte RAW als Geist in den Lightroom-Katalog und räumt es nicht weg
-    /// (siehe Memory „Katalog-Verschmutzung"). Bis das gelöst ist, darf das Feature
-    /// nicht auf fremde Rechner. In Debug-Builds (Levins Entwicklung: `swift build`)
-    /// bleibt es sichtbar; `./build_app.sh` baut Release → Feature aus.
-    static var lightroomExportEnabled: Bool {
-        #if DEBUG
-        return true
-        #else
-        return false
-        #endif
-    }
 
     // Credits / branding
     static let author = "Levin Anneler"

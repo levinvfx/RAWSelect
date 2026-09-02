@@ -21,11 +21,15 @@ struct ShortcutsSheet: View {
         ("Z",          "100% / Einpassen (in der Loupe)"),
         ("+ / −",      "Rein- / rauszoomen (in der Loupe)"),
         ("C",          "Vergleichen (A|B) · ←/→ rechtes Bild · ↩ B→A"),
-        ("E",          "Bild bearbeiten (Zuschneiden & Entwickeln)"),
         ("I",          "EXIF-Infos ein/aus"),
         ("F",          "Vollbild"),
         ("?",          "Diese Übersicht ein/aus")
     ]
+    #if DEBUG
+    private let devRows: [(String, String)] = [("E", "Bild bearbeiten (nur Entwicklungs-Build)")]
+    #else
+    private let devRows: [(String, String)] = []
+    #endif
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -40,7 +44,7 @@ struct ShortcutsSheet: View {
             }
             .padding(.bottom, 16)
 
-            ForEach(rows, id: \.0) { row in
+            ForEach(rows + devRows, id: \.0) { row in
                 HStack(spacing: 14) {
                     Text(row.0)
                         .font(.body.monospaced().weight(.medium))

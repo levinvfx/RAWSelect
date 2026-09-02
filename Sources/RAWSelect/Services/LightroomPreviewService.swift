@@ -1,3 +1,6 @@
+// DEVELOPMENT ONLY — not part of the public (release) app. The public product is a pure
+// culling tool; the Lightroom export/editor stack stays available in `swift build` (debug).
+#if DEBUG
 import Foundation
 
 /// Caches Lightroom-rendered, preset-applied preview JPEGs for the export crop step.
@@ -132,3 +135,4 @@ actor LightroomPreviewService {
         return wb
     }
 }
+#endif

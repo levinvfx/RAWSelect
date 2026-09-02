@@ -1,3 +1,6 @@
+// DEVELOPMENT ONLY — not part of the public (release) app. The public product is a pure
+// culling tool; the Lightroom export/editor stack stays available in `swift build` (debug).
+#if DEBUG
 import Foundation
 import AppKit
 import CoreGraphics
@@ -519,3 +522,4 @@ struct LightroomExportService {
         catch { return "Temporäre Dateien konnten nicht gelöscht werden: \(tempDir.path)" }
     }
 }
+#endif

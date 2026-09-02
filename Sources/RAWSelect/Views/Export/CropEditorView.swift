@@ -1,3 +1,6 @@
+// DEVELOPMENT ONLY — not part of the public (release) app. The public product is a pure
+// culling tool; the Lightroom export/editor stack stays available in `swift build` (debug).
+#if DEBUG
 import SwiftUI
 import AppKit
 import CoreImage
@@ -905,3 +908,4 @@ extension NSImage {
         return NSImage(cgImage: out, size: NSSize(width: newW, height: newH))
     }
 }
+#endif

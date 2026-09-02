@@ -40,8 +40,8 @@ struct ThumbnailCell: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
 
-                if group.mark != 0 && settings.showMarkBadge { markBadge }
-                if settings.showTypeBadge, let typeText { typeBadge(typeText) }
+                if group.mark != 0 { markBadge }
+                if let typeText { typeBadge(typeText) }
             }
             .frame(width: side, height: side)
             .background(
@@ -53,19 +53,12 @@ struct ThumbnailCell: View {
                     .strokeBorder(borderColor, lineWidth: isCurrent ? 4 : (isSelected ? 3 : 0))
             )
 
-            if showsCaption && (settings.showFilename || settings.showDateUnderThumb) {
-                VStack(spacing: 1) {
-                    if settings.showFilename {
-                        Text(group.displayName)
-                            .font(.caption)
-                            .lineLimit(1).truncationMode(.middle)
-                            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    }
-                    if settings.showDateUnderThumb {
-                        Text(dateString).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: side)
+            if showsCaption {
+                Text(group.displayName)
+                    .font(.caption)
+                    .lineLimit(1).truncationMode(.middle)
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .frame(maxWidth: side)
             }
         }
         .task(id: group.id) {
@@ -86,14 +79,6 @@ struct ThumbnailCell: View {
         }
     }
 
-    /// Shared formatter — creating a DateFormatter is expensive, so never do it per render.
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "dd.MM.yy HH:mm"; return f
-    }()
-    private var dateString: String {
-        guard group.fileDate != .distantPast else { return "" }
-        return Self.dateFormatter.string(from: group.fileDate)
-    }
 
     private var markBadge: some View {
         VStack {

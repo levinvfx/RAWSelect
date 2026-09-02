@@ -85,7 +85,7 @@ private struct LargePreview: View {
 
             VStack {
                 HStack(alignment: .top) {
-                    if app.showInfo && settings.metadataPanel { infoOverlay }
+                    if app.showInfo { infoOverlay }
                     Spacer()
                     if group.mark != 0 { markPill }
                 }

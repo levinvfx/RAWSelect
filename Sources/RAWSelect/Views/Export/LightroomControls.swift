@@ -1,3 +1,6 @@
+// DEVELOPMENT ONLY — not part of the public (release) app. The public product is a pure
+// culling tool; the Lightroom export/editor stack stays available in `swift build` (debug).
+#if DEBUG
 import SwiftUI
 
 /// Lightroom-CC-style slider: thin track, round knob, label left, value right,
@@ -98,3 +101,4 @@ struct LRSection<Content: View>: View {
         .padding(.top, 3)
     }
 }
+#endif

@@ -53,10 +53,6 @@ struct RAWSelectApp: App {
                 Button("Ordner öffnen…") { app.openFolderDialog() }
                     .keyboardShortcut("o", modifiers: .command)
             }
-            CommandGroup(after: .pasteboard) {
-                Button("Alle auswählen") { app.selectAllFiltered() }
-                    .keyboardShortcut("a", modifiers: .command)
-            }
             CommandGroup(after: .toolbar) {
                 Button("Im Finder anzeigen") { app.revealCurrent() }
                     .keyboardShortcut("r", modifiers: .command)
@@ -76,10 +72,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        // Ship the bridge plug-in with the app instead of leaving it to a manual install —
-        // an outdated plug-in silently stops reporting the white balance, which makes the
-        // WB sliders do nothing without ever saying so.
+        #if DEBUG
+        // Development builds keep the Lightroom bridge plug-in current at its stable path.
+        // The public app ships no plug-in and never touches Application Support.
         BridgeInstaller.installIfNeeded()
+        #endif
         TelemetryService.pingIfEnabled()   // anonym, opt-out, nur wenn ein Endpunkt konfiguriert ist
     }
 

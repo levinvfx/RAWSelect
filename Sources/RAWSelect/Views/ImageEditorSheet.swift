@@ -1,3 +1,6 @@
+// DEVELOPMENT ONLY — not part of the public (release) app. The public product is a pure
+// culling tool; the Lightroom export/editor stack stays available in `swift build` (debug).
+#if DEBUG
 import SwiftUI
 
 /// Standalone, non-destructive editor for a single photo, reachable straight from
@@ -44,3 +47,4 @@ struct ImageEditorSheet: View {
         .onAppear { draft = app.edit(for: group.id) }
     }
 }
+#endif

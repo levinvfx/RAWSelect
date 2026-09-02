@@ -1,3 +1,6 @@
+// DEVELOPMENT ONLY — not part of the public (release) app. The public product is a pure
+// culling tool; the Lightroom export/editor stack stays available in `swift build` (debug).
+#if DEBUG
 import CoreImage
 
 /// Live-preview approximation of the Camera-Raw "Basic" panel. Each adjustment
@@ -278,3 +281,4 @@ enum DevelopEngine {
         return (r1 + m, g1 + m, b1 + m)
     }
 }
+#endif

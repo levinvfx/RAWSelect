@@ -1,3 +1,6 @@
+// DEVELOPMENT ONLY — not part of the public (release) app. The public product is a pure
+// culling tool; the Lightroom export/editor stack stays available in `swift build` (debug).
+#if DEBUG
 import Foundation
 
 /// Keeps the Lightroom bridge plug-in in sync with the app.
@@ -62,3 +65,4 @@ enum BridgeInstaller {
         return true
     }
 }
+#endif

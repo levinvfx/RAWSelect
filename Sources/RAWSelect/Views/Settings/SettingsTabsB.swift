@@ -42,18 +42,13 @@ private struct MarkEditorRow: View {
     }
 }
 
-// MARK: - 5. Export
+#if DEBUG
+// MARK: - 5. Export (development builds only)
 
 struct ExportSettingsTab: View {
     @EnvironmentObject var settings: AppSettings
     var body: some View {
         Form {
-            Section {
-                SettingToggle(title: "Nach Export Zielordner im Finder öffnen", isOn: $settings.revealAfterExport)
-                SettingPicker(title: "RAW+JPG beim Export", selection: $settings.rawJpgExport) {
-                    ForEach(RawJpgExport.allCases) { Text($0.label).tag($0) }
-                }
-            }
             Section("JPEG-Export mit Preset") {
                 Text("Lightroom Classic rendert die JPEGs und wendet Preset-Masken (KI-Motiv, Verläufe) an. Lightroom wird beim Export automatisch gestartet und muss das Plugin „RAW Select Bridge“ geladen haben.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -79,24 +74,38 @@ struct ExportSettingsTab: View {
 
 // MARK: - 6. Erweitert
 
+#endif
+
 struct AdvancedSettingsTab: View {
     @EnvironmentObject var settings: AppSettings
     @State private var confirmReset = false
     @State private var confirmClear = false
     @State private var status = ""
 
+    #if DEBUG
     private var presetLabel: String {
         settings.presetPath.isEmpty ? "Keins gewählt" : (settings.presetPath as NSString).lastPathComponent
     }
     private var lightroomLabel: String {
         settings.lightroomPath.isEmpty ? "Automatisch" : (settings.lightroomPath as NSString).lastPathComponent
     }
+    #endif
     private var openWithLabel: String {
         settings.openWithAppPath.isEmpty ? "Beim ersten Klick wählen" : OpenWithService.appName(settings.openWithAppPath)
     }
 
     var body: some View {
         Form {
+            Section("Darstellung") {
+                SettingPicker(title: "Erscheinungsbild",
+                              help: "Hell, Dunkel oder dem System folgen.",
+                              selection: $settings.appearance) {
+                    ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
+                }
+            }
+            Section("Kopieren") {
+                SettingToggle(title: "Nach dem Kopieren Zielordner im Finder zeigen", isOn: $settings.revealAfterExport)
+            }
             Section("Nutzungsstatistik") {
                 SettingToggle(title: "Anonyme Nutzungsstatistik senden",
                               help: "Sendet beim Start höchstens einmal täglich eine zufällige, anonyme Kennung und die App-Version – damit sichtbar ist, welche Versionen im Einsatz sind. Keine persönlichen Daten, keine Dateien, kein Standort.",
@@ -127,7 +136,8 @@ struct AdvancedSettingsTab: View {
                 Text("Der Button in der Symbolleiste öffnet die ausgewählten Bilder in dieser App (z. B. Lightroom oder Lightroom Classic).")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section("Lightroom Classic") {
+            #if DEBUG
+            Section("Lightroom Classic (Entwicklungs-Build)") {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Lightroom Classic"); Text(lightroomLabel).font(.caption).foregroundStyle(.secondary)
@@ -146,12 +156,15 @@ struct AdvancedSettingsTab: View {
                 }
                 SettingToggle(title: "Temporäre Dateien nach Export löschen", isOn: $settings.deleteTempFiles)
             }
+            #endif
             Section {
                 Button("Cache leeren") { confirmClear = true }
                     .confirmationDialog("Cache leeren?", isPresented: $confirmClear) {
                         Button("Leeren", role: .destructive) {
                             ThumbnailLoader.shared.clearCache()
+                            #if DEBUG
                             Task { await LightroomPreviewService.shared.clearCache() }
+                            #endif
                             status = "Cache geleert."
                         }
                         Button("Abbrechen", role: .cancel) {}
@@ -167,6 +180,7 @@ struct AdvancedSettingsTab: View {
         .formStyle(.grouped)
     }
 
+    #if DEBUG
     private func chooseLightroom() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = false
@@ -179,4 +193,5 @@ struct AdvancedSettingsTab: View {
         panel.canChooseFiles = true; panel.canChooseDirectories = false
         if panel.runModal() == .OK, let url = panel.url { settings.presetPath = url.path }
     }
+    #endif
 }

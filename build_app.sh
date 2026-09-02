@@ -57,13 +57,9 @@ for logo in assets/Logo-Schwarz.png assets/Logo-Weiss.png; do
     [[ -f "$logo" ]] && cp "$logo" "${APP_DIR}/Contents/Resources/"
 done
 
-# The Lightroom bridge plug-in travels INSIDE the app. BridgeInstaller copies it into
-# Lightroom's Modules folder on launch, so a download is all a user ever needs — and the
-# app can never end up talking to an older plug-in than it expects. A stale one fails
-# silently (it stops reporting the white balance), which is the worst kind of failure.
-if [[ -d "RAWSelectBridge.lrplugin" ]]; then
-    cp -R "RAWSelectBridge.lrplugin" "${APP_DIR}/Contents/Resources/"
-fi
+# The public app is a pure culling tool: NO Lightroom bridge plug-in ships in the bundle and
+# nothing is ever written to Application Support on launch. The Lightroom export stack only
+# exists in development builds (`swift build`, #if DEBUG).
 
 cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -81,7 +77,6 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>NSAppleEventsUsageDescription</key><string>RAW Select steuert Adobe Lightroom Classic, um ausgewählte RAW-Bilder als JPEG zu exportieren.</string>
 </dict>
 </plist>
 PLIST
@@ -91,21 +86,17 @@ echo "APPL????" > "${APP_DIR}/Contents/PkgInfo"
 # Ad-hoc code signature so first launch is smoother.
 codesign --force --sign - "${APP_DIR}" >/dev/null 2>&1 || echo "  (ad-hoc signing skipped)"
 
-# Keep the plug-in current at the STABLE path the user adds once in Lightroom's
-# Zusatzmodul-Manager (see BridgeInstaller). NOT Lightroom's Modules folder: on LrC 15.x a
-# Modules plug-in only half-loads (activated, but its scripts never run). The one-time manual
-# "Add" from this path is what actually registers the scripts; the app just keeps files fresh.
-#
-# The plug-in in this repo is the SOURCE — the only copy to ever edit. The one below and the
-# one in the bundle are build artifacts and get overwritten.
-BRIDGE_DIR="${HOME}/Library/Application Support/RAW Select"
-if [[ -d "RAWSelectBridge.lrplugin" ]]; then
-    echo "▶︎ Updating Lightroom bridge plug-in (stable path)…"
+# DEVELOPMENT ONLY (opt-in): keep Levin's local Lightroom bridge plug-in current at the stable
+# path registered once in Lightroom's Zusatzmodul-Manager (see BridgeInstaller, LrC 15.x
+# half-loads plug-ins from the Modules folder). Run `RS_DEV_BRIDGE=1 ./build_app.sh` to sync.
+# The plug-in in this repo is the SOURCE — the only copy to ever edit.
+if [[ "${RS_DEV_BRIDGE:-0}" == "1" && -d "RAWSelectBridge.lrplugin" ]]; then
+    BRIDGE_DIR="${HOME}/Library/Application Support/RAW Select"
+    echo "▶︎ Updating Lightroom bridge plug-in (dev, stable path)…"
     mkdir -p "${BRIDGE_DIR}"
     rm -rf "${BRIDGE_DIR}/RAWSelectBridge.lrplugin"
     cp -R "RAWSelectBridge.lrplugin" "${BRIDGE_DIR}/"
     echo "  → ${BRIDGE_DIR}/RAWSelectBridge.lrplugin"
-    echo "  (einmalig in Lightroom: Datei → Zusatzmodul-Manager → Hinzufügen von diesem Pfad)"
 fi
 
 echo "✓ Done: $(pwd)/${APP_DIR}"

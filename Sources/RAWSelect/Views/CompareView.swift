@@ -101,7 +101,7 @@ private struct ComparePane: View {
         hiResTask = Task {
             let big = await ThumbnailLoader.shared.fullDecode(for: rawURL, maxPixel: PreviewConfig.zoomMaxPixel)
             await MainActor.run {
-                guard group.id == g.id, let big else { return }
+                guard let big else { return }   // staleness is checked via hiResID == group.id in body
                 hiRes = big; hiResID = g.id
             }
         }

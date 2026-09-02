@@ -5,12 +5,11 @@ import SwiftUI
 struct SettingsView: View {
     var body: some View {
         TabView {
-            GeneralSettingsTab().tabItem { Label("Allgemein", systemImage: "gearshape") }
             ViewSettingsTab().tabItem { Label("Ansicht", systemImage: "photo") }
             MarkSettingsTab().tabItem { Label("Markierungen", systemImage: "tag") }
-            if AppInfo.lightroomExportEnabled {
-                ExportSettingsTab().tabItem { Label("Export", systemImage: "square.and.arrow.up") }
-            }
+            #if DEBUG
+            ExportSettingsTab().tabItem { Label("Export", systemImage: "square.and.arrow.up") }
+            #endif
             AdvancedSettingsTab().tabItem { Label("Erweitert", systemImage: "slider.horizontal.3") }
             CreditsSettingsTab().tabItem { Label("Über", systemImage: "info.circle") }
         }

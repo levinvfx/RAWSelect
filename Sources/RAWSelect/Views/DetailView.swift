@@ -14,9 +14,9 @@ struct DetailView: View {
         }
         .toolbar { toolbarItems }
         .navigationTitle(app.rootURL?.lastPathComponent ?? AppInfo.name)
-        .sheet(isPresented: $app.showExportWizard) {
-            ExportWizard()
-        }
+        #if DEBUG
+        .sheet(isPresented: $app.showExportWizard) { ExportWizard() }
+        #endif
     }
 
     @ViewBuilder
@@ -25,16 +25,18 @@ struct DetailView: View {
             EmptyStateView()
         } else {
             VStack(spacing: 0) {
-                if settings.showMarkToolbar && !app.focusMode {
+                if !app.focusMode {
                     FilterBar()
                     Divider()
                 }
                 contentBody
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            #if DEBUG
             .sheet(isPresented: $app.showEditor) {
                 if let g = app.currentGroup { ImageEditorSheet(group: g) }
             }
+            #endif
         }
     }
 
@@ -107,19 +109,17 @@ struct DetailView: View {
             .disabled(app.filteredGroups.count < 2)
         }
 
-        // Export actions, most important first so they never fall into overflow.
+        // The one action that ends a culling session: copy the selection (always with XMP).
         ToolbarItem(placement: .primaryAction) {
-            Menu {
-                Button("Bilder + XMP kopieren…") { app.copySelection(includeSidecars: true) }
-                Button("Nur Bilder kopieren (ohne XMP)…") { app.copySelection(includeSidecars: false) }
+            Button {
+                app.copySelection(includeSidecars: true)
             } label: {
-                Label("Kopieren", systemImage: "doc.on.doc")
+                Label("Auswahl kopieren…", systemImage: "doc.on.doc")
             }
-            .menuStyle(.button)
             .buttonStyle(.borderedProminent)
             .tint(.accentColor)
             .disabled(app.selectionCount == 0)
-            .help("Originale kopieren – Art im Menü wählen")
+            .help("Ausgewählte Originale (inkl. XMP) flach in einen Zielordner kopieren")
         }
 
         // Combined "Öffnen" menu: open the selection in the external app
@@ -148,7 +148,7 @@ struct DetailView: View {
             .help("In App öffnen oder im Finder anzeigen")
         }
 
-        if AppInfo.lightroomExportEnabled {
+        #if DEBUG
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     app.showExportWizard = true
@@ -166,7 +166,7 @@ struct DetailView: View {
                 .disabled(app.groups.isEmpty)
                 .help("Export JPEG mit Lightroom Classic")
             }
-        }
+        #endif
     }
 
 }

@@ -3,9 +3,9 @@ import Combine
 
 // MARK: - Enums shown in the (reduced) settings UI
 
-enum SortField: String, CaseIterable, Identifiable { case filename, captureDate, mark
+enum SortField: String, CaseIterable, Identifiable { case filename, captureDate
     var id: String { rawValue }
-    var label: String { switch self { case .filename: return "Dateiname"; case .captureDate: return "Dateidatum"; case .mark: return "Markierung" } }
+    var label: String { switch self { case .filename: return "Dateiname"; case .captureDate: return "Dateidatum" } }
 }
 enum PreviewMode: String, CaseIterable, Identifiable { case fast, balanced, quality
     var id: String { rawValue }
@@ -15,10 +15,6 @@ enum PreviewMode: String, CaseIterable, Identifiable { case fast, balanced, qual
     var preloadForward: Int { switch self { case .fast: return 10; case .balanced: return 20; case .quality: return 30 } }
     var preloadBackward: Int { switch self { case .fast: return 5; case .balanced: return 10; case .quality: return 15 } }
     var maxJobs: Int { switch self { case .fast: return 4; case .balanced: return 6; case .quality: return 8 } }
-}
-enum RawJpgExport: String, CaseIterable, Identifiable { case both, rawOnly, jpgOnly
-    var id: String { rawValue }
-    var label: String { switch self { case .both: return "RAW + JPG"; case .rawOnly: return "Nur RAW"; case .jpgOnly: return "Nur JPG" } }
 }
 
 /// App appearance, independent of the system setting.
@@ -105,34 +101,34 @@ final class AppSettings: ObservableObject {
     var autoAdvance: Bool { get { b("rs.autoAdvance", true) } set { set("rs.autoAdvance", newValue) } }
     var marks: [MarkDefinition] { get { cod("rs.marks", MarkDefinition.defaults) } set { setCod("rs.marks", newValue) } }
 
-    // Export
+    // Kopieren
+    /// After a copy, show the destination folder in the Finder (Erweitert).
     var revealAfterExport: Bool { get { b("rs.revealAfterExport", true) } set { set("rs.revealAfterExport", newValue) } }
-    var rawJpgExport: RawJpgExport { get { en("rs.rawJpgExport", .both) } set { setEnum("rs.rawJpgExport", newValue) } }
-    var jpegQualityPercent: Double { get { dbl("rs.jpegQualityPercent", 100) } set { set("rs.jpegQualityPercent", newValue) } }
+    /// Last copy destination — offered again in the folder picker (same target after every game).
+    var lastExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
 
     // Erweitert
-    var lightroomPath: String { get { str("rs.lightroomPath", "") } set { set("rs.lightroomPath", newValue) } }
     /// App used by the toolbar "In … öffnen" button (Lightroom / Lightroom Classic /
     /// any app). Empty = not yet chosen → picked on first use, then editable here.
     var openWithAppPath: String { get { str("rs.openWithAppPath", "") } set { set("rs.openWithAppPath", newValue) } }
-    /// Auto-click Lightroom's "update AI model" / Enhance dialog during export (needs Accessibility permission).
-    var autoConfirmLightroomDialogs: Bool { get { b("rs.autoConfirmLightroomDialogs", true) } set { set("rs.autoConfirmLightroomDialogs", newValue) } }
-
     /// Anonyme Nutzungsstatistik senden (Opt-out, Standard an). Zählt anonym Version + zufällige
     /// Kennung, keine persönlichen Daten. Siehe `TelemetryService`.
     var sendUsageStats: Bool { get { b("rs.sendUsageStats", true) } set { set("rs.sendUsageStats", newValue) } }
-    var presetPath: String { get { str("rs.presetPath", "") } set { set("rs.presetPath", newValue) } }
 
-    // JPEG export (wizard defaults + advanced)
+    #if DEBUG
+    // ───────── Lightroom export (development builds only) ─────────
+    var lightroomPath: String { get { str("rs.lightroomPath", "") } set { set("rs.lightroomPath", newValue) } }
+    /// Auto-click Lightroom's "update AI model" / Enhance dialog during export (needs Accessibility permission).
+    var autoConfirmLightroomDialogs: Bool { get { b("rs.autoConfirmLightroomDialogs", true) } set { set("rs.autoConfirmLightroomDialogs", newValue) } }
+    var presetPath: String { get { str("rs.presetPath", "") } set { set("rs.presetPath", newValue) } }
+    var jpegQualityPercent: Double { get { dbl("rs.jpegQualityPercent", 100) } set { set("rs.jpegQualityPercent", newValue) } }
     var colorSpace: ColorSpaceChoice { get { en("rs.colorSpace", .sRGB) } set { setEnum("rs.colorSpace", newValue) } }
     var exportSize: ExportSizeChoice { get { en("rs.exportSize", .original) } set { setEnum("rs.exportSize", newValue) } }
     var customLongEdge: Double { get { dbl("rs.customLongEdge", 4000) } set { set("rs.customLongEdge", newValue) } }
     var deleteTempFiles: Bool { get { b("rs.deleteTempFiles", true) } set { set("rs.deleteTempFiles", newValue) } }
     var rememberPreset: Bool { get { b("rs.rememberPreset", true) } set { set("rs.rememberPreset", newValue) } }
     var recentPresets: [String] { get { cod("rs.recentPresets", []) } set { setCod("rs.recentPresets", newValue) } }
-    // Storage keys kept as rs.ps* so existing user values (e.g. last target) survive.
     var exportConflict: ConflictMode { get { en("rs.psConflict", .rename) } set { setEnum("rs.psConflict", newValue) } }
-    var lastExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
 
     /// Adds a preset to the recent list (most recent first, max 5).
     func rememberRecentPreset(_ path: String) {
@@ -141,23 +137,11 @@ final class AppSettings: ObservableObject {
         list.insert(path, at: 0)
         recentPresets = Array(list.prefix(5))
     }
+    #endif
 
-    // ───────── Fixed defaults (not shown in UI) ─────────
-
-    // Sources / scanning
-    var enabledTypes: [String] { ["arw","cr2","cr3","nef","raf","dng","jpg","jpeg","heic","png"] }
-    var recursiveScan: Bool { true }
-    var ignoreHidden: Bool { true }
-    var cameraFoldersOnly: Bool { true }
-
-    // View / preview badges & behaviour
-    var showFilename: Bool { true }
-    var showTypeBadge: Bool { true }
-    var showMarkBadge: Bool { true }
-    var showDateUnderThumb: Bool { false }
-    var wrapNavigation: Bool { false }
-    var metadataPanel: Bool { true }
-    var showMarkToolbar: Bool { true }
+    // ───────── Fixed defaults (not user-facing) ─────────
+    // Scanning is always recursive, skips hidden files and prefers DCIM-style folders —
+    // these used to be getters that pretended to be settings.
 
     // Preview quality / preloading – derived from previewMode.
     var instantPixels: Int { previewMode.instantPixels }
@@ -165,14 +149,6 @@ final class AppSettings: ObservableObject {
     var preloadForward: Double { Double(previewMode.preloadForward) }
     var preloadBackward: Double { Double(previewMode.preloadBackward) }
     var maxParallelJobs: Double { Double(previewMode.maxJobs) }
-    var preloadPerfect: Bool { true }
-
-    // Marks behaviour
-    var zeroClearsMark: Bool { true }
-    var advanceDirection: AdvanceDirection { .next }
-
-    // Export — always writes flat into the chosen target; conflicts get renamed.
-    var conflictMode: ConflictMode { .rename }
 
     // MARK: Derived helpers
     func markDefinition(_ n: Int) -> MarkDefinition {
@@ -189,8 +165,6 @@ final class AppSettings: ObservableObject {
         for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") { d.removeObject(forKey: key) }
     }
 }
-
-enum AdvanceDirection { case next, previous }
 
 // MARK: - Color <-> hex
 
