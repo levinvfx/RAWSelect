@@ -26,7 +26,7 @@ struct CompareView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Text("←/→ rechtes Bild · Z 100% · ↩ B→A übernehmen · Esc schliessen")
+            Text("←/→ rechtes Bild · 1–9 markiert A · ⇧1–9 markiert B · Z 100 % · ↩ B→A · Esc schliessen")
                 .font(.caption)
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(.regularMaterial, in: Capsule())
@@ -44,20 +44,30 @@ private struct ComparePane: View {
     let label: String
 
     @State private var image: NSImage?
+    @State private var imageID: String?
     @State private var hiRes: NSImage?
     @State private var hiResID: String?
     @State private var hiResTask: Task<Void, Never>?
 
     private var rawURL: URL { group.files.first { PhotoTypes.isRaw($0) } ?? group.previewURL }
 
+    /// Whatever the shared cache already holds for THIS photo — read synchronously so cycling B
+    /// paints a frame immediately (never the previous photo under the new name, never a spinner).
+    private func bestCached() -> NSImage? {
+        let loader = ThumbnailLoader.shared
+        let url = group.previewURL
+        let plan = loader.previewPlan(for: url, targetLongEdge: settings.perfectPixels)
+        return loader.cached(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
+            ?? loader.cached(for: url, maxPixel: settings.instantPixels)
+            ?? loader.cached(for: url, maxPixel: PreviewConfig.tinyMaxPixel)
+    }
+
     var body: some View {
         ZStack {
             Color(white: 0.11)
-            if let shown = (hiResID == group.id ? hiRes : nil) ?? image {
+            if let shown = (hiResID == group.id ? hiRes : nil) ?? (imageID == group.id ? image : nil) ?? bestCached() {
                 ZoomableImageView(imageID: group.id, image: shown, controller: zoom)
                     .padding(8)
-            } else {
-                ProgressView().controlSize(.small)
             }
             VStack {
                 HStack(alignment: .top) {
@@ -83,9 +93,13 @@ private struct ComparePane: View {
         .task(id: group.id) {
             let loader = ThumbnailLoader.shared
             let plan = loader.previewPlan(for: group.previewURL, targetLongEdge: settings.perfectPixels)
-            image = await loader.thumbnail(for: group.previewURL, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
+            let g = group
+            if let img = await loader.thumbnail(for: g.previewURL, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality) {
+                image = img; imageID = g.id
+            }
         }
         .onChange(of: group.id) { _, _ in
+            image = nil; imageID = nil
             hiResTask?.cancel(); hiRes = nil; hiResID = nil
             if zoom.zoomed { loadHiRes() }
         }

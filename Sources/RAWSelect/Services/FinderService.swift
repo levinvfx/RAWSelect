@@ -24,9 +24,12 @@ enum FinderService {
     }
 
     /// Prompts for a target folder (copy/move destination).
-    static func chooseDestination(title: String) -> URL? {
+    static func chooseDestination(title: String, startAt: String = "") -> URL? {
         let panel = NSOpenPanel()
         panel.title = title
+        if !startAt.isEmpty, FileManager.default.fileExists(atPath: startAt) {
+            panel.directoryURL = URL(fileURLWithPath: startAt, isDirectory: true)
+        }
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false

@@ -48,6 +48,9 @@ struct ThumbnailGridView: View {
                         proxy.scrollTo(id, anchor: .center)
                     }
                 }
+                .onChange(of: app.scrollToCurrentTick) { _, _ in
+                    if let id = app.currentID { proxy.scrollTo(id, anchor: .center) }   // re-sorted → follow the photo
+                }
                 .onAppear {
                     // Beim Zurückwechseln aus der Grossansicht bleibt currentID gleich, also feuert
                     // das onChange oben nicht — und das frisch erstellte Grid stünde ganz oben.

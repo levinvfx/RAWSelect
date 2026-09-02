@@ -12,9 +12,13 @@ final class ZoomController: ObservableObject {
     @Published var sliderActive: Bool = false
     /// Slider position, 0 = fit … 1 = maximum magnification.
     @Published var fraction: Double = 0
+    /// Normalised centre (0…1 in image coordinates) of what is visible, reported by the live
+    /// view while panning/zooming. Compare A|B mirrors it between the two panes.
+    @Published var viewCenter = CGPoint(x: 0.5, y: 0.5)
 
-    enum Command { case zoomIn, zoomOut, toggle100, fit, zoomTo100, spaceToggle, setFraction(Double) }
+    enum Command { case zoomIn, zoomOut, toggle100, fit, zoomTo100, spaceToggle, setFraction(Double), centerOn(CGPoint) }
     var command: ((Command) -> Void)?
+    func centerOn(_ c: CGPoint) { command?(.centerOn(c)) }
 
     func zoomIn()    { command?(.zoomIn) }
     func zoomOut()   { command?(.zoomOut) }
@@ -73,6 +77,10 @@ struct ZoomableImageView: NSViewRepresentable {
         NotificationCenter.default.addObserver(
             coord, selector: #selector(Coordinator.magnifyEnded(_:)),
             name: NSScrollView.didEndLiveMagnifyNotification, object: scroll)
+        scroll.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            coord, selector: #selector(Coordinator.boundsChanged(_:)),
+            name: NSView.boundsDidChangeNotification, object: scroll.contentView)
 
         // Click-and-drag to pan (hand tool), in addition to trackpad scrolling.
         let pan = NSPanGestureRecognizer(target: coord, action: #selector(Coordinator.handlePan(_:)))
@@ -295,6 +303,7 @@ struct ZoomableImageView: NSViewRepresentable {
                     controller.sliderActive = true
                     animateMagnification(to: 1.0, anchorWindowPoint: currentMouseWindowPoint())
                 }
+            case .centerOn(let c): centerOn(c)
             case .setFraction(let f):
                 let fitM = fitMagnification()
                 let maxM = scroll.maxMagnification
@@ -329,6 +338,30 @@ struct ZoomableImageView: NSViewRepresentable {
         }
 
         @objc func magnifyEnded(_ n: Notification) { updatePercent() }
+
+        private var suppressCenterReport = false
+
+        /// Reports the visible centre so compare mode can pan the other pane along.
+        @objc func boundsChanged(_ n: Notification) {
+            guard !suppressCenterReport, let scroll, let doc = scroll.documentView,
+                  doc.frame.width > 1, doc.frame.height > 1 else { return }
+            let vis = scroll.contentView.bounds
+            let c = CGPoint(x: min(max(vis.midX / doc.frame.width, 0), 1),
+                            y: min(max(vis.midY / doc.frame.height, 0), 1))
+            let old = controller.viewCenter
+            guard abs(old.x - c.x) > 0.002 || abs(old.y - c.y) > 0.002 else { return }
+            DispatchQueue.main.async { self.controller.viewCenter = c }
+        }
+
+        private func centerOn(_ c: CGPoint) {
+            guard let scroll, let doc = scroll.documentView, doc.frame.width > 1 else { return }
+            suppressCenterReport = true
+            let vis = scroll.contentView.bounds.size
+            scroll.contentView.scroll(to: NSPoint(x: c.x * doc.frame.width - vis.width / 2,
+                                                  y: c.y * doc.frame.height - vis.height / 2))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            suppressCenterReport = false
+        }
 
         private func updatePercent() {
             guard let scroll else { return }

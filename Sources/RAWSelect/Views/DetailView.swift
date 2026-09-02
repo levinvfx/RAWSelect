@@ -74,12 +74,20 @@ struct DetailView: View {
         }
 
         ToolbarItem(placement: .principal) {
-            Picker("Ansicht", selection: $app.viewMode) {
+            // Third segment = compare, so the control always reflects the real mode.
+            Picker("Ansicht", selection: Binding(
+                get: { app.viewMode },
+                set: { mode in
+                    if mode == .compare { app.enterCompare() }
+                    else { if app.viewMode == .compare { app.exitCompare() }; app.viewMode = mode }
+                }
+            )) {
                 Image(systemName: "square.grid.2x2").tag(AppState.ViewMode.grid)
                 Image(systemName: "photo").tag(AppState.ViewMode.loupe)
+                Image(systemName: "rectangle.split.2x1").tag(AppState.ViewMode.compare)
             }
             .pickerStyle(.segmented)
-            .help("Zwischen Raster und grosser Vorschau wechseln")
+            .help("Raster · grosse Vorschau · Vergleich A|B (C)")
         }
 
         ToolbarItemGroup(placement: .automatic) {
@@ -100,13 +108,6 @@ struct DetailView: View {
             }
             .help("EXIF-Infos ein/aus (I)")
 
-            Button {
-                if app.viewMode == .compare { app.exitCompare() } else { app.enterCompare() }
-            } label: {
-                Label("Vergleichen", systemImage: "rectangle.split.2x1")
-            }
-            .help("Zwei Bilder nebeneinander vergleichen (C)")
-            .disabled(app.filteredGroups.count < 2)
         }
 
         // The one action that ends a culling session: copy the selection (always with XMP).
@@ -188,6 +189,9 @@ private struct EmptyStateView: View {
             Button("Ordner öffnen…") { app.openFolderDialog() }
                 .controlSize(.large)
                 .buttonStyle(.borderedProminent)
+            Text("Tipp: **?** zeigt alle Tastaturkürzel.")
+                .font(.caption).foregroundStyle(.tertiary)
+                .padding(.top, 6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))

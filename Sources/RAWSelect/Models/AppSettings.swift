@@ -41,16 +41,27 @@ struct MarkDefinition: Codable, Identifiable, Equatable {
     var color: Color { Color(hex: colorHex) }
 
     static let defaults: [MarkDefinition] = [
-        .init(id: 1, name: "Red",    colorHex: "#FF222A"),
-        .init(id: 2, name: "Yellow", colorHex: "#FBF056"),
-        .init(id: 3, name: "Green",  colorHex: "#00F656"),
-        .init(id: 4, name: "Blue",   colorHex: "#204EF5"),
-        .init(id: 5, name: "Purple", colorHex: "#F73FFA"),
-        .init(id: 6, name: "Cyan",   colorHex: "#00FFFF"),
-        .init(id: 7, name: "Brown",  colorHex: "#804000"),
-        .init(id: 8, name: "Black",  colorHex: "#282828"),
-        .init(id: 9, name: "White",  colorHex: "#F9FFEF")
+        .init(id: 1, name: "Rot",     colorHex: "#FF222A"),
+        .init(id: 2, name: "Gelb",    colorHex: "#FBF056"),
+        .init(id: 3, name: "Grün",    colorHex: "#00F656"),
+        .init(id: 4, name: "Blau",    colorHex: "#204EF5"),
+        .init(id: 5, name: "Violett", colorHex: "#F73FFA"),
+        .init(id: 6, name: "Türkis",  colorHex: "#00FFFF"),
+        .init(id: 7, name: "Braun",   colorHex: "#804000"),
+        .init(id: 8, name: "Schwarz", colorHex: "#282828"),
+        .init(id: 9, name: "Weiss",   colorHex: "#F9FFEF")
     ]
+
+    /// Pre-1.9 defaults were English in an otherwise German UI. Stored settings that still carry
+    /// exactly those names are shown in German; custom names are left alone.
+    private static let germanNames = ["Red": "Rot", "Yellow": "Gelb", "Green": "Grün", "Blue": "Blau",
+                                      "Purple": "Violett", "Cyan": "Türkis", "Brown": "Braun",
+                                      "Black": "Schwarz", "White": "Weiss"]
+    static func localized(_ m: MarkDefinition) -> MarkDefinition {
+        var m = m
+        if let de = germanNames[m.name] { m.name = de }
+        return m
+    }
 }
 
 // MARK: - AppSettings store
@@ -99,13 +110,21 @@ final class AppSettings: ObservableObject {
 
     // Markierungen
     var autoAdvance: Bool { get { b("rs.autoAdvance", true) } set { set("rs.autoAdvance", newValue) } }
-    var marks: [MarkDefinition] { get { cod("rs.marks", MarkDefinition.defaults) } set { setCod("rs.marks", newValue) } }
+    var marks: [MarkDefinition] { get { cod("rs.marks", MarkDefinition.defaults).map(MarkDefinition.localized) } set { setCod("rs.marks", newValue) } }
 
     // Kopieren
     /// After a copy, show the destination folder in the Finder (Erweitert).
     var revealAfterExport: Bool { get { b("rs.revealAfterExport", true) } set { set("rs.revealAfterExport", newValue) } }
     /// Last copy destination — offered again in the folder picker (same target after every game).
     var lastExportTarget: String { get { str("rs.lastPsExportTarget", "") } set { set("rs.lastPsExportTarget", newValue) } }
+    /// Recently opened folders on internal disks (cards are listed as volumes anyway), newest first.
+    var recentFolders: [String] { get { cod("rs.recentFolders", []) } set { setCod("rs.recentFolders", newValue) } }
+    func rememberRecentFolder(_ path: String) {
+        var list = recentFolders.filter { $0 != path }
+        list.insert(path, at: 0)
+        recentFolders = Array(list.prefix(5))
+    }
+    func forgetRecentFolder(_ path: String) { recentFolders = recentFolders.filter { $0 != path } }
 
     // Erweitert
     /// App used by the toolbar "In … öffnen" button (Lightroom / Lightroom Classic /
@@ -156,6 +175,9 @@ final class AppSettings: ObservableObject {
     }
     func markColor(_ n: Int) -> Color { markDefinition(n).color }
     func markName(_ n: Int) -> String { markDefinition(n).name }
+    /// Black or white digit depending on the mark colour — a white "9" on the white mark was
+    /// invisible, on yellow barely readable.
+    func markTextColor(_ n: Int) -> Color { markDefinition(n).color.isLight ? .black : .white }
 
     /// Preferred color scheme for the whole app (nil = follow system).
     var systemColorScheme: ColorScheme? { appearance.colorScheme }
@@ -184,6 +206,12 @@ extension Color {
                          green: Double((v >> 8) & 0xff) / 255,
                          blue: Double(v & 0xff) / 255)
         } else { self = .gray }
+    }
+
+    /// Perceived brightness (sRGB luma) — decides whether text on this colour should be black.
+    var isLight: Bool {
+        let ns = NSColor(self).usingColorSpace(.sRGB) ?? NSColor.gray
+        return 0.2126 * ns.redComponent + 0.7152 * ns.greenComponent + 0.0722 * ns.blueComponent > 0.6
     }
 
     var hexString: String {

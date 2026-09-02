@@ -86,7 +86,7 @@ struct ThumbnailCell: View {
                 Spacer()
                 Text("\(group.mark)")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(settings.markTextColor(group.mark))
                     .frame(width: 20, height: 20)
                     .background(Circle().fill(settings.markColor(group.mark)))
                     .overlay(Circle().strokeBorder(.white.opacity(0.85), lineWidth: 1))

@@ -21,6 +21,9 @@ struct ShortcutsSheet: View {
         ("Z",          "100% / Einpassen (in der Loupe)"),
         ("+ / −",      "Rein- / rauszoomen (in der Loupe)"),
         ("C",          "Vergleichen (A|B) · ←/→ rechtes Bild · ↩ B→A"),
+        ("⇧1 – 9",     "Im Vergleich: B markieren"),
+        ("⌥1 – 9 / ⌥0","Nur diese Markierung zeigen / alle zeigen"),
+        ("⌘⇧C",        "Alle markierten Bilder kopieren…"),
         ("I",          "EXIF-Infos ein/aus"),
         ("F",          "Vollbild"),
         ("?",          "Diese Übersicht ein/aus")

@@ -3,6 +3,7 @@ import AppKit
 
 struct SidebarView: View {
     @EnvironmentObject var app: AppState
+    @EnvironmentObject var settings: AppSettings
 
     var body: some View {
         List {
@@ -18,6 +19,21 @@ struct SidebarView: View {
                     Label("Ordner öffnen…", systemImage: "folder.badge.plus")
                 }
                 .buttonStyle(.plain)
+            }
+
+            // Same folder on the internal disk the next day: one click instead of the whole tree.
+            if !settings.recentFolders.isEmpty {
+                Section("Zuletzt geöffnet") {
+                    ForEach(settings.recentFolders, id: \.self) { path in
+                        Button { app.openRecent(path) } label: {
+                            Label((path as NSString).lastPathComponent, systemImage: "clock")
+                                .lineLimit(1).truncationMode(.middle)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .help(path)
+                    }
+                }
             }
 
             if let browseRoot = app.browseRoot {

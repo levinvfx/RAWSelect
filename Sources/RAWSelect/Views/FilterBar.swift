@@ -67,8 +67,8 @@ struct FilterBar: View {
                 } else {
                     Text("\(bucket)")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(on ? .white : color!.opacity(0.85))
-                        .shadow(color: .black.opacity(on ? 0.35 : 0), radius: 1)
+                        .foregroundStyle(on ? settings.markTextColor(bucket) : color!.opacity(0.85))
+                        .shadow(color: .black.opacity(on && settings.markTextColor(bucket) == .white ? 0.35 : 0), radius: 1)
                 }
             }
             .frame(width: size, height: size)

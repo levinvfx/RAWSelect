@@ -53,6 +53,15 @@ struct RAWSelectApp: App {
                 Button("Ordner öffnen…") { app.openFolderDialog() }
                     .keyboardShortcut("o", modifiers: .command)
             }
+            CommandGroup(after: .newItem) {
+                Button("Alle markierten Bilder kopieren…") { app.copyAllMarked() }
+                    .keyboardShortcut("c", modifiers: [.command, .shift])
+                    .disabled(app.markedCount == 0)
+            }
+            CommandGroup(replacing: .help) {
+                Button("Tastaturkürzel…") { app.showShortcuts = true }
+                    .keyboardShortcut("?", modifiers: [])
+            }
             CommandGroup(after: .toolbar) {
                 Button("Im Finder anzeigen") { app.revealCurrent() }
                     .keyboardShortcut("r", modifiers: .command)
