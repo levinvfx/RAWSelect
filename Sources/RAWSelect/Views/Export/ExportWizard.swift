@@ -3,6 +3,7 @@
 #if DEBUG
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 /// Clean, card-based configuration dialog for the Lightroom JPEG export, with a
 /// per-image crop/rotate step (batch-capable) before rendering.
@@ -420,7 +421,7 @@ struct ExportWizard: View {
     private func choosePreset() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = false
-        panel.allowedFileTypes = ["xmp"]
+        panel.allowedContentTypes = [UTType(filenameExtension: "xmp") ?? .xml]
         if panel.runModal() == .OK, let url = panel.url {
             presetURL = url; settings.rememberRecentPreset(url.path)
         }

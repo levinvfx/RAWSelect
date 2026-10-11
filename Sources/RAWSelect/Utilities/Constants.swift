@@ -3,7 +3,7 @@ import SwiftUI
 /// Central place for the file types and mark styling used across the app.
 enum AppInfo {
     static let name = "RAW Select"
-    static let version = "1.9"
+    static let version = "1.10"
 
 
     // Credits / branding
@@ -16,6 +16,12 @@ enum AppInfo {
 
     /// Public GitHub repository the auto-updater queries (`releases/latest`, first `.dmg` asset).
     static let githubRepo = "levinvfx/RAWSelect"
+
+    /// Ed25519 public key that every update DMG must be signed with (see `UpdateSignature` and
+    /// tools/sign_update.swift). The private half never leaves Levin's Mac
+    /// (~/.config/rawselect/update-signing.key). Without a valid signature the app refuses an update —
+    /// so a hijacked GitHub account or token can no longer push code onto every user's Mac.
+    static let updatePublicKey = "8CjOD5QdNg02klSeWcYEOxlyLrKce8hEtDObj/Nm7Sg="
 
     /// Endpoint of the anonymous usage count (see `TelemetryService`): Levin's own server, which
     /// stores only the random id + version + macOS version, never the IP. `nil` would switch the

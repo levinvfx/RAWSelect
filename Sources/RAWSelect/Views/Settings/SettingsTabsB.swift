@@ -106,10 +106,9 @@ struct AdvancedSettingsTab: View {
             Section("Kopieren") {
                 SettingToggle(title: "Nach dem Kopieren Zielordner im Finder zeigen", isOn: $settings.revealAfterExport)
             }
-            Section("Nutzungsstatistik") {
-                SettingToggle(title: "Anonyme Nutzungsstatistik senden",
-                              help: "Sendet beim Start höchstens einmal täglich eine zufällige, anonyme Kennung und die App-Version – damit sichtbar ist, welche Versionen im Einsatz sind. Keine persönlichen Daten, keine Dateien, kein Standort.",
-                              isOn: $settings.sendUsageStats)
+            Section("Nutzungszählung") {
+                Text("RAW Select meldet beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch – so ist sichtbar, wie viele Leute die App nutzen. Keine Dateien, keine Namen, kein Standort, keine IP-Adresse.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Bilder öffnen mit") {
                 HStack {

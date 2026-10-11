@@ -21,6 +21,15 @@ enum EntryPoint {
             SliderCal.run(Array(CommandLine.arguments[(idx + 1)...]))
             exit(0)
         }
+        // Release check: verifies a signed DMG with the key EMBEDDED in the app — the exact code
+        // path the updater uses. `--verify-update <dmg> <version> <dmg.sig>`
+        if let idx = CommandLine.arguments.firstIndex(of: "--verify-update"), CommandLine.arguments.count >= idx + 4 {
+            let a = CommandLine.arguments
+            let sig = (try? String(contentsOfFile: a[idx + 3], encoding: .utf8)) ?? ""
+            let ok = UpdateSignature.isValid(file: URL(fileURLWithPath: a[idx + 1]), version: a[idx + 2], signatureBase64: sig)
+            print(ok ? "GÜLTIG" : "UNGÜLTIG")
+            exit(ok ? 0 : 1)
+        }
         #endif
         RAWSelectApp.main()
     }
@@ -86,8 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The public app ships no plug-in and never touches Application Support.
         BridgeInstaller.installIfNeeded()
         #endif
-        TelemetryService.askOnFirstRunIfNeeded()   // einmalig fragen, BEVOR das erste Mal gesendet wird
-        TelemetryService.pingIfEnabled()            // anonym, opt-out, max. 1×/Tag
+        AppSettings.shared.removeObsoleteKeys()
+        TelemetryService.showNoticeIfNeeded()   // einmalig informieren, BEVOR das erste Mal gezählt wird
+        TelemetryService.ping()                 // anonym, max. 1×/Tag
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

@@ -130,9 +130,6 @@ final class AppSettings: ObservableObject {
     /// App used by the toolbar "In … öffnen" button (Lightroom / Lightroom Classic /
     /// any app). Empty = not yet chosen → picked on first use, then editable here.
     var openWithAppPath: String { get { str("rs.openWithAppPath", "") } set { set("rs.openWithAppPath", newValue) } }
-    /// Anonyme Nutzungsstatistik senden (Opt-out, Standard an). Zählt anonym Version + zufällige
-    /// Kennung, keine persönlichen Daten. Siehe `TelemetryService`.
-    var sendUsageStats: Bool { get { b("rs.sendUsageStats", true) } set { set("rs.sendUsageStats", newValue) } }
 
     #if DEBUG
     // ───────── Lightroom export (development builds only) ─────────
@@ -182,11 +179,52 @@ final class AppSettings: ObservableObject {
     /// Preferred color scheme for the whole app (nil = follow system).
     var systemColorScheme: ColorScheme? { appearance.colorScheme }
 
+    /// Preference keys of settings that no longer exist (collected from the whole git history).
+    /// Removed on every launch — idempotent and cheap — so old installs don't carry dead state
+    /// forever and a stale value can never resurface if a key name is ever reused.
+    private static let obsoleteKeys: [String] = [
+        "rs.accent", "rs.accentCustomHex", "rs.advanceDirection", "rs.aiDenoiseAmount",
+        "rs.allowDeleteFromSD", "rs.allowMoveFromSD", "rs.appBackground", "rs.autoCleanCache",
+        "rs.autoDetectVolumes", "rs.autoManageMemory", "rs.autoScanOnLaunch", "rs.cacheAge",
+        "rs.cacheLimit", "rs.cachePath", "rs.cameraFoldersOnly", "rs.cancelStalePreloads",
+        "rs.checkerboardTransparency", "rs.clearCacheOnQuit", "rs.closePhotoshopAfter",
+        "rs.colorMgmtPreview", "rs.colorMgmtThumbs", "rs.compactToolbar", "rs.completionNotification",
+        "rs.conflictMode", "rs.debugLogs", "rs.defaultExportAction", "rs.deleteToTrashOnly",
+        "rs.denoiseMode", "rs.detectRawJpgPairs", "rs.enabledTypes", "rs.exportConflict",
+        "rs.exportFolderFormat", "rs.exportFolderStructure", "rs.exportSubfolders", "rs.exposureMode",
+        "rs.externalAppPath", "rs.fitToPreview", "rs.ignoreHidden", "rs.ignoreUnmarked", "rs.instantFirst",
+        "rs.instantQuality", "rs.instantSize", "rs.jpegQuality", "rs.keepFileDates", "rs.lastExportTarget",
+        "rs.loadPerfectOnZoom", "rs.maxExternalOpen", "rs.maxParallelJobs", "rs.metadataPanel",
+        "rs.perfectAuto", "rs.perfectCache", "rs.perfectQuality", "rs.photoshopAutoDetect",
+        "rs.photoshopExport", "rs.photoshopPath", "rs.preloadBackward", "rs.preloadCurrentFilterOnly",
+        "rs.preloadForward", "rs.preloadPerfect", "rs.previewBackground", "rs.protectHighlights",
+        "rs.protectShadows", "rs.psFolderStructure", "rs.rawJpgExport", "rs.rawJpgOpen", "rs.recursiveScan",
+        "rs.reduceMotion", "rs.reducePreloadLowPower", "rs.rememberExportTarget", "rs.rememberLastFolder",
+        "rs.rememberWindow", "rs.renameOnExport", "rs.rescanOnFocus", "rs.respectIntentional",
+        "rs.respectRotation", "rs.respectScale", "rs.restoreSession", "rs.saveExportLog", "rs.scanMode",
+        "rs.sdBehavior", "rs.sendUsageStats", "rs.sessionLocation", "rs.sharpening",
+        "rs.showCorrectionBeforeExport", "rs.showDateUnderThumb", "rs.showFilename", "rs.showMarkBadge",
+        "rs.showMarkToolbar", "rs.showTypeBadge", "rs.singleMarkPerPhoto", "rs.smartExposure",
+        "rs.smartExposureMax", "rs.smoothPreviewSwap", "rs.startBehavior", "rs.stopOnError",
+        "rs.storeMarksLocally", "rs.subtleTransitions", "rs.syncPreviewGrid", "rs.thumbnailCache",
+        "rs.thumbnailSize", "rs.thumbnailSizeChoice", "rs.usageNoticeShown", "rs.useMarkFolderNames",
+        "rs.warnBeforeDelete", "rs.warnBeforeMove", "rs.warnManyExternal", "rs.warnOnQuitDuringOp",
+        "rs.warnOnResetMarks", "rs.wrapNavigation", "rs.writeMetadataJpeg", "rs.xmpExport",
+        "rs.zeroClearsMark", "rs.zoomWithZ"
+    ]
+
+    func removeObsoleteKeys() {
+        for key in Self.obsoleteKeys { d.removeObject(forKey: key) }
+        for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.warnSuppress.") {
+            d.removeObject(forKey: key)
+        }
+    }
+
     func resetAll() {
         objectWillChange.send()
         // Keep the anonymous stats identity: a settings reset is not a new installation, and
         // re-rolling the id would count this Mac twice in the usage numbers.
-        let keep: Set<String> = ["rs.anonID", "rs.lastUsagePing"]
+        let keep: Set<String> = ["rs.anonID", "rs.lastUsagePing", "rs.usageNoticeV2"]
         for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") && !keep.contains(key) {
             d.removeObject(forKey: key)
         }

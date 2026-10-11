@@ -1,11 +1,43 @@
 import Foundation
 import AppKit
+import CryptoKit
 
 /// A newer release available on GitHub Releases.
 struct UpdateInfo: Equatable {
     let version: String
     let notes: String
     let dmgURL: URL
+    /// `<dmg>.sig` release asset — Ed25519 signature over `UpdateSignature.message`.
+    let signatureURL: URL
+}
+
+/// Authenticity check for update DMGs. The DMG is downloaded over HTTPS from GitHub, but HTTPS only
+/// proves it came FROM GitHub — not that Levin built it. Whoever controls the GitHub account (or the
+/// deploy token) could otherwise ship arbitrary code to every user, and a DMG fetched by URLSession
+/// carries no quarantine flag, so Gatekeeper would not look at it either.
+///
+/// The signed message binds the file AND the version: an old, genuinely signed DMG cannot be
+/// re-published under a higher tag (downgrade to a known-buggy build). Must stay byte-identical
+/// to `message()` in tools/sign_update.swift.
+enum UpdateSignature {
+    static func message(version: String, fileSHA256 digest: SHA256.Digest) -> Data {
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        return Data("RAWSelect-Update|\(version)|\(hex)".utf8)
+    }
+
+    static var embeddedKey: Curve25519.Signing.PublicKey? {
+        Data(base64Encoded: AppInfo.updatePublicKey)
+            .flatMap { try? Curve25519.Signing.PublicKey(rawRepresentation: $0) }
+    }
+
+    /// True only for a well-formed signature by `key` over this exact file + version.
+    static func isValid(file: URL, version: String, signatureBase64: String,
+                        key: Curve25519.Signing.PublicKey? = embeddedKey) -> Bool {
+        guard let key,
+              let sig = Data(base64Encoded: signatureBase64.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let data = try? Data(contentsOf: file, options: .mappedIfSafe) else { return false }
+        return key.isValidSignature(sig, for: message(version: version, fileSHA256: SHA256.hash(data: data)))
+    }
 }
 
 /// Talks to the GitHub "latest release" API. No separate appcast file to host:
@@ -13,12 +45,14 @@ struct UpdateInfo: Equatable {
 /// `.dmg` asset the download. Works unauthenticated for a PUBLIC repository.
 enum UpdateService {
     enum UpdateError: LocalizedError {
-        case http(Int), parse, noAsset
+        case http(Int), parse, noAsset, unsigned, badSignature
         var errorDescription: String? {
             switch self {
             case .http(let c): return "Server antwortete mit Status \(c)."
             case .parse:       return "Antwort konnte nicht gelesen werden."
             case .noAsset:     return "Im neuesten Release wurde kein DMG gefunden."
+            case .unsigned:    return "Das Update ist nicht signiert und wird aus Sicherheitsgründen nicht geladen."
+            case .badSignature: return "Die Signatur des Updates stimmt nicht – die Datei wurde verworfen."
             }
         }
     }
@@ -49,18 +83,36 @@ enum UpdateService {
         let assets = (obj["assets"] as? [[String: Any]]) ?? []
         guard let dmg = assets.first(where: {
                   (($0["name"] as? String) ?? "").lowercased().hasSuffix(".dmg") }),
+              let dmgName = dmg["name"] as? String,
               let urlStr = dmg["browser_download_url"] as? String,
               let dmgURL = URL(string: urlStr) else { throw UpdateError.noAsset }
+        // The signature travels as a second asset `<dmg>.sig`. Older apps ignore it (they take the
+        // first asset ending in ".dmg", which ".dmg.sig" does not).
+        guard let sig = assets.first(where: { ($0["name"] as? String) == dmgName + ".sig" }),
+              let sigStr = sig["browser_download_url"] as? String,
+              let sigURL = URL(string: sigStr) else { throw UpdateError.unsigned }
 
-        return UpdateInfo(version: remote, notes: notes, dmgURL: dmgURL)
+        return UpdateInfo(version: remote, notes: notes, dmgURL: dmgURL, signatureURL: sigURL)
     }
 
     /// Download the DMG into ~/Downloads and open it (Finder mounts it), so the
     /// user can drag the new app over the old one. Returns the saved file URL.
     static func downloadAndOpen(_ info: UpdateInfo) async throws -> URL {
+        let (sigData, sigResp) = try await URLSession.shared.data(from: info.signatureURL)
+        if let http = sigResp as? HTTPURLResponse, http.statusCode != 200 { throw UpdateError.http(http.statusCode) }
+        guard sigData.count < 4096, let signature = String(data: sigData, encoding: .utf8) else {
+            throw UpdateError.badSignature
+        }
+
         let (tmp, resp) = try await URLSession.shared.download(from: info.dmgURL)
         if let http = resp as? HTTPURLResponse, http.statusCode != 200 {
+            try? FileManager.default.removeItem(at: tmp)
             throw UpdateError.http(http.statusCode)
+        }
+        // Verify BEFORE the file is placed in Downloads or opened — a forged DMG is never shown.
+        guard UpdateSignature.isValid(file: tmp, version: info.version, signatureBase64: signature) else {
+            try? FileManager.default.removeItem(at: tmp)
+            throw UpdateError.badSignature
         }
         let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory

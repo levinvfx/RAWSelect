@@ -1,8 +1,25 @@
-# RAW Select — Stand (02.09.2026, nachmittags)
+# RAW Select — Stand (11.10.2026)
 
 ## Ziel
-**V1.9 veröffentlicht** (02.09., Tag `v1.9`, Sprint-Fix + Zoom-Hotfix). Kollegen bekommen sie per
-Auto-Update. Plan des Sprints: `Audit/2026-09-02-Sprint-Fix.md`.
+**V1.10 (Sicherheit & Datenschutz) lokal fertig, wartet auf Levins Test + Go zum Veröffentlichen.**
+Öffentlich ist V1.9. Grundlage: project-xray-Audit vom 11.10.2026 (Code, Server, Datenschutz).
+
+## V1.10 / Audit 11.10.2026 (belegt)
+- **Leck behoben (Server):** `stats.php.bak` lag seit 02.09. im Webroot und wurde samt Stats-Token als
+  Klartext ausgeliefert → verschoben nach `/root/backups/rawselect/2026-10-11/`, Token erneuert.
+- **nginx-Snippet** (`server/nginx-rawselect.conf`): nur `ping.php`/`stats.php` erreichbar, Rest 404;
+  `access_log off` → es wird **keine IP** mehr gespeichert (vorher 14 Tage IP+App-Version im Log).
+- **Nutzungszählung fest** (Levins Entscheid: will echte Nutzerzahl): kein Schalter mehr, einmaliger
+  Hinweis „Verstanden" (Key `rs.usageNoticeV2`, auch für frühere „Nein"-Wähler), grobe macOS-Version.
+  Zulässig nur, weil wirklich anonym (keine IP) — Bedingung steht in TelemetryService + server/README.
+- **Signierte Updates:** Ed25519; öffentlicher Schlüssel in `AppInfo.updatePublicKey`, privater in
+  `~/.config/rawselect/update-signing.key` (NUR dort — Verlust = keine Auto-Updates mehr ab 1.10).
+  Signiert wird `RAWSelect-Update|<version>|<sha256>` (kein Downgrade/Replay). `tools/sign_update.swift`,
+  `tools/publish_release.py` (bricht ohne gültige Signatur ab), Prüf-CLI `--verify-update` (DEBUG).
+- **Toter Code raus:** Session-Import/-Export (hatte Path-Traversal), Verschieben/Überschreiben im
+  Kopierpfad, 113 tote Preference-Keys werden beim Start entfernt.
+- Bewusst NICHT: Löschfrist für Statistik-Rohdaten (würde Levins All-time-Zahlen schrumpfen; Daten
+  sind anonym) · Swift-6-Sendable-Umbau (19 Warnungen, kein Bug heute) · Apple-Notarisierung (99 $/Jahr).
 
 ## Stand (belegt)
 - W1 Datenverlust `6396038` · W2 Async/Tempo `41a32a6` · W3 Release-Grenze `d7593ed` ·
@@ -14,8 +31,8 @@ Auto-Update. Plan des Sprints: `Audit/2026-09-02-Sprint-Fix.md`.
   der Anker-Anteil fy war verkehrt herum; zudem klemmt `NSClipView.scroll(to:)` nie ans Dokument → neuer
   `scrollClamped(to:)`. Headless-Test `App/SelfTestZoom.swift` (14 Checks) reproduziert und sichert es ab.
 - Levin hat 1.9 lokal getestet und freigegeben („veröffentliche").
-- **Projekt liegt auf OneDrive** → `.build` ist Symlink nach `~/Library/Caches/RAWSelect-build`, sonst hängen
-  git/swift build (fileproviderd). DMGs in `Releases/` sind untracked (gitignored) und lokal wiederhergestellt.
+- Projekt liegt seit Okt. 2026 unter `~/Developer/Business/RAWSelect` (nicht mehr OneDrive) — `.build` ist
+  wieder ein normaler Ordner. DMGs/Signaturen in `Releases/` sind gitignored.
 - `server/stats.php` wird von einer anderen Session (Dashboard) bearbeitet — nicht Teil dieses Sprints.
 
 ## Entscheide (mit Grund — nicht neu ausdiskutieren)
@@ -25,7 +42,7 @@ Auto-Update. Plan des Sprints: `Audit/2026-09-02-Sprint-Fix.md`.
   Späterer Export-Fix = **eigener Wegwerf-Katalog**, NICHT Engine-Wechsel.
 - **SelfTest/SliderCal sind `#if DEBUG`** (überforderten den Release-Optimierer); `build_app.sh`
   fährt den Selbsttest über das **Debug**-Binary, baut dann Release.
-- **Kein Verkauf** jetzt (gratis/privat). Telemetrie default AN (Opt-out).
+- **Kein Verkauf** jetzt (gratis/privat). Nutzungszählung seit V1.10 fest (anonym, ohne IP).
 
 ## Verworfen (nicht nochmal probieren)
 - Photoshop/ACR oder darktable als Export-Engine → KI-Masken gehen verloren.
@@ -40,12 +57,10 @@ Auto-Update. Plan des Sprints: `Audit/2026-09-02-Sprint-Fix.md`.
 
 ## Dateien
 - Version bumpen: `Sources/RAWSelect/Utilities/Constants.swift` **und** `build_app.sh` (beide!).
-- Deploy: Token in `~/.config/rawselect/gh-token`; Release-Muster im Session-Scratchpad `make_release_19.py`
-  (Release + DMG-Upload via REST-API; Tag vorher pushen, sonst legt GitHub ihn auf altem main an).
-- Telemetrie: `Services/TelemetryService.swift`, `Constants.telemetryEndpoint` (nil), Toggle in
-  `Views/Settings/SettingsTabsB.swift` (Advanced), `server/` (PHP + README).
+- Deploy: Token in `~/.config/rawselect/gh-token`; Ablauf in `.claude/commands/release.md`:
+  bauen → DMG signieren → Tag pushen → `python3 tools/publish_release.py <version>`.
+- Zählung: `Services/TelemetryService.swift`, `Constants.telemetryEndpoint`, `server/` (PHP, nginx, README).
 
 ## Annahmen (Levin gegenprüfen)
-- Telemetrie-Toggle default **AN** (Opt-out-Modell) — als datenschutzkonform gewählt.
 
 _Alle Details stehen zusätzlich im Auto-Memory (`rawselect-*`), das über /clear hinweg geladen wird._

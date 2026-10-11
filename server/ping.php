@@ -4,6 +4,10 @@
 // Bewusst KEINE IP-Speicherung – dadurch bleibt der Ping anonym (CH-DSG / DSGVO).
 // Ein Eintrag pro Gerät pro Tag: so zählt "aktive Geräte" sauber, ohne Mehrfach-Pings.
 
+// Datenbank AUSSERHALB des Webroots — nginx liefert unter /rawselect/ ohnehin nur ping.php/stats.php
+// aus (server/nginx-rawselect.conf), aber eine DB gehört nie neben öffentliche Dateien.
+const DB_PFAD = '/var/lib/rawselect/usage.sqlite';
+
 header('Content-Type: application/json');
 
 $raw  = file_get_contents('php://input');
@@ -21,7 +25,7 @@ $os      = substr(preg_replace('/[^0-9A-Za-z. ]/', '', $data['os'] ?? ''), 0, 60
 $day     = gmdate('Y-m-d');
 
 try {
-    $db = new SQLite3(__DIR__ . '/rawselect_usage.sqlite');
+    $db = new SQLite3(DB_PFAD);
     $db->busyTimeout(3000);
     $db->exec('CREATE TABLE IF NOT EXISTS pings (
                  id TEXT, version TEXT, os TEXT, day TEXT,

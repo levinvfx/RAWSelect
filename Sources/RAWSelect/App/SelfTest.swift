@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import CoreImage
+import CryptoKit
 
 // Dev/test-only: kept out of release builds. Its many chained test expressions overwhelm the
 // release optimizer's type-checker (cascading into module-wide "no member" errors). The debug
@@ -101,9 +102,9 @@ enum SelfTest {
         // 4. Flat copy WITH sidecars, twice, to exercise conflicts
         let target = root.appendingPathComponent("out")
         do {
-            let first = try FileOperationService.perform(.copy, groups: [paired!], targetRoot: target,
+            let first = try FileOperationService.copy(groups: [paired!], targetRoot: target,
                                                          includeSidecars: true, progress: { _, _ in }, isCancelled: { false })
-            _ = try FileOperationService.perform(.copy, groups: [paired!], targetRoot: target,
+            _ = try FileOperationService.copy(groups: [paired!], targetRoot: target,
                                                  includeSidecars: true, progress: { _, _ in }, isCancelled: { false })
             check(first.files == 4, "first copy writes 4 files (2 images + 2 xmp), got \(first.files)")
             let contents = Set((try? fm.contentsOfDirectory(atPath: target.path)) ?? [])
@@ -117,11 +118,11 @@ enum SelfTest {
         do {
             var ghost = paired!
             ghost.files = [sub.appendingPathComponent("IMG_0001.ARW"), sub.appendingPathComponent("GONE_9999.ARW")]
-            let out = try FileOperationService.perform(.copy, groups: [ghost], targetRoot: root.appendingPathComponent("out_ghost"),
+            let out = try FileOperationService.copy(groups: [ghost], targetRoot: root.appendingPathComponent("out_ghost"),
                                                        includeSidecars: false, progress: { _, _ in }, isCancelled: { false })
             check(out.failures.count == 1 && out.failures[0].contains("GONE_9999"), "missing source file is reported as a failure")
             check(out.files == 1 && !out.cancelled, "the existing file still copies; not marked cancelled")
-            let cancelled = try FileOperationService.perform(.copy, groups: [paired!], targetRoot: root.appendingPathComponent("out_cancel"),
+            let cancelled = try FileOperationService.copy(groups: [paired!], targetRoot: root.appendingPathComponent("out_cancel"),
                                                              includeSidecars: false, progress: { _, _ in }, isCancelled: { true })
             check(cancelled.cancelled && cancelled.files == 0, "cancelled before the first file → outcome says cancelled, nothing copied")
         } catch { check(false, "ghost copy threw: \(error.localizedDescription)") }
@@ -129,7 +130,7 @@ enum SelfTest {
         // 5. Flat copy WITHOUT sidecars
         let target2 = root.appendingPathComponent("out_noxmp")
         do {
-            let out = try FileOperationService.perform(.copy, groups: [paired!], targetRoot: target2,
+            let out = try FileOperationService.copy(groups: [paired!], targetRoot: target2,
                                                        includeSidecars: false, progress: { _, _ in }, isCancelled: { false })
             let contents = Set((try? fm.contentsOfDirectory(atPath: target2.path)) ?? [])
             check(out.files == 2, "without XMP copies only the 2 images (got \(out.files))")
@@ -137,7 +138,7 @@ enum SelfTest {
         } catch { check(false, "copy(no xmp) threw: \(error.localizedDescription)") }
 
         // 6. Tag filter on/off logic
-        var untagged = PhotoGroup(id: "u", directory: root, baseName: "u", files: [realJPG],
+        let untagged = PhotoGroup(id: "u", directory: root, baseName: "u", files: [realJPG],
                                   previewURL: realJPG, displayName: "u")
         var marked5 = untagged; marked5.mark = 5
         var filter = TagFilter()
@@ -178,7 +179,7 @@ enum SelfTest {
         check(u0.lastPathComponent == "A.jpg" && u1.lastPathComponent == "A_1.jpg" && u2.lastPathComponent == "A_2.jpg",
               "uniqueDestination avoids disk + in-batch collisions")
 
-        // 13. Overwrite must NOT collapse two same-named photos in one batch (Paket-3/4b fix)
+        // 13. Two same-named photos in one batch must both arrive (in-batch clash → _1)
         let sub2 = root.appendingPathComponent("day2"); try? fm.createDirectory(at: sub2, withIntermediateDirectories: true)
         let clashA = sub.appendingPathComponent("CLASH.JPG"); writePNG(to: clashA, size: 32)
         let clashB = sub2.appendingPathComponent("CLASH.JPG"); writePNG(to: clashB, size: 32)
@@ -186,11 +187,11 @@ enum SelfTest {
         let gB = PhotoGroup(id: "b", directory: sub2, baseName: "CLASH", files: [clashB], previewURL: clashB, displayName: "CLASH")
         let clashTarget = root.appendingPathComponent("clash")
         do {
-            let out = try FileOperationService.perform(.copy, groups: [gA, gB], targetRoot: clashTarget,
-                                                       includeSidecars: false, conflict: .overwrite,
-                                                       progress: { _, _ in }, isCancelled: { false })
+            let out = try FileOperationService.copy(groups: [gA, gB], targetRoot: clashTarget,
+                                                    includeSidecars: false,
+                                                    progress: { _, _ in }, isCancelled: { false })
             let c = Set((try? fm.contentsOfDirectory(atPath: clashTarget.path)) ?? [])
-            check(out.files == 2 && c.count == 2, "overwrite keeps both same-named batch photos (got \(c.count) files)")
+            check(out.files == 2 && c == ["CLASH.JPG", "CLASH_1.JPG"], "same-named batch photos both kept as CLASH + CLASH_1 (got \(c.sorted()))")
         } catch { check(false, "clash copy threw: \(error.localizedDescription)") }
 
         // 14) Develop adjustments map to Camera-Raw sidecar attributes (non-zero only).
@@ -487,6 +488,37 @@ enum SelfTest {
         }
         loaderSem.wait()
         check(ThumbnailLoader.shared.decodeCount - loaderBase == 1, "repeat thumbnail request decodes once, then hits cache")
+
+        // Update signature: only a DMG signed for exactly this version may be opened.
+        do {
+            let key = Curve25519.Signing.PrivateKey()
+            let dmg = root.appendingPathComponent("update.dmg")
+            try? Data(repeating: 7, count: 300_000).write(to: dmg)
+            let data = (try? Data(contentsOf: dmg)) ?? Data()
+            let msg = UpdateSignature.message(version: "1.10", fileSHA256: SHA256.hash(data: data))
+            let sig = ((try? key.signature(for: msg)) ?? Data()).base64EncodedString()
+            check(UpdateSignature.isValid(file: dmg, version: "1.10", signatureBase64: sig, key: key.publicKey),
+                  "update: valid signature accepted")
+            check(!UpdateSignature.isValid(file: dmg, version: "1.11", signatureBase64: sig, key: key.publicKey),
+                  "update: same DMG under another version rejected (no downgrade/replay)")
+            check(!UpdateSignature.isValid(file: dmg, version: "1.10", signatureBase64: sig,
+                                           key: Curve25519.Signing.PrivateKey().publicKey),
+                  "update: signature by a foreign key rejected")
+            check(!UpdateSignature.isValid(file: dmg, version: "1.10", signatureBase64: "kaputt", key: key.publicKey),
+                  "update: garbage signature rejected")
+            try? Data(repeating: 8, count: 300_000).write(to: dmg)
+            check(!UpdateSignature.isValid(file: dmg, version: "1.10", signatureBase64: sig, key: key.publicKey),
+                  "update: tampered DMG rejected")
+            check(String(decoding: UpdateSignature.message(version: "2.0", fileSHA256: SHA256.hash(data: Data("x".utf8))), as: UTF8.self)
+                  == "RAWSelect-Update|2.0|2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+                  "update: signed message format matches tools/sign_update.swift")
+            check(UpdateSignature.embeddedKey != nil, "update: embedded public key parses")
+        }
+
+        // Anonymous count sends only the coarse macOS version ("macOS 26.6", no build number).
+        let os = TelemetryService.coarseOSVersion
+        check(os.hasPrefix("macOS ") && os.split(separator: ".").count == 2 && !os.contains("Build"),
+              "telemetry: coarse OS version (\(os))")
 
         // Loupe zoom view (mouse wheel, fit, photo swap) — headless AppKit.
         zoomTests(check)

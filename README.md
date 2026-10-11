@@ -99,7 +99,7 @@ Pinch zoomt) · ⌥-Klick auf einen Filterchip = nur diese Gruppe · Ordner aufs
 - **Ansicht** – RAW+JPG gruppieren · Vorschau-Modus (Schnell / Ausgewogen / Qualität).
 - **Markierungen** – Auto-Weiterspringen · Namen und Farben der Markierungen 1–9.
 - **Erweitert** – Erscheinungsbild · Zielordner nach dem Kopieren im Finder zeigen ·
-  anonyme Nutzungsstatistik · „Öffnen mit"-App der Symbolleiste · Cache leeren · Zurücksetzen.
+  Hinweis zur anonymen Nutzungszählung · „Öffnen mit"-App der Symbolleiste · Cache leeren · Zurücksetzen.
 - **Über** – Version, Kontakt.
 
 Bewusst wenige Optionen; alles andere sind feste, sinnvolle Defaults.
@@ -112,11 +112,13 @@ RAW Select arbeitet komplett **lokal** – Bilder, Markierungen, Kopien verlasse
 Zwei Dinge gehen ins Netz:
 
 1. **Update-Check** beim Start (GitHub-API `releases/latest`, nur die Versionsnummer wird gelesen).
-   Ein Update wird als DMG in *Downloads* abgelegt und geöffnet, nie automatisch installiert.
-2. **Anonyme Nutzungsstatistik** (Standard: an, beim ersten Start wirst du gefragt): höchstens
-   einmal täglich eine zufällige Kennung, App-Version und macOS-Version an `vfxmedia.ch`.
-   Keine Dateien, Namen, Pfade, kein Standort; der Server speichert keine IP-Adressen.
-   Abschaltbar unter *Einstellungen → Erweitert*.
+   Ein Update wird als DMG in *Downloads* abgelegt und geöffnet, nie automatisch installiert –
+   und nur, wenn seine **Signatur** stimmt (Ed25519, Schlüssel in der App eingebaut). Ein
+   manipuliertes oder unsigniertes DMG wird verworfen, bevor es geöffnet wird.
+2. **Anonyme Nutzungszählung** (fester Bestandteil, beim ersten Start einmal erklärt): höchstens
+   einmal täglich eine zufällige Kennung, App-Version und grobe macOS-Version (z. B. „macOS 26.6“)
+   an `vfxmedia.ch`. Keine Dateien, Namen, Pfade, kein Standort. Der Server speichert **keine
+   IP-Adressen** – auch das Webserver-Log ist dafür abgeschaltet.
 
 Kein Login, keine Cloud, kein Konto.
 
@@ -151,7 +153,9 @@ Plugin lokal nach `~/Library/Application Support/RAW Select/`.
   `FileOperationService`, `MetadataService`, `UpdateService`, `TelemetryService`
 - `Views/` – Raster, Loupe, Vergleich, Filterleiste, Statusleiste, Sidebar, Settings
 - `Utilities/` – `Constants`, `FolderIdentity`, `CancellationToken`
-- `server/` – die zwei PHP-Dateien der Nutzungsstatistik (Setup in `server/README.md`)
+- `server/` – Nutzungszählung: `ping.php`, `stats.php`, nginx-Snippet (Aufbau + Deploy-Regeln in `server/README.md`)
+- `tools/` – `sign_update.swift` (Update-Signatur, Schlüssel ausserhalb des Repos) · `publish_release.py`
+  (GitHub-Release; bricht ohne gültige Signatur ab)
 
 ## Bekannte Grenzen
 

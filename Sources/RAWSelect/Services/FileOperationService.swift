@@ -1,33 +1,28 @@
 import Foundation
 
-/// Copies or moves a set of photos flat into a chosen target folder (like a
-/// classic culling app). Originals are read from disk only now – marks live in
-/// the app, never in the files, so copies carry no app tags. Never overwrites:
-/// on a name clash it appends _1, _2, …
+/// Copies a set of photos flat into a chosen target folder (like a classic culling app).
+/// Originals are only ever READ — marks live in the app, never in the files, so copies carry no
+/// app tags. Never overwrites and never deletes: on a name clash it appends _1, _2, …
+/// (Moving and overwriting were removed with V1.10: no release code path could reach them, and
+/// they were the only ways a copy could ever remove a user's file.)
 struct FileOperationService {
-
-    enum Kind { case copy, move }
 
     struct Outcome {
         var photos: Int   // number of photo groups processed
-        var files: Int    // number of individual files copied/moved (incl. XMP)
+        var files: Int    // number of individual files copied (incl. XMP)
         var failures: [String] = []          // "filename: reason" for files that failed
-        var movedGroupIDs: Set<String> = []  // groups whose files ALL moved (move only)
         var cancelled = false                // stopped early by the user — never report as "done"
     }
 
     /// - Parameters:
-    ///   - groups: the photos to process (already the user's selection).
+    ///   - groups: the photos to copy (already the user's selection).
     ///   - targetRoot: destination folder (files are placed directly inside).
-    ///   - includeSidecars: also copy/move matching .xmp files.
-    static func perform(_ kind: Kind,
-                        groups: [PhotoGroup],
-                        targetRoot: URL,
-                        includeSidecars: Bool,
-                        subfolder: (PhotoGroup) -> String? = { _ in nil },
-                        conflict: ConflictMode = .rename,
-                        progress: (Int, Int) -> Void,
-                        isCancelled: () -> Bool) throws -> Outcome {
+    ///   - includeSidecars: also copy matching .xmp files.
+    static func copy(groups: [PhotoGroup],
+                     targetRoot: URL,
+                     includeSidecars: Bool,
+                     progress: (Int, Int) -> Void,
+                     isCancelled: () -> Bool) throws -> Outcome {
 
         let fm = FileManager.default
         try fm.createDirectory(at: targetRoot, withIntermediateDirectories: true)
@@ -41,7 +36,6 @@ struct FileOperationService {
         var photoCount = 0
         var fileCount = 0
         var failures: [String] = []
-        var movedGroupIDs = Set<String>()
         var cancelled = false
         var used = Set<String>()            // destinations already written in THIS run
         progress(0, totalFiles)
@@ -49,44 +43,21 @@ struct FileOperationService {
         for group in groups {
             if isCancelled() { cancelled = true; break }
             var didProcessAny = false
-            var completedWholeGroup = true   // false if any file skipped/failed/cancelled
-
-            let dir: URL
-            if let sub = subfolder(group), !sub.isEmpty {
-                dir = targetRoot.appendingPathComponent(sub, isDirectory: true)
-                do { try fm.createDirectory(at: dir, withIntermediateDirectories: true) }
-                catch { failures.append("\(sub): \(error.localizedDescription)"); continue }
-            } else {
-                dir = targetRoot
-            }
 
             for file in filesToProcess(group) {
-                if isCancelled() { cancelled = true; completedWholeGroup = false; break }
+                if isCancelled() { cancelled = true; break }
                 guard fm.fileExists(atPath: file.path) else {
                     // A vanished source is a FAILURE, not a silent skip — otherwise the report
                     // says "done" while photos are missing at the destination.
                     failures.append("\(file.lastPathComponent): Quelldatei nicht gefunden")
-                    completedWholeGroup = false
                     completed += 1; progress(completed, totalFiles)
                     continue
                 }
 
-                var destination = dir.appendingPathComponent(file.lastPathComponent)
-                if used.contains(destination.path) {
-                    // In-batch name clash → never clobber our own just-written file.
-                    destination = uniqueDestination(for: file.lastPathComponent, in: dir, avoiding: used)
-                } else if fm.fileExists(atPath: destination.path) {
-                    switch conflict {
-                    case .skip: completedWholeGroup = false; continue
-                    case .overwrite: try? fm.removeItem(at: destination)
-                    case .rename: destination = uniqueDestination(for: file.lastPathComponent, in: dir, avoiding: used)
-                    }
-                }
+                // Name clash on disk OR with a file written earlier in this batch → _1, _2, …
+                let destination = uniqueDestination(for: file.lastPathComponent, in: targetRoot, avoiding: used)
                 do {
-                    switch kind {
-                    case .copy: try fm.copyItem(at: file, to: destination)
-                    case .move: try fm.moveItem(at: file, to: destination)
-                    }
+                    try fm.copyItem(at: file, to: destination)
                     used.insert(destination.path)
                     fileCount += 1
                     completed += 1
@@ -95,16 +66,12 @@ struct FileOperationService {
                 } catch {
                     // Collect the failure and keep going – never abort the whole batch.
                     failures.append("\(file.lastPathComponent): \(error.localizedDescription)")
-                    completedWholeGroup = false
                 }
             }
             if didProcessAny { photoCount += 1 }
-            // Only groups whose files ALL moved may be removed from the source list.
-            if kind == .move && didProcessAny && completedWholeGroup { movedGroupIDs.insert(group.id) }
         }
 
-        return Outcome(photos: photoCount, files: fileCount, failures: failures,
-                       movedGroupIDs: movedGroupIDs, cancelled: cancelled)
+        return Outcome(photos: photoCount, files: fileCount, failures: failures, cancelled: cancelled)
     }
 
     struct TrashOutcome {

@@ -1,38 +1,40 @@
 import Foundation
 import AppKit
 
-/// Anonyme, datensparsame Nutzungszählung — bewusst minimal und opt-out-bar.
+/// Anonyme, datensparsame Nutzungszählung — fester Bestandteil der App (seit V1.10 nicht mehr
+/// abschaltbar, Levins Entscheid: er will die echte Zahl der Nutzer sehen).
 ///
-/// Sendet NUR, wenn (1) der Nutzer es nicht abgeschaltet hat und (2) in `AppInfo.telemetryEndpoint`
-/// eine URL steht, höchstens **einmal pro Tag** einen kleinen Ping mit:
+/// Das geht nur, weil die Zählung wirklich ANONYM ist. Höchstens **einmal pro Tag** ein kleiner
+/// Ping mit:
 ///   • einer rein **zufälligen** Installations-ID (UUID, kein Hardware-/Personenbezug),
 ///   • der App-Version,
-///   • der groben macOS-Version.
-/// KEINE Dateien, Pfade, Namen, kein Standort, keine IP wird von der App gesendet. Der Server darf
-/// die (technisch sichtbare) IP nicht speichern — dann bleibt das Ganze anonym (CH-DSG/DSGVO ok).
+///   • der groben macOS-Version (z. B. „macOS 26.6“ — ohne Build-Nummer).
+/// KEINE Dateien, Pfade, Namen, kein Standort. Der Server speichert keine IP — auch das
+/// Webserver-Log ist für /rawselect/ abgeschaltet (server/nginx-rawselect.conf). Wer diese Garantie
+/// aufweicht (IP loggen, Pfade senden …), macht aus der Pflicht-Zählung eine unzulässige.
 /// Schlägt der Ping fehl, passiert nichts: die App-Funktion hängt nie davon ab.
 enum TelemetryService {
     private static let idKey = "rs.anonID"
     private static let lastPingKey = "rs.lastUsagePing"
-    private static let noticeKey = "rs.usageNoticeShown"
+    /// v2: seit die Zählung fest ist. Auch wer früher „Nein“ gewählt hat, sieht den neuen
+    /// Hinweis einmal — niemand soll still mitgezählt werden, ohne es je gelesen zu haben.
+    private static let noticeKey = "rs.usageNoticeV2"
 
-    /// One-time notice BEFORE the first ping. The stats are opt-out, but nobody should learn
-    /// about them only after data has already left the machine. "Ja" is the default button.
-    static func askOnFirstRunIfNeeded() {
+    /// One-time notice BEFORE the first ping of this build generation. Informational only.
+    static func showNoticeIfNeeded() {
         let d = UserDefaults.standard
         guard !d.bool(forKey: noticeKey) else { return }
-        d.set(true, forKey: noticeKey)
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "Anonyme Nutzungsstatistik"
-        alert.informativeText = "RAW Select sendet beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch – damit sichtbar ist, welche Versionen im Einsatz sind. Keine Dateien, keine Namen, kein Standort.\n\nJederzeit änderbar unter Einstellungen → Erweitert."
-        alert.addButton(withTitle: "Ja, anonym mitzählen")
-        alert.addButton(withTitle: "Nein, nicht senden")
-        AppSettings.shared.sendUsageStats = (alert.runModal() == .alertFirstButtonReturn)
+        alert.messageText = "Anonyme Nutzungszählung"
+        alert.informativeText = "RAW Select ist gratis. Damit sichtbar ist, wie viele Leute die App nutzen, meldet sie beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch.\n\nKeine Dateien, keine Namen, kein Standort, keine IP-Adresse."
+        alert.addButton(withTitle: "Verstanden")
+        alert.runModal()
+        d.set(true, forKey: noticeKey)
     }
 
     /// Stabile, rein zufällige Kennung pro Installation. Einmalig erzeugt und lokal gespeichert;
-    /// kein Bezug zu Gerät oder Person, jederzeit durch Löschen der Preferences zurücksetzbar.
+    /// kein Bezug zu Gerät oder Person.
     private static var anonID: String {
         let d = UserDefaults.standard
         if let id = d.string(forKey: idKey) { return id }
@@ -41,9 +43,15 @@ enum TelemetryService {
         return id
     }
 
+    /// „macOS 26.6“ — Major.Minor reicht für die Statistik; Patch und Build-Nummer wären nur
+    /// zusätzliche Unterscheidungsmerkmale ohne Nutzen.
+    static var coarseOSVersion: String {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        return "macOS \(v.majorVersion).\(v.minorVersion)"
+    }
+
     /// Feuert höchstens 1×/Tag, non-blocking, alle Fehler werden still ignoriert.
-    static func pingIfEnabled() {
-        guard AppSettings.shared.sendUsageStats else { return }
+    static func ping() {
         guard let endpoint = AppInfo.telemetryEndpoint else { return }   // kein Endpunkt → nichts senden
 
         let d = UserDefaults.standard
@@ -55,7 +63,7 @@ enum TelemetryService {
         let payload: [String: String] = [
             "id": anonID,
             "version": AppInfo.version,
-            "os": ProcessInfo.processInfo.operatingSystemVersionString,
+            "os": coarseOSVersion,
         ]
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
 

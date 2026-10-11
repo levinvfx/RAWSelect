@@ -1,32 +1,32 @@
 # RAW Select – anonyme Nutzungszählung (Server)
 
-Zwei winzige PHP-Dateien für deinen eigenen Server (z. B. Hoststar). Zeigen dir, **welche
-Version auf wie vielen Geräten aktiv** ist – anonym, ohne persönliche Daten.
+Zeigt, **wie viele Geräte welche Version** nutzen – anonym, ohne persönliche Daten.
+Läuft auf Levins vServer unter `https://vfxmedia.ch/rawselect/`.
 
 ## Was gezählt wird
-Pro Ping nur: eine **zufällige Installations-ID** (kein Hardware-/Personenbezug), die
-**App-Version**, die **grobe macOS-Version**, das **Datum**. Ein Eintrag pro Gerät und Tag.
-**Keine IP**, keine Dateien, keine Namen, kein Standort. → anonym (CH-DSG / DSGVO unkritisch).
+Pro Gerät und Tag eine Zeile: **zufällige Installations-ID** (UUID, kein Hardware-/Personenbezug),
+**App-Version**, **grobe macOS-Version** („macOS 26.6“), **Datum**. Sonst nichts.
+**Keine IP** – weder in der Datenbank noch im Webserver-Log (`access_log off`). Nur deshalb ist die
+Zählung anonym und darf in der App fest eingebaut sein. Wer IP-Logging, Pfade oder Namen ergänzt,
+macht daraus eine Erhebung von Personendaten – dann wäre die Pflicht-Zählung nicht mehr zulässig.
 
-## Einrichten (einmalig, ~5 Min)
-1. `ping.php` und `stats.php` in einen Ordner auf deinen Server laden, z. B.
-   `https://dein-server.ch/rawselect/`. (Voraussetzung: PHP mit SQLite3 – bei Hoststar Standard.)
-2. In **`stats.php`** oben `HIER-EIN-GEHEIMES-WORT-SETZEN` durch ein eigenes Passwort ersetzen.
-3. In der App **`Sources/RAWSelect/Utilities/Constants.swift`** `telemetryEndpoint` setzen:
-   ```swift
-   static let telemetryEndpoint: URL? = URL(string: "https://dein-server.ch/rawselect/ping.php")
-   ```
-   (Solange das `nil` bleibt, sendet die App nichts.)
-4. Neu bauen/releasen. Fertig.
+## Dateien
+| Datei | Ort auf dem Server |
+|---|---|
+| `ping.php`, `stats.php` | `/var/www/rawselect/` |
+| `nginx-rawselect.conf` | `/etc/nginx/snippets/rawselect.conf` (eingebunden in die vfxmedia-Site) |
+| Datenbank | `/var/lib/rawselect/usage.sqlite` (ausserhalb des Webroots, Ordner 750 www-data) |
+
+nginx liefert unter `/rawselect/` **nur** `ping.php` und `stats.php` aus; alles andere ergibt 404.
+
+## Deploy (Regeln)
+1. **Backups nie in den Webroot** – immer nach `/root/backups/rawselect/<datum>/`. Eine `.bak` im
+   Webroot wird als Klartext ausgeliefert (so ist am 02.09.2026 das Stats-Token geleakt).
+2. `stats.php` enthält im Repo nur den Platzhalter `HIER-EIN-GEHEIMES-WORT-SETZEN`. Das echte Token
+   liegt lokal in `~/.config/rawselect/stats-token` und wird beim Deploy per `sed` über stdin
+   eingesetzt (nie in der Kommandozeile/im Log).
+3. Nach jedem Deploy: `php -l`, `nginx -t`, Aufruf mit/ohne Token, und eine fremde Datei unter
+   `/rawselect/` muss 404 liefern.
 
 ## Ansehen
-`https://dein-server.ch/rawselect/stats.php?token=DEIN-WORT` →
-Liste „aktive Geräte pro Version (letzte 30 Tage)" + all-time.
-
-## Datenschutz-Hinweis (Best Practice)
-- Die App hat einen **Aus-Schalter**: Einstellungen → Erweitert → „Anonyme Nutzungsstatistik senden".
-- Nimm einen Satz in deine Download-/Release-Beschreibung auf, z. B.:
-  *„RAW Select sendet beim Start anonym eine Zufalls-Kennung und die Version, um die Verbreitung
-  zu zählen. Keine persönlichen Daten. Abschaltbar in den Einstellungen."*
-- Der Server darf die IP **nicht** loggen. `ping.php` speichert sie nicht; prüfe, dass dein
-  Webserver-Log sie nicht dauerhaft aufbewahrt (oder anonymisiert), dann bleibt alles anonym.
+`https://vfxmedia.ch/rawselect/stats.php?token=<~/.config/rawselect/stats-token>`

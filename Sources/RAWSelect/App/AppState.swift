@@ -872,7 +872,7 @@ final class AppState: ObservableObject {
         group.files.first { PhotoTypes.isRaw($0) } ?? group.previewURL
     }
 
-    // MARK: Copy / Move (operate on the selection)
+    // MARK: Copy (operates on the selection)
     func copySelection(includeSidecars: Bool) {
         let sel = selectedGroups
         guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
@@ -883,7 +883,7 @@ final class AppState: ObservableObject {
         // The card is the one place we promise never to write to. Copying INTO it is allowed,
         // but only knowingly — a wrong click in the folder picker must not fill the card up.
         if sourceIsExternal, let src = rootURL, isSameVolume(src, target), !confirmCopyOntoCard() { return }
-        runOperation(.copy, target: target, groups: sel, includeSidecars: includeSidecars)
+        runCopy(target: target, groups: sel, includeSidecars: includeSidecars)
     }
 
     /// Copies every marked photo of the folder (across the current filter) — the natural end of a
@@ -998,17 +998,12 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func runOperation(_ kind: FileOperationService.Kind, target: URL,
-                              groups selection: [PhotoGroup], includeSidecars: Bool) {
-        // Always a flat export into the chosen target — no per-mark subfolders.
+    /// Flat copy into the chosen target. Never overwrites: a name clash becomes _1, _2, …
+    private func runCopy(target: URL, groups selection: [PhotoGroup], includeSidecars: Bool) {
         let snapshot = selection
         guard !snapshot.isEmpty else { statusMessage = "Keine passenden Bilder für den Export."; return }
 
-        let conflict = ConflictMode.rename     // copying never overwrites: name clash → _1, _2, …
-
-        let makeSubfolder: (PhotoGroup) -> String? = { _ in nil }
-
-        let title = kind == .copy ? "Kopiere Bilder …" : "Verschiebe Bilder …"
+        let title = "Kopiere Bilder …"
         let token = CancellationToken()
         cancelToken = token
         operation = OperationState(title: title, completed: 0, total: 0)
@@ -1016,9 +1011,8 @@ final class AppState: ObservableObject {
         Task {
             do {
                 let outcome = try await Task.detached(priority: .userInitiated) { [weak self] in
-                    try FileOperationService.perform(
-                        kind, groups: snapshot, targetRoot: target, includeSidecars: includeSidecars,
-                        subfolder: makeSubfolder, conflict: conflict,
+                    try FileOperationService.copy(
+                        groups: snapshot, targetRoot: target, includeSidecars: includeSidecars,
                         progress: { completed, total in
                             Task { @MainActor in
                                 self?.operation?.completed = completed
@@ -1030,7 +1024,7 @@ final class AppState: ObservableObject {
                 }.value
 
                 self.operation = nil
-                let verb = kind == .copy ? "kopiert" : "verschoben"
+                let verb = "kopiert"
 
                 if outcome.cancelled {
                     self.statusMessage = "Abgebrochen – \(outcome.files) Dateien \(verb)."
