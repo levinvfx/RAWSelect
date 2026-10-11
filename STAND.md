@@ -1,8 +1,8 @@
 # RAW Select — Stand (11.10.2026)
 
 ## Ziel
-**V1.10 (Sicherheit & Datenschutz) lokal fertig, wartet auf Levins Test + Go zum Veröffentlichen.**
-Öffentlich ist V1.9. Grundlage: project-xray-Audit vom 11.10.2026 (Code, Server, Datenschutz).
+**V1.10 (Sicherheit & Datenschutz) veröffentlicht** (11.10.2026, Tag `v1.10`, DMG + Signatur auf GitHub).
+Grundlage: project-xray-Audit vom 11.10.2026 (Code, Server, Datenschutz).
 
 ## V1.10 / Audit 11.10.2026 (belegt)
 - **Leck behoben (Server):** `stats.php.bak` lag seit 02.09. im Webroot und wurde samt Stats-Token als
