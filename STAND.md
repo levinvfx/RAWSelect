@@ -1,7 +1,7 @@
 # RAW Select — Stand (13.10.2026)
 
 ## Ziel
-**V1.11 (Universal-Build + Download-Seite) gebaut und signiert**, Veröffentlichung wartet auf Levin.
+**V1.11 (Universal-Build + Download-Seite) veröffentlicht** (13.10.2026, Tag `v1.11`, in beiden Repos).
 Vorher: V1.10 (Sicherheit & Datenschutz) veröffentlicht 11.10.2026.
 
 ## V1.11 / Public-Release-Plan 13.10.2026 (belegt)
@@ -21,9 +21,12 @@ bewusst gestrichen.
   `publish_release.py` veröffentlicht in ALLE Repos (`REPOS`), 404 wird übersprungen. Apps ≤ 1.10 fragen das alte
   Repo – darum 1.11 in beide. Stand stats.php 13.10.: 4 Geräte auf 1.9, 1 auf 1.8, 1 auf 1.10.
 - **Über-Tab:** Links „Website" + „Datenschutz"; Hinweis Nutzungszählung verlinkt die Erklärung.
-- **OFFEN (Levin):** Repo `levinvfx/RAWSelect-Releases` (öffentlich) anlegen und dem Token freigeben; dann
-  `publish_release.py 1.11`. Altes Repo erst privat schalten, wenn stats.php keine Geräte < 1.11 mehr zeigt.
-  Screenshot der App für die Seite fehlt noch (Hero zeigt nur das Icon).
+- **Erledigt 13.10.:** Repo `levinvfx/RAWSelect-Releases` (öffentlich, README) angelegt und im Token freigegeben
+  (per Playwright in Levins GitHub-Session), 1.11 in beide Repos veröffentlicht, Download aus dem neuen Repo
+  mit `--verify-update` GÜLTIG. Token hat nur Contents read/write + Metadata (kein Admin).
+- **OFFEN:** Altes Repo `levinvfx/RAWSelect` privat schalten, sobald stats.php keine Geräte < 1.11 mehr zeigt
+  (Token kann das nicht – Levin macht das auf GitHub: Settings → Danger Zone → Change visibility, oder ich per
+  Playwright in seiner Session). Screenshot der App für die Seite fehlt (Hero zeigt nur das Icon).
 
 ## V1.10 / Audit 11.10.2026 (belegt)
 - **Leck behoben (Server):** `stats.php.bak` lag seit 02.09. im Webroot und wurde samt Stats-Token als
