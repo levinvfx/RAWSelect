@@ -24,20 +24,26 @@ struct MarkSettingsTab: View {
 
 private struct MarkEditorRow: View {
     @Binding var mark: MarkDefinition
+    private var isDefault: Bool { MarkDefinition.defaults.first { $0.id == mark.id } == mark }
     var body: some View {
         HStack(spacing: 10) {
-            Text("\(mark.id)").font(.callout.monospacedDigit().weight(.semibold)).frame(width: 14)
+            // Live preview: exactly the badge the grid and the filter bar will show.
+            MarkBadge(mark: mark.id, size: 22)
+            TextField("", text: $mark.name, prompt: Text("Name"))
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
             ColorPicker("", selection: Binding(
                 get: { mark.color },
                 set: { mark.colorHex = $0.hexString }
             ), supportsOpacity: false)
             .labelsHidden()
-            TextField("Name", text: $mark.name).textFieldStyle(.roundedBorder)
+            .help("Farbe")
             Button {
                 if let d = MarkDefinition.defaults.first(where: { $0.id == mark.id }) { mark = d }
             } label: { Image(systemName: "arrow.uturn.backward") }
             .buttonStyle(.borderless)
-            .help("Zurücksetzen")
+            .disabled(isDefault)
+            .help("Auf Standard zurücksetzen")
         }
     }
 }

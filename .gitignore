@@ -8,3 +8,4 @@
 Releases/**/*.dmg
 Releases/**/*.dmg.sig
 dist/
+.playwright-mcp/

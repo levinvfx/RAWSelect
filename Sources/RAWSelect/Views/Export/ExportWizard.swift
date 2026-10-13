@@ -216,13 +216,12 @@ struct ExportWizard: View {
                     if selectedTags.isEmpty { scope = .allMarked }
                 } label: {
                     HStack(spacing: 5) {
-                        Circle().fill(settings.markColor(m)).frame(width: 10, height: 10)
-                        Text("\(m)").font(.callout.monospacedDigit())
-                        Text("\(app.markCounts[m] ?? 0)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                        MarkBadge(mark: m, size: 16, style: on ? .filled : .outline)
+                        Text("\(app.markCounts[m] ?? 0)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }
-                    .padding(.horizontal, 9).padding(.vertical, 5)
-                    .background(Capsule().fill(on ? settings.markColor(m).opacity(0.22) : Color(nsColor: .quaternaryLabelColor).opacity(0.4)))
-                    .overlay(Capsule().strokeBorder(on ? settings.markColor(m) : .clear, lineWidth: 1))
+                    .padding(.leading, 5).padding(.trailing, 9).padding(.vertical, 4)
+                    .background(Capsule().fill(on ? settings.markColor(m).opacity(0.18) : Color(nsColor: .quaternaryLabelColor).opacity(0.4)))
+                    .overlay(Capsule().strokeBorder(on ? settings.markColor(m).opacity(0.6) : .clear, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }

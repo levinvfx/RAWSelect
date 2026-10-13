@@ -48,18 +48,48 @@ struct ShortcutsSheet: View {
             .padding(.bottom, 16)
 
             ForEach(rows + devRows, id: \.0) { row in
-                HStack(spacing: 14) {
-                    Text(row.0)
-                        .font(.body.monospaced().weight(.medium))
-                        .frame(width: 96, alignment: .leading)
+                HStack(alignment: .firstTextBaseline, spacing: 14) {
+                    KeyCaps(row.0)
+                        .frame(width: 128, alignment: .leading)
                     Text(row.1).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
-                .padding(.vertical, 7)
+                .padding(.vertical, 6)
                 Divider().opacity(0.35)
             }
         }
         .padding(24)
-        .frame(width: 380)
+        .frame(width: 460)
+    }
+}
+
+/// Renders a shortcut like the macOS menu bar does: one key cap per key, " / " and " – " kept as
+/// plain separators ("1 – 9" → [1] – [9], "⇧ ← / →" → [⇧ ←] / [→]).
+private struct KeyCaps: View {
+    let spec: String
+    init(_ spec: String) { self.spec = spec }
+
+    private var parts: [(text: String, isKey: Bool)] {
+        spec.split(separator: " ", omittingEmptySubsequences: true).map { s in
+            let t = String(s)
+            return (t, !(t == "/" || t == "–" || t == "-"))
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(parts.enumerated()), id: \.offset) { _, p in
+                if p.isKey {
+                    Text(p.text)
+                        .font(.system(size: 12, weight: .medium, design: .rounded)).monospacedDigit()
+                        .padding(.horizontal, 6).frame(minWidth: 22, minHeight: 22)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(Color(nsColor: .controlBackgroundColor)))
+                        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
+                } else {
+                    Text(p.text).font(.caption).foregroundStyle(.tertiary)
+                }
+            }
+        }
     }
 }

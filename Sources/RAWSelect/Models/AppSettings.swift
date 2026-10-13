@@ -40,16 +40,20 @@ struct MarkDefinition: Codable, Identifiable, Equatable {
     var colorHex: String
     var color: Color { Color(hex: colorHex) }
 
+    /// The macOS system palette (the colours Finder tags, Calendar and Reminders use), so the marks
+    /// look native next to the rest of the Mac. Positions 1–6 keep their hue from earlier
+    /// versions; 7 brown and 8 grey replace the old brown/black (a black badge vanished on dark
+    /// photos), and 9 is orange instead of white (white was invisible on the light grid).
     static let defaults: [MarkDefinition] = [
-        .init(id: 1, name: "Rot",     colorHex: "#FF222A"),
-        .init(id: 2, name: "Gelb",    colorHex: "#FBF056"),
-        .init(id: 3, name: "Grün",    colorHex: "#00F656"),
-        .init(id: 4, name: "Blau",    colorHex: "#204EF5"),
-        .init(id: 5, name: "Violett", colorHex: "#F73FFA"),
-        .init(id: 6, name: "Türkis",  colorHex: "#00FFFF"),
-        .init(id: 7, name: "Braun",   colorHex: "#804000"),
-        .init(id: 8, name: "Schwarz", colorHex: "#282828"),
-        .init(id: 9, name: "Weiss",   colorHex: "#F9FFEF")
+        .init(id: 1, name: "Rot",     colorHex: "#FF3B30"),
+        .init(id: 2, name: "Gelb",    colorHex: "#FFCC00"),
+        .init(id: 3, name: "Grün",    colorHex: "#34C759"),
+        .init(id: 4, name: "Blau",    colorHex: "#007AFF"),
+        .init(id: 5, name: "Violett", colorHex: "#AF52DE"),
+        .init(id: 6, name: "Türkis",  colorHex: "#5AC8FA"),
+        .init(id: 7, name: "Braun",   colorHex: "#A2845E"),
+        .init(id: 8, name: "Grau",    colorHex: "#8E8E93"),
+        .init(id: 9, name: "Orange",  colorHex: "#FF9500")
     ]
 
     /// Pre-1.9 defaults were English in an otherwise German UI. Stored settings that still carry
@@ -57,9 +61,18 @@ struct MarkDefinition: Codable, Identifiable, Equatable {
     private static let germanNames = ["Red": "Rot", "Yellow": "Gelb", "Green": "Grün", "Blue": "Blau",
                                       "Purple": "Violett", "Cyan": "Türkis", "Brown": "Braun",
                                       "Black": "Schwarz", "White": "Weiss"]
+    /// Default colours of V1.0–1.11 (neon). A stored mark that still carries exactly one of these
+    /// is an untouched default and follows the new palette; a colour the user picked is kept.
+    private static let legacyDefaultHex: Set<String> = ["#FF222A", "#FBF056", "#00F656", "#204EF5",
+                                                        "#F73FFA", "#00FFFF", "#804000", "#282828", "#F9FFEF"]
     static func localized(_ m: MarkDefinition) -> MarkDefinition {
         var m = m
         if let de = germanNames[m.name] { m.name = de }
+        if legacyDefaultHex.contains(m.colorHex.uppercased()), let fresh = defaults.first(where: { $0.id == m.id }) {
+            m.colorHex = fresh.colorHex
+            // Name only if it was the old default too (the user may have renamed "Schwarz" to "Kunde").
+            if m.name == "Schwarz" || m.name == "Weiss" { m.name = fresh.name }
+        }
         return m
     }
 }
@@ -172,9 +185,9 @@ final class AppSettings: ObservableObject {
     }
     func markColor(_ n: Int) -> Color { markDefinition(n).color }
     func markName(_ n: Int) -> String { markDefinition(n).name }
-    /// Black or white digit depending on the mark colour — a white "9" on the white mark was
-    /// invisible, on yellow barely readable.
-    func markTextColor(_ n: Int) -> Color { markDefinition(n).color.isLight ? .black : .white }
+    /// Black or white digit — whichever reads better on the mark colour (WCAG contrast), so a
+    /// user-picked pastel gets a dark digit and a deep blue a white one.
+    func markTextColor(_ n: Int) -> Color { markDefinition(n).color.prefersDarkText ? .black : .white }
 
     /// Preferred color scheme for the whole app (nil = follow system).
     var systemColorScheme: ColorScheme? { appearance.colorScheme }
@@ -250,6 +263,20 @@ extension Color {
     var isLight: Bool {
         let ns = NSColor(self).usingColorSpace(.sRGB) ?? NSColor.gray
         return 0.2126 * ns.redComponent + 0.7152 * ns.greenComponent + 0.0722 * ns.blueComponent > 0.6
+    }
+
+    /// WCAG relative luminance (linear sRGB), the basis for contrast ratios.
+    var relativeLuminance: Double {
+        let ns = NSColor(self).usingColorSpace(.sRGB) ?? NSColor.gray
+        func lin(_ c: CGFloat) -> Double { let v = Double(c); return v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        return 0.2126 * lin(ns.redComponent) + 0.7152 * lin(ns.greenComponent) + 0.0722 * lin(ns.blueComponent)
+    }
+
+    /// White digits wherever they still read (contrast ≥ 3:1, the WCAG floor for bold text), black
+    /// only on light colours (yellow, teal, green, orange). Pure "higher ratio wins" would put black
+    /// on system blue and grey — technically more contrast, but not how macOS badges look.
+    var prefersDarkText: Bool {
+        1.05 / (relativeLuminance + 0.05) < 3.0
     }
 
     var hexString: String {

@@ -80,17 +80,16 @@ struct ThumbnailCell: View {
     }
 
 
+    /// Badge size follows the cell: 16 pt in the filmstrip, 20 pt at the default grid size, 24 pt
+    /// on big tiles — the same proportion everywhere instead of one fixed 20 pt circle.
+    private var badgeSize: CGFloat { min(24, max(16, (side * 0.13).rounded())) }
+
     private var markBadge: some View {
         VStack {
             HStack {
                 Spacer()
-                Text("\(group.mark)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(settings.markTextColor(group.mark))
-                    .frame(width: 20, height: 20)
-                    .background(Circle().fill(settings.markColor(group.mark)))
-                    .overlay(Circle().strokeBorder(.white.opacity(0.85), lineWidth: 1))
-                    .padding(6)
+                MarkBadge(mark: group.mark, size: badgeSize, ring: true)
+                    .padding(badgeSize * 0.3)
             }
             Spacer()
         }

@@ -200,7 +200,48 @@ final class AppState: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] in self?.settingsChanged() }
             .store(in: &cancellables)
+        #if DEBUG
+        // Screenshot/Demo-Haken (nur Entwicklungs-Build): RS_OPEN_FOLDER=<pfad> öffnet beim Start,
+        // RS_APPEARANCE=light|dark erzwingt das Erscheinungsbild, RS_DEMO_MARKS=1 verteilt die
+        // Markierungen 1–9 auf die ersten Bilder, RS_VIEW=loupe|compare|settings|shortcuts wählt die
+        // Ansicht. Damit lassen sich Design-Screenshots reproduzierbar erzeugen.
+        let env = ProcessInfo.processInfo.environment
+        if let a = env["RS_APPEARANCE"], let ap = AppAppearance(rawValue: a) { settings.appearance = ap }
+        if let p = env["RS_OPEN_FOLDER"] { open(URL(fileURLWithPath: p)) }
+        #endif
     }
+
+    #if DEBUG
+    /// Zweiter Teil des Screenshot-Hakens, läuft nach dem Scan (siehe `start()`).
+    private func applyDemoEnvironment() {
+        let env = ProcessInfo.processInfo.environment
+        if env["RS_DEMO_MARKS"] == "1" {
+            let auto = settings.autoAdvance
+            settings.autoAdvance = false
+            for (i, g) in filteredGroups.prefix(9).enumerated() { selectSingle(g.id); setMark(i + 1) }
+            settings.autoAdvance = auto
+            if let f = filteredGroups.first { selectSingle(f.id) }
+        }
+        if let off = env["RS_FILTER_OFF"] {
+            for n in off.split(separator: ",").compactMap({ Int($0) }) { tagFilter.toggle(n) }
+        }
+        switch env["RS_VIEW"] {
+        case "loupe": viewMode = .loupe
+        case "compare": enterCompare()
+        case "shortcuts": showShortcuts = true
+        case "settings":
+            // ⌘, als echtes Tastaturereignis – der Settings-Scene-Selector ist je nach macOS-Version anders.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                for down in [true, false] {
+                    if let e = CGEvent(keyboardEventSource: nil, virtualKey: 0x2B, keyDown: down) {
+                        e.flags = .maskCommand; e.post(tap: .cghidEventTap)
+                    }
+                }
+            }
+        default: break
+        }
+    }
+    #endif
 
     private var sortSignature: String { "\(settings.sortField.rawValue)|\(settings.sortReversed)" }
 
@@ -368,6 +409,9 @@ final class AppState: ObservableObject {
             let initialWarm = self.filteredGroups.prefix(PreviewConfig.initialWarmCount).map { $0.previewURL }
             ThumbnailLoader.shared.warmTiny(initialWarm, maxPixel: PreviewConfig.tinyMaxPixel)
             if self.currentID == nil, let first = self.filteredGroups.first { self.selectSingle(first.id) }
+            #if DEBUG
+            self.applyDemoEnvironment()
+            #endif
             let markedNote = self.markedCount > 0 ? " (\(self.markedCount) bereits markiert)" : ""
             self.statusMessage = merged.isEmpty
                 ? "Keine Bilder gefunden."

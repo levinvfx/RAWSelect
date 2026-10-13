@@ -3,15 +3,23 @@ import SwiftUI
 /// Native macOS Settings window (RAW Select → Settings…, ⌘,). Deliberately
 /// reduced to a small, curated set of options.
 struct SettingsView: View {
+    @State private var tab: String = {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["RS_SETTINGS_TAB"] ?? "view"   // Screenshot-Haken
+        #else
+        "view"
+        #endif
+    }()
+
     var body: some View {
-        TabView {
-            ViewSettingsTab().tabItem { Label("Ansicht", systemImage: "photo") }
-            MarkSettingsTab().tabItem { Label("Markierungen", systemImage: "tag") }
+        TabView(selection: $tab) {
+            ViewSettingsTab().tabItem { Label("Ansicht", systemImage: "photo") }.tag("view")
+            MarkSettingsTab().tabItem { Label("Markierungen", systemImage: "tag") }.tag("marks")
             #if DEBUG
-            ExportSettingsTab().tabItem { Label("Export", systemImage: "square.and.arrow.up") }
+            ExportSettingsTab().tabItem { Label("Export", systemImage: "square.and.arrow.up") }.tag("export")
             #endif
-            AdvancedSettingsTab().tabItem { Label("Erweitert", systemImage: "slider.horizontal.3") }
-            CreditsSettingsTab().tabItem { Label("Über", systemImage: "info.circle") }
+            AdvancedSettingsTab().tabItem { Label("Erweitert", systemImage: "slider.horizontal.3") }.tag("advanced")
+            CreditsSettingsTab().tabItem { Label("Über", systemImage: "info.circle") }.tag("about")
         }
         .frame(width: 500, height: 440)
     }

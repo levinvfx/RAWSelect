@@ -78,11 +78,11 @@ private struct ComparePane: View {
                         .background(.regularMaterial, in: Capsule())
                     Spacer()
                     if group.mark != 0 {
-                        HStack(spacing: 5) {
-                            Circle().fill(settings.markColor(group.mark)).frame(width: 10, height: 10)
+                        HStack(spacing: 6) {
+                            MarkBadge(mark: group.mark, size: 16)
                             Text(settings.markName(group.mark)).font(.caption.weight(.medium))
                         }
-                        .padding(.horizontal, 9).padding(.vertical, 5)
+                        .padding(.leading, 5).padding(.trailing, 9).padding(.vertical, 4)
                         .background(.regularMaterial, in: Capsule())
                     }
                 }

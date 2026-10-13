@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import AppKit
 import CoreImage
 import CryptoKit
@@ -519,6 +520,22 @@ enum SelfTest {
         let os = TelemetryService.coarseOSVersion
         check(os.hasPrefix("macOS ") && os.split(separator: ".").count == 2 && !os.contains("Build"),
               "telemetry: coarse OS version (\(os))")
+
+        // Marks: untouched neon defaults of V1.0–1.11 follow the new system palette, a user-picked
+        // colour and a custom name are kept; the digit colour is chosen by WCAG contrast.
+        let legacy = MarkDefinition.localized(.init(id: 2, name: "Yellow", colorHex: "#FBF056"))
+        check(legacy.colorHex == "#FFCC00" && legacy.name == "Gelb", "marks: legacy default → system palette + German name")
+        let custom = MarkDefinition.localized(.init(id: 8, name: "Kunde", colorHex: "#123456"))
+        check(custom.colorHex == "#123456" && custom.name == "Kunde", "marks: custom colour and name untouched")
+        let renamedLegacy = MarkDefinition.localized(.init(id: 8, name: "Kunde", colorHex: "#282828"))
+        check(renamedLegacy.colorHex == "#8E8E93" && renamedLegacy.name == "Kunde", "marks: legacy colour upgraded, custom name kept")
+        check(Color(hex: "#FFCC00").prefersDarkText && Color(hex: "#5AC8FA").prefersDarkText
+              && Color(hex: "#34C759").prefersDarkText && Color(hex: "#FF9500").prefersDarkText
+              && !Color(hex: "#007AFF").prefersDarkText && !Color(hex: "#8E8E93").prefersDarkText
+              && !Color(hex: "#FF3B30").prefersDarkText && !Color(hex: "#A2845E").prefersDarkText,
+              "marks: digit colour by contrast (dark on yellow/teal/green/orange, light on red/blue/brown/grey)")
+        check(MarkDefinition.defaults.count == 9 && Set(MarkDefinition.defaults.map { $0.id }) == Set(1...9),
+              "marks: nine defaults, ids 1…9")
 
         // Loupe zoom view (mouse wheel, fit, photo swap) — headless AppKit.
         zoomTests(check)

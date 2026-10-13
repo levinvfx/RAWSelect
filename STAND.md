@@ -1,8 +1,27 @@
-# RAW Select — Stand (13.10.2026)
+# RAW Select — Stand (13.10.2026, abends)
 
 ## Ziel
 **V1.11 (Universal-Build + Download-Seite) veröffentlicht** (13.10.2026, Tag `v1.11`, in beiden Repos).
 Vorher: V1.10 (Sicherheit & Datenschutz) veröffentlicht 11.10.2026.
+
+## Design-Durchgang Markierungen 1–9 (13.10.2026, unveröffentlicht)
+Levins Auftrag: „1–9 einheitlich, Farben, Apple-Finder-Look, ganze App gründlich". Umgesetzt:
+- **Eine Komponente** `Views/MarkBadge.swift` (`MarkBadge`, `UnmarkedBadge`) zeichnet jede Markierung: Kreis in
+  Markenfarbe, Ziffer SF Rounded semibold, `.filled`/`.outline`, optionaler weisser Ring auf Fotos. Genutzt in
+  Raster/Filmstreifen (Grösse 16–24 pt proportional zur Kachel), Filterleiste (Kreise statt Quadrate, Aus = Umriss,
+  kein Rahmenkasten mehr), Loupe- und Vergleichs-Pill (Ziffer + Name), Einstellungen (Live-Vorschau) und dem
+  DEBUG-Export-Wizard. grep nach lokalen Badge-Zeichnungen findet nichts mehr.
+- **Palette = macOS-Systemfarben** (Finder-Tags): 1 Rot FF3B30 · 2 Gelb FFCC00 · 3 Grün 34C759 · 4 Blau 007AFF ·
+  5 Violett AF52DE · 6 Türkis 5AC8FA · 7 Braun A2845E · 8 Grau 8E8E93 (statt Schwarz) · 9 Orange FF9500 (statt
+  Weiss – war auf hellem Raster unsichtbar). **Migration:** gespeicherte Marken, die exakt eine alte Neon-Default-Farbe
+  tragen, folgen der neuen Palette; eigene Farben/Namen bleiben (`MarkDefinition.localized`, Selftest).
+- **Ziffernfarbe** per WCAG-Kontrast (`Color.prefersDarkText`), nicht mehr per Luma-Schwelle.
+- Kürzel-Fenster: Tasten als Key-Caps (wie Menüleiste), Beschreibungen umbrechen statt abschneiden.
+- **Screenshot-Haken (nur DEBUG, `AppState.start()`):** `RS_OPEN_FOLDER`, `RS_APPEARANCE=light|dark`, `RS_DEMO_MARKS=1`,
+  `RS_FILTER_OFF=2,5,0`, `RS_VIEW=loupe|compare|settings|shortcuts`, `RS_SETTINGS_TAB=marks`. Vorher/Nachher-Bilder
+  im Scratchpad erzeugt (Headless-Fensterfoto via CGWindowList + screencapture).
+- Ergebnis: Apple-Style ist jetzt konsistent; die übrige Oberfläche (Raster, Loupe, Status, Sidebar, Dialoge) war
+  bereits nativ und blieb unangetastet. Nicht veröffentlicht, kein Versions-Bump – Levin testet zuerst.
 
 ## V1.11 / Public-Release-Plan 13.10.2026 (belegt)
 Levins Entscheid aus dem „Public Release Master Prompt": nur Punkte 2–4 (Universal Binary, Download-Seite,
