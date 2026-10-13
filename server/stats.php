@@ -75,6 +75,13 @@ for ($i = 29; $i >= 0; $i--) {
 }
 $maxTag = 1; foreach ($verlauf as $v) { $maxTag = max($maxTag, $v['n']); }
 
+// --- Downloads über die Website (download.php zählt pro Tag, ohne IP) ------
+$dlGesamt = 0; $dl30 = 0;
+if ($db->querySingle("SELECT name FROM sqlite_master WHERE type='table' AND name='downloads'")) {
+    $dlGesamt = (int)$db->querySingle("SELECT COALESCE(SUM(n),0) FROM downloads");
+    $dl30     = (int)$db->querySingle("SELECT COALESCE(SUM(n),0) FROM downloads WHERE day >= '" . SQLite3::escapeString($since) . "'");
+}
+
 $db->close();
 
 /** Datum als 02.09.2026 statt 2026-09-02. */
@@ -214,6 +221,10 @@ header('Content-Type: text/html; charset=utf-8');
     <div class="kachel">
       <div class="zahl"><?= count($alle) ?></div>
       <div class="titel">Versionen im Umlauf</div>
+    </div>
+    <div class="kachel">
+      <div class="zahl"><?= $dlGesamt ?></div>
+      <div class="titel">Downloads über die Website<?= $dl30 > 0 ? ' · ' . $dl30 . ' in 30 T.' : '' ?></div>
     </div>
   </div>
 

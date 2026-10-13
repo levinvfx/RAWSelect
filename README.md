@@ -11,13 +11,14 @@ eingebettete Kamera-Vorschau angezeigt, beim Zoom auf 100 % voll entwickelt).
 
 ## Installation
 
-1. Neuestes `RAW-Select-x.y.dmg` von den
-   [GitHub-Releases](https://github.com/levinvfx/RAWSelect/releases) laden, öffnen, App nach
+1. Auf **[vfxmedia.ch/rawselect](https://vfxmedia.ch/rawselect/)** „Für Mac laden" klicken (führt
+   zum neuesten signierten DMG im Download-Repo
+   [RAWSelect-Releases](https://github.com/levinvfx/RAWSelect-Releases/releases)), öffnen, App nach
    `Programme` ziehen.
 2. Beim ersten Start **Rechtsklick → Öffnen** (die App ist nur ad-hoc signiert, nicht notarisiert).
 3. Ab dann meldet sich die App selbst, wenn es ein Update gibt (siehe *Netzwerk* unten).
 
-Voraussetzung: macOS 14 oder neuer.
+Voraussetzung: macOS 14 oder neuer, Apple Silicon oder Intel (Universal-Build seit V1.11).
 
 ---
 
@@ -111,7 +112,8 @@ Bewusst wenige Optionen; alles andere sind feste, sinnvolle Defaults.
 RAW Select arbeitet komplett **lokal** – Bilder, Markierungen, Kopien verlassen den Mac nie.
 Zwei Dinge gehen ins Netz:
 
-1. **Update-Check** beim Start (GitHub-API `releases/latest`, nur die Versionsnummer wird gelesen).
+1. **Update-Check** beim Start (GitHub-API `releases/latest` des Download-Repos `RAWSelect-Releases`,
+   nur die Versionsnummer wird gelesen).
    Ein Update wird als DMG in *Downloads* abgelegt und geöffnet, nie automatisch installiert –
    und nur, wenn seine **Signatur** stimmt (Ed25519, Schlüssel in der App eingebaut). Ein
    manipuliertes oder unsigniertes DMG wird verworfen, bevor es geöffnet wird.
@@ -120,7 +122,8 @@ Zwei Dinge gehen ins Netz:
    an `vfxmedia.ch`. Keine Dateien, Namen, Pfade, kein Standort. Der Server speichert **keine
    IP-Adressen** – auch das Webserver-Log ist dafür abgeschaltet.
 
-Kein Login, keine Cloud, kein Konto.
+Kein Login, keine Cloud, kein Konto. Datenschutzerklärung und Impressum:
+[vfxmedia.ch/rawselect/#datenschutz](https://vfxmedia.ch/rawselect/#datenschutz).
 
 ---
 
@@ -130,12 +133,13 @@ Kein Login, keine Cloud, kein Konto.
 swift build                              # Debug-Build
 .build/debug/RAWSelect --selftest        # Logik-Selbsttest (Scan, Sidecars, Sessions, Kopieren, Papierkorb …)
 .build/debug/RAWSelect --rawcheck a.ARW  # kann macOS dieses RAW nativ entwickeln? welche Vorschau, welcher Zoom?
-./build_app.sh                           # Selbsttest + Release-Build + „RAW Select.app"
+./build_app.sh                           # Selbsttest + Universal-Release-Build (arm64 + x86_64) + „RAW Select.app"
 ```
 
 Version bumpen = **zwei Stellen synchron**: `Sources/RAWSelect/Utilities/Constants.swift`
 (`static let version`) und `build_app.sh` (`VERSION=`). Releases liegen als DMG unter `Releases/`
-(nicht im Git) und auf GitHub.
+(nicht im Git) und auf GitHub. Veröffentlicht wird mit `tools/publish_release.py` in das öffentliche
+Download-Repo `levinvfx/RAWSelect-Releases` (nur DMG + Signatur); dieses Code-Repo ist privat.
 
 **Nur im Debug-Build** (`#if DEBUG`) existiert zusätzlich ein Lightroom-Export-Stack
 (Export-Wizard, Crop-/Develop-Editor mit Taste **E**, Preset-Sidecars, Bridge-Plugin
@@ -153,13 +157,15 @@ Plugin lokal nach `~/Library/Application Support/RAW Select/`.
   `FileOperationService`, `MetadataService`, `UpdateService`, `TelemetryService`
 - `Views/` – Raster, Loupe, Vergleich, Filterleiste, Statusleiste, Sidebar, Settings
 - `Utilities/` – `Constants`, `FolderIdentity`, `CancellationToken`
-- `server/` – Nutzungszählung: `ping.php`, `stats.php`, nginx-Snippet (Aufbau + Deploy-Regeln in `server/README.md`)
+- `server/` – Download-Seite (`site/`), Download-Weiche `download.php`, Nutzungszählung `ping.php`/`stats.php`,
+  nginx-Snippet (Aufbau + Deploy-Regeln in `server/README.md`)
 - `tools/` – `sign_update.swift` (Update-Signatur, Schlüssel ausserhalb des Repos) · `publish_release.py`
-  (GitHub-Release; bricht ohne gültige Signatur ab)
+  (GitHub-Release in alle Download-Repos; bricht ohne gültige Signatur ab) · `make_og.py` (Social-Preview-Bild)
 
 ## Bekannte Grenzen
 
-- Nur ad-hoc signiert → beim ersten Start Rechtsklick → Öffnen.
+- Nur ad-hoc signiert, nicht notarisiert (Apple Developer Program, 99 $/Jahr, bewusst noch nicht) →
+  beim ersten Start Rechtsklick → Öffnen.
 - „Dateidatum" ist das Dateisystem-Datum, nicht das EXIF-Aufnahmedatum.
 - Der Zoom auf 100 % braucht für ein RAW einen Moment („RAW lädt…"); das jeweils nächste Bild
   der Serie wird vorentwickelt.

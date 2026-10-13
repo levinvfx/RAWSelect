@@ -10,13 +10,16 @@ Baue einen Release von RAW Select. Zielversion: `$ARGUMENTS` (falls leer: besteh
    - `build_app.sh` → `VERSION=`
    Wenn eine Version angegeben ist, beide auf diesen Wert setzen. Sonst prüfen, dass beide gleich sind
    und Abweichungen melden.
-2. **`./build_app.sh`** ausführen — baut release, läuft Selbsttest, packt `RAW Select.app`.
+2. **`./build_app.sh`** ausführen — Selbsttest, Universal-Release-Build (arm64 + x86_64 via lipo),
+   packt `RAW Select.app`. Prüfen: `lipo -info "RAW Select.app/Contents/MacOS/RAWSelect"` zeigt beide.
 3. **DMG bauen und signieren** (Pflicht seit V1.10 – Apps lehnen unsignierte Updates ab):
    `swift tools/sign_update.swift sign ~/.config/rawselect/update-signing.key Releases/v<version>/RAW-Select-<version>.dmg <version>`
    → erzeugt `<dmg>.sig`. Gegenprobe mit dem App-Code: `.build/debug/RAWSelect --verify-update <dmg> <version> <dmg>.sig`.
 4. **Danach nur vorschlagen** (nicht selbst ausführen):
    - DMG unter `Releases/` ablegen — bestehende `Releases/` (v1.0–v1.2 …) sind eingefroren, nie überschreiben.
    - git-Tag, z.B. `git tag v<version>` + Commit der Versions-Dateien.
-   - Veröffentlichen: `python3 tools/publish_release.py <version>` (prüft die Signatur, lädt .sig + DMG hoch).
+   - Veröffentlichen: `python3 tools/publish_release.py <version>` (prüft die Signatur, lädt .sig + DMG in
+     alle Repos aus `REPOS` hoch — zuerst das Download-Repo `levinvfx/RAWSelect-Releases`). Die
+     Download-Seite `vfxmedia.ch/rawselect/` zeigt das neue DMG nach spätestens 10 Minuten von selbst.
 
 WICHTIG: Nicht automatisch committen, pushen oder taggen. Levin bestätigt diese Schritte selbst.

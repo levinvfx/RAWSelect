@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="RAW Select"
 BUNDLE_ID="ch.anneler.rawselect"
-VERSION="1.10"
+VERSION="1.11"
 EXECUTABLE="RAWSelect"
 
 # Self-test runs on the DEBUG binary: SelfTest/SliderCal are dev-only (#if DEBUG) because their
@@ -16,13 +16,26 @@ echo "▶︎ Running self-test (debug binary)…"
 swift build
 ".build/debug/${EXECUTABLE}" --selftest    # aborts the build (set -e) if any logic check fails
 
-echo "▶︎ Building (release)…"
-swift build -c release
+# Universal binary (Apple Silicon + Intel). `swift build --arch a --arch b` needs Xcode's xcbuild,
+# which the Command Line Tools lack – so each slice is built on its own and joined with lipo.
+echo "▶︎ Building (release, arm64)…"
+swift build -c release --triple arm64-apple-macosx14.0
+echo "▶︎ Building (release, x86_64)…"
+swift build -c release --triple x86_64-apple-macosx14.0
 
-BIN=".build/release/${EXECUTABLE}"
-if [[ ! -f "$BIN" ]]; then
-    echo "✗ Build produced no binary at $BIN" >&2
-    exit 1
+BIN_ARM=".build/arm64-apple-macosx/release/${EXECUTABLE}"
+BIN_X86=".build/x86_64-apple-macosx/release/${EXECUTABLE}"
+for b in "$BIN_ARM" "$BIN_X86"; do
+    [[ -f "$b" ]] || { echo "✗ Build produced no binary at $b" >&2; exit 1; }
+done
+BIN=".build/${EXECUTABLE}-universal"
+lipo -create -output "$BIN" "$BIN_ARM" "$BIN_X86"
+lipo -info "$BIN"
+
+# The Intel slice must at least start: on Apple Silicon this runs it through Rosetta (no-op elsewhere).
+if arch -x86_64 /usr/bin/true 2>/dev/null; then
+    arch -x86_64 "$BIN" --rawcheck >/dev/null 2>&1 || { echo "✗ x86_64 slice does not start" >&2; exit 1; }
+    echo "  x86_64 slice starts (Rosetta)"
 fi
 
 APP_DIR="${APP_NAME}.app"
@@ -75,6 +88,8 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     ${ICON_KEY}
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>LSApplicationCategoryType</key><string>public.app-category.photography</string>
+    <key>NSHumanReadableCopyright</key><string>© 2026 Levin Anneler, VFX Media</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
 </dict>

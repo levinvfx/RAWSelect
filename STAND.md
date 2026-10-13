@@ -1,8 +1,29 @@
-# RAW Select — Stand (11.10.2026)
+# RAW Select — Stand (13.10.2026)
 
 ## Ziel
-**V1.10 (Sicherheit & Datenschutz) veröffentlicht** (11.10.2026, Tag `v1.10`, DMG + Signatur auf GitHub).
-Grundlage: project-xray-Audit vom 11.10.2026 (Code, Server, Datenschutz).
+**V1.11 (Universal-Build + Download-Seite) gebaut und signiert**, Veröffentlichung wartet auf Levin.
+Vorher: V1.10 (Sicherheit & Datenschutz) veröffentlicht 11.10.2026.
+
+## V1.11 / Public-Release-Plan 13.10.2026 (belegt)
+Levins Entscheid aus dem „Public Release Master Prompt": nur Punkte 2–4 (Universal Binary, Download-Seite,
+Datenschutz/Impressum), **kein** Apple Developer Program (99 $/Jahr) vorerst, **Code-Repo privat machen**.
+Windows/Linux, Lizenz-Audit (null Abhängigkeiten), 13-Dokumente-„Release Control Center", CI, Crash-Reporting:
+bewusst gestrichen.
+- **Universal Binary:** `build_app.sh` baut arm64 + x86_64 getrennt (`--triple`, Xcode-loses `--arch` geht nicht)
+  und fügt per `lipo` zusammen; Intel-Slice wird unter Rosetta gestartet (Smoke). DMG 1.11 = 3,2 MB, signiert,
+  `--verify-update` GÜLTIG (falsche Version UNGÜLTIG).
+- **Download-Seite live:** `https://vfxmedia.ch/rawselect/` (nginx direkt aus `/var/www/rawselect/`, Papier-und-Tinte-
+  Design der Hauptseite, Erststart-Hinweis Rechtsklick→Öffnen, Kürzel, Datenschutzerklärung, Impressum
+  Levin Anneler / Mühlemattweg 2k / levin@annelers.ch). `server/site/`, `server/download.php`
+  (302 auf neuestes signiertes DMG, 10-Min-Cache, Download-Zähler ohne IP → stats.php), nginx-Allowlist erweitert.
+  Desktop + Handy per Headless-Chrome geprüft.
+- **Repo-Wechsel für Updates:** `AppInfo.githubRepo = levinvfx/RAWSelect-Releases` (Download-Repo, nur DMG + .sig).
+  `publish_release.py` veröffentlicht in ALLE Repos (`REPOS`), 404 wird übersprungen. Apps ≤ 1.10 fragen das alte
+  Repo – darum 1.11 in beide. Stand stats.php 13.10.: 4 Geräte auf 1.9, 1 auf 1.8, 1 auf 1.10.
+- **Über-Tab:** Links „Website" + „Datenschutz"; Hinweis Nutzungszählung verlinkt die Erklärung.
+- **OFFEN (Levin):** Repo `levinvfx/RAWSelect-Releases` (öffentlich) anlegen und dem Token freigeben; dann
+  `publish_release.py 1.11`. Altes Repo erst privat schalten, wenn stats.php keine Geräte < 1.11 mehr zeigt.
+  Screenshot der App für die Seite fehlt noch (Hero zeigt nur das Icon).
 
 ## V1.10 / Audit 11.10.2026 (belegt)
 - **Leck behoben (Server):** `stats.php.bak` lag seit 02.09. im Webroot und wurde samt Stats-Token als

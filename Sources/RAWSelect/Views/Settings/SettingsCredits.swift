@@ -26,9 +26,15 @@ struct CreditsSettingsTab: View {
                 Text(AppInfo.brand).font(.callout).foregroundStyle(.secondary)
             }
 
-            HStack(spacing: 10) {
-                LinkChip(title: "Instagram", systemImage: "camera", url: AppInfo.instagramURL)
-                LinkChip(title: AppInfo.email, systemImage: "envelope", url: AppInfo.emailURL)
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    LinkChip(title: "Instagram", systemImage: "camera", url: AppInfo.instagramURL)
+                    LinkChip(title: AppInfo.email, systemImage: "envelope", url: AppInfo.emailURL)
+                }
+                HStack(spacing: 10) {
+                    LinkChip(title: "Website", systemImage: "globe", url: AppInfo.websiteURL)
+                    LinkChip(title: "Datenschutz", systemImage: "hand.raised", url: AppInfo.privacyURL)
+                }
             }
 
             Spacer()

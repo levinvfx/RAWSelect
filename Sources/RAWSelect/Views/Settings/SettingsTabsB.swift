@@ -109,6 +109,8 @@ struct AdvancedSettingsTab: View {
             Section("Nutzungszählung") {
                 Text("RAW Select meldet beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch – so ist sichtbar, wie viele Leute die App nutzen. Keine Dateien, keine Namen, kein Standort, keine IP-Adresse.")
                     .font(.caption).foregroundStyle(.secondary)
+                Link("Datenschutzerklärung öffnen", destination: AppInfo.privacyURL)
+                    .font(.caption)
             }
             Section("Bilder öffnen mit") {
                 HStack {

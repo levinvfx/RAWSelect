@@ -3,7 +3,7 @@ import SwiftUI
 /// Central place for the file types and mark styling used across the app.
 enum AppInfo {
     static let name = "RAW Select"
-    static let version = "1.10"
+    static let version = "1.11"
 
 
     // Credits / branding
@@ -13,9 +13,14 @@ enum AppInfo {
     static let instagramURL = URL(string: "https://instagram.com/levin.vfx")!
     static let email = "levin@annelers.ch"
     static var emailURL: URL { URL(string: "mailto:\(email)")! }
+    /// Official download page (also hosts the privacy statement and imprint).
+    static let websiteURL = URL(string: "https://vfxmedia.ch/rawselect/")!
+    static let privacyURL = URL(string: "https://vfxmedia.ch/rawselect/#datenschutz")!
 
     /// Public GitHub repository the auto-updater queries (`releases/latest`, first `.dmg` asset).
-    static let githubRepo = "levinvfx/RAWSelect"
+    /// Since V1.11 this is a downloads-only repo (DMG + signature, no source) so the source repository
+    /// can stay private. Apps ≤ 1.10 still ask the old repo — V1.11 was published to both.
+    static let githubRepo = "levinvfx/RAWSelect-Releases"
 
     /// Ed25519 public key that every update DMG must be signed with (see `UpdateSignature` and
     /// tools/sign_update.swift). The private half never leaves Levin's Mac
