@@ -550,8 +550,9 @@ final class AppState: ObservableObject {
     }
 
     /// Marks ONE photo (B in compare) without touching the selection or advancing.
-    private func markPhoto(_ id: String, mark: Int) {
+    private func markPhoto(_ id: String, mark requested: Int) {
         guard let i = groups.firstIndex(where: { $0.id == id }) else { return }
+        let mark = (requested != 0 && groups[i].mark == requested) ? 0 : requested   // same key again = off
         pushUndo([id])
         groups[i].mark = mark
         refreshDerived()
@@ -679,14 +680,20 @@ final class AppState: ObservableObject {
     func setMark(_ mark: Int) {
         let before = currentID
         let single = selectedIDs.count <= 1
-        mutateSelection({ $0.mark = mark }) { n in
-            mark == 0
+        // Same key again on a photo that already carries that mark = take it off (Levin, 13.10.2026):
+        // one key both sets and clears, like a toggle. Only when EVERY selected photo has that mark —
+        // a mixed selection gets the mark, nothing silently disappears.
+        let targets = selectedIDs.isEmpty ? Set([currentID].compactMap { $0 }) : selectedIDs
+        let toggleOff = mark != 0 && !targets.isEmpty && targets.allSatisfy { groupByID[$0]?.mark == mark }
+        let newMark = toggleOff ? 0 : mark
+        mutateSelection({ $0.mark = newMark }) { n in
+            newMark == 0
                 ? (n == 1 ? "Markierung entfernt." : "Markierung von \(n) Bildern entfernt.")
                 : (n == 1 ? "Markierung \(mark) gesetzt." : "Markierung \(mark) für \(n) Bilder gesetzt.")
         }
         // Auto-advance for fast culling (Settings → Markierungen). Never in compare mode —
         // there the left anchor must stay put while you cycle the right pane.
-        if settings.autoAdvance && mark != 0 && single && currentID == before && viewMode != .compare {
+        if settings.autoAdvance && newMark != 0 && single && currentID == before && viewMode != .compare {
             step(by: 1, extend: false)
         }
     }

@@ -6,7 +6,7 @@ struct ShortcutsSheet: View {
     @EnvironmentObject var app: AppState
 
     private let rows: [(String, String)] = [
-        ("1 – 9",      "Farbmarkierung setzen"),
+        ("1 – 9",      "Farbmarkierung setzen · nochmals: entfernen"),
         ("0  /  §",    "Markierung entfernen"),
         ("⌫",          "In den Papierkorb (Ausschuss)"),
         ("⌘Z",         "Markierung rückgängig"),
