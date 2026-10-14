@@ -29,7 +29,8 @@ Voraussetzung: macOS 14 oder neuer, Apple Silicon oder Intel (Universal-Build se
    Im Ordnerbaum: **Einfachklick** klappt auf, **Doppelklick** lädt die Bilder des Ordners.
 2. Die ersten Bilder erscheinen nach etwa einer Sekunde, der Rest lädt weiter, während du schon
    arbeitest. Es gibt nie ein Ladesymbol im Raster – erst eine kleine Vorschau, dann scharf.
-3. **Pfeiltasten** navigieren, **1–9** markieren (Farbmarkierung), dieselbe Taste nochmals oder **0** entfernt sie.
+3. **Pfeiltasten** navigieren, **1–7** markieren (Farbpunkte wie die Finder-Tags: Rot, Orange, Gelb, Grün, Blau,
+   Violett, Grau), dieselbe Taste nochmals oder **0** entfernt sie.
    Nach einer Markierung springt die App automatisch zum nächsten Bild.
 4. **Return** öffnet die grosse Ansicht, **Z** oder das **Mausrad** zoomt auf 100 % – der
    Zoom-Ausschnitt bleibt beim Weiterblättern erhalten, so prüfst du eine Serie am selben
@@ -54,7 +55,7 @@ Einstecken wiedererkannt, ohne dass je etwas auf sie geschrieben wird.
 | **⇧ + Pfeil** | Auswahl erweitern |
 | **Home / End** | erstes / letztes Bild |
 | **⇥ / ⇧⇥** | nächstes / vorheriges **unmarkiertes** Bild |
-| **1 – 9** | Farbmarkierung setzen (für die ganze Auswahl) · dieselbe Taste nochmals entfernt sie |
+| **1 – 7** | Farbmarkierung setzen (für die ganze Auswahl) · dieselbe Taste nochmals entfernt sie |
 | **0 / § / °** | Markierung entfernen |
 | **⌘Z** | letzte Markierung rückgängig |
 | **⌘A** | alle Bilder im aktuellen Filter auswählen |
@@ -99,7 +100,7 @@ Pinch zoomt) · ⌥-Klick auf einen Filterchip = nur diese Gruppe · Ordner aufs
 ## Einstellungen (⌘,)
 
 - **Ansicht** – RAW+JPG gruppieren · Vorschau-Modus (Schnell / Ausgewogen / Qualität).
-- **Markierungen** – Auto-Weiterspringen · Namen und Farben der Markierungen 1–9.
+- **Markierungen** – Auto-Weiterspringen · Namen und Farben der sieben Markierungen (Tasten 1–7).
 - **Erweitert** – Erscheinungsbild · Zielordner nach dem Kopieren im Finder zeigen ·
   Nutzungszählung (eigene Kennung, Löschanfrage) · „Öffnen mit"-App der Symbolleiste · Cache leeren · Zurücksetzen.
 - **Über** – Version, Kontakt.

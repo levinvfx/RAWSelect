@@ -8,7 +8,7 @@ struct FilterBar: View {
     @EnvironmentObject var app: AppState
     @EnvironmentObject var settings: AppSettings
 
-    private let size: CGFloat = 22
+    private let size: CGFloat = 20
     private let slot: CGFloat = 30
 
     var body: some View {
@@ -19,9 +19,9 @@ struct FilterBar: View {
                 Divider().frame(height: size).padding(.horizontal, 6).padding(.top, 1)
                 chip(bucket: 0)
                     .help("Ohne Markierung (\(app.unmarkedCount)) · ⌥-Klick: nur diese")
-                ForEach(1...9, id: \.self) { mark in
+                ForEach(1...MarkDefinition.count, id: \.self) { mark in
                     chip(bucket: mark)
-                        .help("\(settings.markName(mark)) (\(app.markCounts[mark] ?? 0)) · ⌥-Klick: nur diese")
+                        .help("\(settings.markName(mark)) · Taste \(mark) · \(app.markCounts[mark] ?? 0) Bilder · ⌥-Klick: nur diese")
                 }
             }
         }

@@ -218,7 +218,7 @@ final class AppState: ObservableObject {
         if env["RS_DEMO_MARKS"] == "1" {
             let auto = settings.autoAdvance
             settings.autoAdvance = false
-            for (i, g) in filteredGroups.prefix(9).enumerated() { selectSingle(g.id); setMark(i + 1) }
+            for (i, g) in filteredGroups.prefix(MarkDefinition.count).enumerated() where g.mark != i + 1 { selectSingle(g.id); setMark(i + 1) }
             settings.autoAdvance = auto
             if let f = filteredGroups.first { selectSingle(f.id) }
         }
@@ -359,7 +359,9 @@ final class AppState: ObservableObject {
             for i in out.indices {
                 let key = identity.persistKey(for: out[i], groupPairs: groupPairs)
                 out[i].persistKey = key
-                if let state = savedMarks[key] { out[i].mark = state.mark }
+                // Marks 8/9 existed until 1.11; since 2.0 there are seven. They show as grey (7)
+                // instead of turning invisible; the session file follows on the next save.
+                if let state = savedMarks[key] { out[i].mark = min(state.mark, MarkDefinition.count) }
             }
             return out
         }
@@ -551,13 +553,14 @@ final class AppState: ObservableObject {
 
     /// Marks ONE photo (B in compare) without touching the selection or advancing.
     private func markPhoto(_ id: String, mark requested: Int) {
-        guard let i = groups.firstIndex(where: { $0.id == id }) else { return }
+        guard (0...MarkDefinition.count).contains(requested),
+              let i = groups.firstIndex(where: { $0.id == id }) else { return }
         let mark = (requested != 0 && groups[i].mark == requested) ? 0 : requested   // same key again = off
         pushUndo([id])
         groups[i].mark = mark
         refreshDerived()
         persistState()
-        statusMessage = mark == 0 ? "Markierung von B entfernt." : "B: Markierung \(mark) gesetzt."
+        statusMessage = mark == 0 ? "Markierung von B entfernt." : "B: Markierung „\(settings.markName(mark))“ gesetzt."
     }
 
     /// Compare: pan and zoom of one pane follow the other, so both frames are checked at the
@@ -603,7 +606,7 @@ final class AppState: ObservableObject {
             case 48, 0xA7, 0xB0:
                 if onB, let rid = compareRightID { markPhoto(rid, mark: 0) } else { setMark(0) }
                 return true
-            case 49...57:
+            case 49...(48 + UInt32(MarkDefinition.count)):
                 if onB, let rid = compareRightID { markPhoto(rid, mark: Int(s.value) - 48) } else { setMark(Int(s.value) - 48) }
                 return true
             case UInt32(UInt8(ascii: "z")), UInt32(UInt8(ascii: "Z")): compareZoomBoth { $0.toggle100() }; return true
@@ -678,6 +681,7 @@ final class AppState: ObservableObject {
 
     // MARK: Rating / marking (applies to the whole selection)
     func setMark(_ mark: Int) {
+        guard (0...MarkDefinition.count).contains(mark) else { return }   // only 1–7 exist since 2.0
         let before = currentID
         let single = selectedIDs.count <= 1
         // Same key again on a photo that already carries that mark = take it off (Levin, 13.10.2026):
@@ -689,7 +693,7 @@ final class AppState: ObservableObject {
         mutateSelection({ $0.mark = newMark }) { n in
             newMark == 0
                 ? (n == 1 ? "Markierung entfernt." : "Markierung von \(n) Bildern entfernt.")
-                : (n == 1 ? "Markierung \(mark) gesetzt." : "Markierung \(mark) für \(n) Bilder gesetzt.")
+                : (n == 1 ? "Markierung „\(self.settings.markName(mark))“ gesetzt." : "Markierung „\(self.settings.markName(mark))“ für \(n) Bilder gesetzt.")
         }
         // Auto-advance for fast culling (Settings → Markierungen). Never in compare mode —
         // there the left anchor must stay put while you cycle the right pane.
@@ -1137,10 +1141,10 @@ final class AppState: ObservableObject {
         guard !showExportWizard, !showEditor, operation == nil, pendingTrash == nil,
               NSApp.keyWindow === NSApp.mainWindow else { return false }
 
-        // ⌥1–9 = only this mark, ⌥0 = show all. The filter chips had no keyboard access at all.
+        // ⌥1–7 = only this mark, ⌥0 = show all. The filter chips had no keyboard access at all.
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .option,
            let ch = event.charactersIgnoringModifiers, ch.count == 1, let s = ch.unicodeScalars.first,
-           (48...57).contains(s.value) {
+           (48...(48 + UInt32(MarkDefinition.count))).contains(s.value) {
             let n = Int(s.value) - 48
             if n == 0 { tagFilter.setAll(shown: true) } else { tagFilter.solo(n) }
             return true
@@ -1184,7 +1188,7 @@ final class AppState: ObservableObject {
                 setMark(0); return true
             case 0xA7, 0xB0:                                // § / ° (Taste links der 1, CH-Layout) → Markierung entfernen
                 setMark(0); return true
-            case 49...57:                                   // 1–9 → colour mark
+            case 49...(48 + UInt32(MarkDefinition.count)):  // 1–7 → colour mark
                 setMark(Int(scalar.value) - 48); return true
             case UInt32(UInt8(ascii: "c")), UInt32(UInt8(ascii: "C")):
                 enterCompare(); return true

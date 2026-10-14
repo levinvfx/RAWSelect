@@ -35,45 +35,64 @@ enum ConflictMode: String, CaseIterable, Identifiable { case rename, skip, overw
 // MARK: - Mark definitions
 
 struct MarkDefinition: Codable, Identifiable, Equatable {
-    var id: Int          // 1…9
+    var id: Int          // 1…7 (keys 1–7)
     var name: String
     var colorHex: String
-    var color: Color { Color(hex: colorHex) }
 
-    /// The macOS system palette (the colours Finder tags, Calendar and Reminders use), so the marks
-    /// look native next to the rest of the Mac. Positions 1–6 keep their hue from earlier
-    /// versions; 7 brown and 8 grey replace the old brown/black (a black badge vanished on dark
-    /// photos), and 9 is orange instead of white (white was invisible on the light grid).
-    static let defaults: [MarkDefinition] = [
-        .init(id: 1, name: "Rot",     colorHex: "#FF3B30"),
-        .init(id: 2, name: "Gelb",    colorHex: "#FFCC00"),
-        .init(id: 3, name: "Grün",    colorHex: "#34C759"),
-        .init(id: 4, name: "Blau",    colorHex: "#007AFF"),
-        .init(id: 5, name: "Violett", colorHex: "#AF52DE"),
-        .init(id: 6, name: "Türkis",  colorHex: "#5AC8FA"),
-        .init(id: 7, name: "Braun",   colorHex: "#A2845E"),
-        .init(id: 8, name: "Grau",    colorHex: "#8E8E93"),
-        .init(id: 9, name: "Orange",  colorHex: "#FF9500")
+    /// Seven marks, exactly the Finder tag colours in Finder order. Since 2.0 the marks carry no
+    /// digit — like Finder tags they are recognised by colour alone, the keys 1–7 stay.
+    static let count = 7
+
+    /// Untouched defaults draw with the DYNAMIC system colour (NSColor.systemRed …), so they adapt
+    /// to light/dark mode exactly like Finder tags; a colour the user picked is drawn as stored.
+    var color: Color {
+        if let d = MarkDefinition.defaults.first(where: { $0.id == id }), d.colorHex == colorHex.uppercased(),
+           let sys = MarkDefinition.systemColors[id] {
+            return Color(nsColor: sys)
+        }
+        return Color(hex: colorHex)
+    }
+
+    private static let systemColors: [Int: NSColor] = [
+        1: .systemRed, 2: .systemOrange, 3: .systemYellow, 4: .systemGreen,
+        5: .systemBlue, 6: .systemPurple, 7: .systemGray,
     ]
 
-    /// Pre-1.9 defaults were English in an otherwise German UI. Stored settings that still carry
-    /// exactly those names are shown in German; custom names are left alone.
-    private static let germanNames = ["Red": "Rot", "Yellow": "Gelb", "Green": "Grün", "Blue": "Blau",
-                                      "Purple": "Violett", "Cyan": "Türkis", "Brown": "Braun",
-                                      "Black": "Schwarz", "White": "Weiss"]
-    /// Default colours of V1.0–1.11 (neon). A stored mark that still carries exactly one of these
-    /// is an untouched default and follows the new palette; a colour the user picked is kept.
-    private static let legacyDefaultHex: Set<String> = ["#FF222A", "#FBF056", "#00F656", "#204EF5",
-                                                        "#F73FFA", "#00FFFF", "#804000", "#282828", "#F9FFEF"]
+    static let defaults: [MarkDefinition] = [
+        .init(id: 1, name: "Rot",     colorHex: "#FF3B30"),
+        .init(id: 2, name: "Orange",  colorHex: "#FF9500"),
+        .init(id: 3, name: "Gelb",    colorHex: "#FFCC00"),
+        .init(id: 4, name: "Grün",    colorHex: "#34C759"),
+        .init(id: 5, name: "Blau",    colorHex: "#007AFF"),
+        .init(id: 6, name: "Violett", colorHex: "#AF52DE"),
+        .init(id: 7, name: "Grau",    colorHex: "#8E8E93"),
+    ]
+
+    /// Every default colour and name any earlier version shipped (neon 1.0–1.11, the 9-colour
+    /// palette of the first 2.0 build, English names before 1.9). A stored mark whose colour AND
+    /// name are both such defaults was never touched by the user and follows the new palette;
+    /// anything customised is kept exactly.
+    private static let legacyDefaultHex: Set<String> = [
+        "#FF222A", "#FBF056", "#00F656", "#204EF5", "#F73FFA", "#00FFFF", "#804000", "#282828", "#F9FFEF",
+        "#FF3B30", "#FFCC00", "#34C759", "#007AFF", "#AF52DE", "#5AC8FA", "#A2845E", "#8E8E93", "#FF9500",
+    ]
+    private static let legacyDefaultNames: Set<String> = [
+        "Red", "Yellow", "Green", "Blue", "Purple", "Cyan", "Brown", "Black", "White",
+        "Rot", "Gelb", "Grün", "Blau", "Violett", "Türkis", "Braun", "Schwarz", "Weiss", "Grau", "Orange",
+    ]
+
+    /// Brings a stored definition up to date: untouched defaults → current default for that id.
     static func localized(_ m: MarkDefinition) -> MarkDefinition {
-        var m = m
-        if let de = germanNames[m.name] { m.name = de }
-        if legacyDefaultHex.contains(m.colorHex.uppercased()), let fresh = defaults.first(where: { $0.id == m.id }) {
-            m.colorHex = fresh.colorHex
-            // Name only if it was the old default too (the user may have renamed "Schwarz" to "Kunde").
-            if m.name == "Schwarz" || m.name == "Weiss" { m.name = fresh.name }
+        if legacyDefaultHex.contains(m.colorHex.uppercased()), legacyDefaultNames.contains(m.name),
+           let fresh = defaults.first(where: { $0.id == m.id }) {
+            return fresh
         }
         return m
+    }
+
+    /// The stored list as the app uses it: exactly ids 1…7, migrated, missing ones filled in.
+    static func normalized(_ stored: [MarkDefinition]) -> [MarkDefinition] {
+        defaults.map { d in stored.first(where: { $0.id == d.id }).map(localized) ?? d }
     }
 }
 
@@ -123,7 +142,7 @@ final class AppSettings: ObservableObject {
 
     // Markierungen
     var autoAdvance: Bool { get { b("rs.autoAdvance", true) } set { set("rs.autoAdvance", newValue) } }
-    var marks: [MarkDefinition] { get { cod("rs.marks", MarkDefinition.defaults).map(MarkDefinition.localized) } set { setCod("rs.marks", newValue) } }
+    var marks: [MarkDefinition] { get { MarkDefinition.normalized(cod("rs.marks", MarkDefinition.defaults)) } set { setCod("rs.marks", newValue) } }
 
     // Kopieren
     /// After a copy, show the destination folder in the Finder (Erweitert).
@@ -181,13 +200,10 @@ final class AppSettings: ObservableObject {
 
     // MARK: Derived helpers
     func markDefinition(_ n: Int) -> MarkDefinition {
-        marks.first { $0.id == n } ?? MarkDefinition.defaults[max(0, min(8, n - 1))]
+        marks.first { $0.id == n } ?? MarkDefinition.defaults[max(0, min(MarkDefinition.count - 1, n - 1))]
     }
     func markColor(_ n: Int) -> Color { markDefinition(n).color }
     func markName(_ n: Int) -> String { markDefinition(n).name }
-    /// Black or white digit — whichever reads better on the mark colour (WCAG contrast), so a
-    /// user-picked pastel gets a dark digit and a deep blue a white one.
-    func markTextColor(_ n: Int) -> Color { markDefinition(n).color.prefersDarkText ? .black : .white }
 
     /// Preferred color scheme for the whole app (nil = follow system).
     var systemColorScheme: ColorScheme? { appearance.colorScheme }

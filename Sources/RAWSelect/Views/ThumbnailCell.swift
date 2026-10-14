@@ -80,16 +80,16 @@ struct ThumbnailCell: View {
     }
 
 
-    /// Badge size follows the cell: 16 pt in the filmstrip, 20 pt at the default grid size, 24 pt
-    /// on big tiles — the same proportion everywhere instead of one fixed 20 pt circle.
-    private var badgeSize: CGFloat { min(24, max(16, (side * 0.13).rounded())) }
+    /// Dot size follows the cell: 11 pt in the filmstrip, ~14 pt at the default grid size, 18 pt on
+    /// big tiles — the same proportion everywhere, like Finder tag dots on icons.
+    private var badgeSize: CGFloat { min(18, max(11, (side * 0.095).rounded())) }
 
     private var markBadge: some View {
         VStack {
             HStack {
                 Spacer()
                 MarkBadge(mark: group.mark, size: badgeSize, ring: true)
-                    .padding(badgeSize * 0.3)
+                    .padding(badgeSize * 0.45)
             }
             Spacer()
         }

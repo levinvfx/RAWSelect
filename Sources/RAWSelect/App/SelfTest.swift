@@ -528,21 +528,22 @@ enum SelfTest {
         check(os.hasPrefix("macOS ") && os.split(separator: ".").count == 2 && !os.contains("Build"),
               "telemetry: coarse OS version (\(os))")
 
-        // Marks: untouched neon defaults of V1.0–1.11 follow the new system palette, a user-picked
-        // colour and a custom name are kept; the digit colour is chosen by WCAG contrast.
+        // Marks (2.0): seven Finder colours. Untouched defaults of any earlier palette follow the new
+        // one; anything the user customised (name or colour) is kept exactly; 8/9 are dropped.
         let legacy = MarkDefinition.localized(.init(id: 2, name: "Yellow", colorHex: "#FBF056"))
-        check(legacy.colorHex == "#FFCC00" && legacy.name == "Gelb", "marks: legacy default → system palette + German name")
-        let custom = MarkDefinition.localized(.init(id: 8, name: "Kunde", colorHex: "#123456"))
+        check(legacy == MarkDefinition.defaults[1], "marks: legacy default → Finder palette (2 = Orange)")
+        let beta = MarkDefinition.localized(.init(id: 7, name: "Braun", colorHex: "#A2845E"))
+        check(beta.name == "Grau" && beta.colorHex == "#8E8E93", "marks: first 2.0 palette → Finder palette (7 = Grau)")
+        let custom = MarkDefinition.localized(.init(id: 6, name: "Kunde", colorHex: "#123456"))
         check(custom.colorHex == "#123456" && custom.name == "Kunde", "marks: custom colour and name untouched")
-        let renamedLegacy = MarkDefinition.localized(.init(id: 8, name: "Kunde", colorHex: "#282828"))
-        check(renamedLegacy.colorHex == "#8E8E93" && renamedLegacy.name == "Kunde", "marks: legacy colour upgraded, custom name kept")
-        check(Color(hex: "#FFCC00").prefersDarkText && Color(hex: "#5AC8FA").prefersDarkText
-              && Color(hex: "#34C759").prefersDarkText && Color(hex: "#FF9500").prefersDarkText
-              && !Color(hex: "#007AFF").prefersDarkText && !Color(hex: "#8E8E93").prefersDarkText
-              && !Color(hex: "#FF3B30").prefersDarkText && !Color(hex: "#A2845E").prefersDarkText,
-              "marks: digit colour by contrast (dark on yellow/teal/green/orange, light on red/blue/brown/grey)")
-        check(MarkDefinition.defaults.count == 9 && Set(MarkDefinition.defaults.map { $0.id }) == Set(1...9),
-              "marks: nine defaults, ids 1…9")
+        let renamed = MarkDefinition.localized(.init(id: 3, name: "Kunde", colorHex: "#00F656"))
+        check(renamed.name == "Kunde" && renamed.colorHex == "#00F656", "marks: renamed default kept as the user left it")
+        let norm = MarkDefinition.normalized((1...9).map { .init(id: $0, name: "Red", colorHex: "#FF222A") })
+        check(norm.map(\.id) == Array(1...7) && norm == MarkDefinition.defaults, "marks: 9 stored legacy marks → exactly 7 defaults")
+        check(MarkDefinition.defaults.count == MarkDefinition.count && MarkDefinition.count == 7
+              && TagFilter.allBuckets == Set(0...7), "marks: seven defaults, filter buckets 0…7")
+        check(Color(hex: "#FFCC00").prefersDarkText && !Color(hex: "#007AFF").prefersDarkText,
+              "colour: contrast helper (dark on yellow, light on blue)")
 
         // Loupe zoom view (mouse wheel, fit, photo swap) — headless AppKit.
         zoomTests(check)

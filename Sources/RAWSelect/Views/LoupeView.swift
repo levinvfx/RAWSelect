@@ -284,7 +284,7 @@ private struct LargePreview: View {
 
     private var markPill: some View {
         HStack(spacing: 7) {
-            MarkBadge(mark: group.mark, size: 18)
+            MarkBadge(mark: group.mark, size: 13)
             Text(settings.markName(group.mark)).font(.callout.weight(.medium))
         }
         .padding(.leading, 7).padding(.trailing, 12).padding(.vertical, 6)

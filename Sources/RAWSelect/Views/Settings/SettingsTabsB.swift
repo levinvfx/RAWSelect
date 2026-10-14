@@ -12,7 +12,7 @@ struct MarkSettingsTab: View {
                               help: "Perfekt fürs schnelle Sichten.",
                               isOn: $settings.autoAdvance)
             }
-            Section("Markierungen 1–9") {
+            Section("Markierungen · Tasten 1–7") {
                 ForEach($settings.marks) { $mark in
                     MarkEditorRow(mark: $mark)
                 }
@@ -28,7 +28,8 @@ private struct MarkEditorRow: View {
     var body: some View {
         HStack(spacing: 10) {
             // Live preview: exactly the badge the grid and the filter bar will show.
-            MarkBadge(mark: mark.id, size: 22)
+            MarkBadge(mark: mark.id, size: 16)
+                .frame(width: 22)
             TextField("", text: $mark.name, prompt: Text("Name"))
                 .labelsHidden()
                 .textFieldStyle(.roundedBorder)

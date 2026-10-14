@@ -204,7 +204,7 @@ struct ExportWizard: View {
         }
     }
 
-    private var availableTags: [Int] { (1...9).filter { (app.markCounts[$0] ?? 0) > 0 } }
+    private var availableTags: [Int] { (1...MarkDefinition.count).filter { (app.markCounts[$0] ?? 0) > 0 } }
 
     private var tagChips: some View {
         HStack(spacing: 6) {
@@ -216,7 +216,7 @@ struct ExportWizard: View {
                     if selectedTags.isEmpty { scope = .allMarked }
                 } label: {
                     HStack(spacing: 5) {
-                        MarkBadge(mark: m, size: 16, style: on ? .filled : .outline)
+                        MarkBadge(mark: m, size: 12, style: on ? .filled : .outline)
                         Text("\(app.markCounts[m] ?? 0)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }
                     .padding(.leading, 5).padding(.trailing, 9).padding(.vertical, 4)

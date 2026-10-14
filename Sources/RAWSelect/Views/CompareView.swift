@@ -26,7 +26,7 @@ struct CompareView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Text("←/→ rechtes Bild · 1–9 markiert A · ⇧1–9 markiert B · Z 100 % · ↩ B→A · Esc schliessen")
+            Text("←/→ rechtes Bild · 1–7 markiert A · ⇧1–7 markiert B · Z 100 % · ↩ B→A · Esc schliessen")
                 .font(.caption)
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(.regularMaterial, in: Capsule())
@@ -79,7 +79,7 @@ private struct ComparePane: View {
                     Spacer()
                     if group.mark != 0 {
                         HStack(spacing: 6) {
-                            MarkBadge(mark: group.mark, size: 16)
+                            MarkBadge(mark: group.mark, size: 11)
                             Text(settings.markName(group.mark)).font(.caption.weight(.medium))
                         }
                         .padding(.leading, 5).padding(.trailing, 9).padding(.vertical, 4)

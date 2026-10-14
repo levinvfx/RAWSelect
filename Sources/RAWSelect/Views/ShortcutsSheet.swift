@@ -6,7 +6,7 @@ struct ShortcutsSheet: View {
     @EnvironmentObject var app: AppState
 
     private let rows: [(String, String)] = [
-        ("1 – 9",      "Farbmarkierung setzen · nochmals: entfernen"),
+        ("1 – 7",      "Farbmarkierung setzen · nochmals: entfernen"),
         ("0  /  §",    "Markierung entfernen"),
         ("⌫",          "In den Papierkorb (Ausschuss)"),
         ("⌘Z",         "Markierung rückgängig"),
@@ -21,8 +21,8 @@ struct ShortcutsSheet: View {
         ("Z",          "100% / Einpassen (in der Loupe)"),
         ("+ / −",      "Rein- / rauszoomen (in der Loupe)"),
         ("C",          "Vergleichen (A|B) · ←/→ rechtes Bild · ↩ B→A"),
-        ("⇧1 – 9",     "Im Vergleich: B markieren"),
-        ("⌥1 – 9 / ⌥0","Nur diese Markierung zeigen / alle zeigen"),
+        ("⇧1 – 7",     "Im Vergleich: B markieren"),
+        ("⌥1 – 7 / ⌥0","Nur diese Markierung zeigen / alle zeigen"),
         ("⌘⇧C",        "Alle markierten Bilder kopieren…"),
         ("I",          "EXIF-Infos ein/aus"),
         ("F",          "Vollbild"),

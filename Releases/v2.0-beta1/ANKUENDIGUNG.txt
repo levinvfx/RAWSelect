@@ -1,9 +1,9 @@
 — Instagram / Story (kurz) —
 RAW Select 2.0 Beta ist da 📸
-Meine kostenlose Mac-App zum Sichten von RAWs nach dem Spiel: markieren, Schärfe bei 100 % prüfen, Auswahl kopieren. Neu: Markierungen im Finder-Look und mit derselben Taste wieder weg.
+Meine kostenlose Mac-App zum Sichten von RAWs nach dem Spiel: markieren, Schärfe bei 100 % prüfen, Auswahl kopieren. Neu: sieben Farbpunkte wie die Finder-Tags, und dieselbe Taste nochmals nimmt die Markierung wieder weg.
 Gratis laden: vfxmedia.ch/rawselect
 Feedback willkommen, ist eine Beta.
 
 — WhatsApp an Kollegen —
-Hoi zäme, RAW Select 2.0 Beta ist online. Wer die App schon hat, bekommt das Update beim nächsten Start angeboten. Neu: Markierungen sehen überall gleich aus, und dieselbe Zahl nochmals drücken nimmt die Markierung wieder weg. Wenn was klemmt: in der App Hilfe → Feedback senden. Danke fürs Testen!
+Hoi zäme, RAW Select 2.0 Beta ist online. Wer die App schon hat, bekommt das Update beim nächsten Start angeboten. Neu: sieben Farbpunkte wie im Finder (Tasten 1–7), und dieselbe Zahl nochmals drücken nimmt die Markierung wieder weg. Achtung: Bei schon markierten Bildern kann sich die Farbe ändern, alte 8 und 9 werden Grau. Wenn was klemmt: in der App Hilfe → Feedback senden. Danke fürs Testen!
 Download für neue Leute: https://vfxmedia.ch/rawselect/

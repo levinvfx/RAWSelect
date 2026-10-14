@@ -55,7 +55,7 @@ struct TagFilter: Equatable {
     /// Buckets that are currently hidden (empty = show everything).
     var hidden: Set<Int> = []
 
-    static let allBuckets = Set(0...9)   // 0 = untagged, 1…9 = marks
+    static let allBuckets = Set(0...MarkDefinition.count)   // 0 = untagged, 1…7 = marks
 
     var isActive: Bool { !hidden.isEmpty }
     var allShown: Bool { hidden.isEmpty }

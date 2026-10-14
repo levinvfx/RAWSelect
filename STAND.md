@@ -23,7 +23,19 @@ alles post-ready". Enthält den Design-Durchgang unten plus:
 - Bewusst nicht: Notarisierung (Levin: ohne Apple), Opt-out der Zählung (Levins früherer Entscheid; vom Review empfohlen),
   Swift-6-Sendable-Umbau, AppState aufteilen.
 
-## Design-Durchgang Markierungen 1–9 (13.10.2026, Teil von 2.0 Beta 1)
+## Sieben Finder-Farben ohne Zahl (15.10.2026, Teil von 2.0 Beta 1)
+Levin: „nur 7, gar nicht nummerieren, mehr Erkennung, Apple-Style" (Vorbild: Finder-Tag-Leiste).
+- `MarkDefinition.count = 7`, Defaults in Finder-Reihenfolge Rot, Orange, Gelb, Grün, Blau, Violett, Grau; unberührte
+  Defaults zeichnen mit den dynamischen `NSColor.system*` (hell/dunkel wie Finder), eigene Farben wie gespeichert.
+- `MarkBadge` = Punkt ohne Ziffer, feine dunklere Kante; auf Fotos weisser Ring + Schatten. Tasten 1–7 (⇧/⌥ ebenso),
+  8/9 tun nichts; `setMark`/`markPhoto` lehnen >7 ab. Statusmeldungen nennen den Namen statt der Zahl.
+- **Migration:** gespeicherte Definitionen, deren Farbe UND Name ein früherer Default sind → neue Defaults; Angepasstes
+  bleibt. Geladene Markierungen 8/9 → 7 (Grau) beim Öffnen (nicht unsichtbar). Folge: bestehende Markierungen behalten
+  ihre Nummer, zeigen aber teils eine andere Farbe (2 war Gelb, jetzt Orange) – steht im Release-Text.
+- Achtung Screenshots: Die Test-App stiehlt beim Start den Fokus – tippt Levin gleichzeitig, landen seine Tasten dort
+  (so entstanden am 15.10. „Grün"-Markierungen im Demo-Ordner). Keine Fenster-Screenshots, während er aktiv ist.
+
+## Design-Durchgang Markierungen (13.10.2026, Teil von 2.0 Beta 1)
 Levins Auftrag: „1–9 einheitlich, Farben, Apple-Finder-Look, ganze App gründlich". Umgesetzt:
 - **Eine Komponente** `Views/MarkBadge.swift` (`MarkBadge`, `UnmarkedBadge`) zeichnet jede Markierung: Kreis in
   Markenfarbe, Ziffer SF Rounded semibold, `.filled`/`.outline`, optionaler weisser Ring auf Fotos. Genutzt in
