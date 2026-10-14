@@ -70,6 +70,7 @@ struct RAWSelectApp: App {
             CommandGroup(replacing: .help) {
                 Button("Tastaturkürzel…") { app.showShortcuts = true }
                     .keyboardShortcut("?", modifiers: [])
+                Button("Feedback senden…") { NSWorkspace.shared.open(AppInfo.feedbackURL) }
             }
             CommandGroup(after: .toolbar) {
                 Button("Im Finder anzeigen") { app.revealCurrent() }

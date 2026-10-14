@@ -11,14 +11,14 @@ struct UpdateSheet: View {
                 row { ProgressView().controlSize(.small); Text("Suche nach Updates…") }
 
             case .upToDate:
-                Label("\(AppInfo.name) ist aktuell (Version \(AppInfo.version)).",
+                Label("\(AppInfo.name) ist aktuell (Version \(AppInfo.displayVersion)).",
                       systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                 closeButtons
 
             case .available(let info):
-                Text("Version \(info.version) verfügbar").font(.title3.weight(.semibold))
-                Text("Installiert ist \(AppInfo.version).")
+                Text("Version \(info.version.replacingOccurrences(of: "-beta", with: " Beta ")) verfügbar").font(.title3.weight(.semibold))
+                Text("Installiert ist \(AppInfo.displayVersion).")
                     .font(.callout).foregroundStyle(.secondary)
                 if !info.notes.isEmpty {
                     ScrollView {

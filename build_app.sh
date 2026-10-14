@@ -7,7 +7,9 @@ cd "$(dirname "$0")"
 
 APP_NAME="RAW Select"
 BUNDLE_ID="ch.anneler.rawselect"
-VERSION="1.11"
+VERSION="2.0-beta1"
+# Bundle keys must stay numeric ("2.0"); the full string with the beta suffix lives in the app.
+SHORT_VERSION="${VERSION%%-*}"
 EXECUTABLE="RAWSelect"
 
 # Self-test runs on the DEBUG binary: SelfTest/SliderCal are dev-only (#if DEBUG) because their
@@ -82,8 +84,8 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>${APP_NAME}</string>
     <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
     <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
-    <key>CFBundleVersion</key><string>${VERSION}</string>
-    <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+    <key>CFBundleVersion</key><string>${SHORT_VERSION}</string>
+    <key>CFBundleShortVersionString</key><string>${SHORT_VERSION}</string>
     <key>CFBundleExecutable</key><string>${EXECUTABLE}</string>
     ${ICON_KEY}
     <key>CFBundlePackageType</key><string>APPL</string>

@@ -1,4 +1,4 @@
-# RAW Select – Server (Download-Seite + anonyme Nutzungszählung)
+# RAW Select – Server (Download-Seite + Nutzungszählung)
 
 Läuft auf Levins vServer unter `https://vfxmedia.ch/rawselect/` (nginx liefert den Ordner direkt aus,
 der Node-Server des Portfolios ist nicht beteiligt).
@@ -27,9 +27,12 @@ Jeder Klick zählt eine Zahl pro Tag (Tabelle `downloads`), ohne IP, ohne Cookie
 Pro Gerät und Tag eine Zeile: **zufällige Installations-ID** (UUID, kein Hardware-/Personenbezug),
 **App-Version**, **grobe macOS-Version** („macOS 26.6"), **Datum**. Sonst nichts.
 **Keine IP** – weder in der Datenbank noch im Webserver-Log (`access_log off` für den ganzen Bereich).
-Nur deshalb ist die Zählung anonym und darf in der App fest eingebaut sein. Wer IP-Logging, Pfade oder
-Namen ergänzt, macht daraus eine Erhebung von Personendaten – dann wäre die Pflicht-Zählung nicht mehr
-zulässig, und die Datenschutzerklärung auf der Seite wäre falsch.
+Rechtlich ehrlich: Die stabile Kennung ist **pseudonym**, nicht anonym (DSGVO nennt Online-Kennungen
+ausdrücklich). Die Zählung ist trotzdem fest eingebaut (Levins Entscheid), gestützt auf berechtigtes Interesse
+und abgesichert durch: sichtbare Kennung in der App, Löschanfrage per Mail mit Kennung, Datenschutzerklärung
+mit Speicherdauer. **Löschanfrage umsetzen:** Zeilen mit dieser `id` aus `pings` entfernen (Levin bestätigt).
+Wer IP-Logging, Pfade oder Namen ergänzt, macht daraus Profilbildung – dann wäre die Pflicht-Zählung nicht
+mehr vertretbar und die Datenschutzerklärung falsch.
 
 ## Deploy (Regeln)
 1. **Backups nie in den Webroot** – immer nach `/root/backups/rawselect/<datum>/`. Eine `.bak` im

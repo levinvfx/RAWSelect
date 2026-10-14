@@ -34,13 +34,18 @@ struct CreditsSettingsTab: View {
                 HStack(spacing: 10) {
                     LinkChip(title: "Website", systemImage: "globe", url: AppInfo.websiteURL)
                     LinkChip(title: "Datenschutz", systemImage: "hand.raised", url: AppInfo.privacyURL)
+                    LinkChip(title: "Feedback", systemImage: "bubble.left", url: AppInfo.feedbackURL)
                 }
             }
 
             Spacer()
 
-            Text("\(AppInfo.name) \(AppInfo.version)")
+            Text("\(AppInfo.name) \(AppInfo.displayVersion)")
                 .font(.caption).foregroundStyle(.tertiary)
+            if AppInfo.isBeta {
+                Text("Beta: Danke fürs Testen! Fehler und Ideen gerne über „Feedback“.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

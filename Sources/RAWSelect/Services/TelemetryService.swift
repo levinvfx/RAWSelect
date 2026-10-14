@@ -1,17 +1,19 @@
 import Foundation
 import AppKit
 
-/// Anonyme, datensparsame Nutzungszählung — fester Bestandteil der App (seit V1.10 nicht mehr
-/// abschaltbar, Levins Entscheid: er will die echte Zahl der Nutzer sehen).
+/// Datensparsame Nutzungszählung — fester Bestandteil der App (seit V1.10 nicht abschaltbar,
+/// Levins Entscheid: er will die echte Zahl der Nutzer sehen).
 ///
-/// Das geht nur, weil die Zählung wirklich ANONYM ist. Höchstens **einmal pro Tag** ein kleiner
+/// Ehrlich benannt ist sie PSEUDONYM, nicht anonym: die Kennung bleibt über Tage gleich, sonst
+/// liessen sich Geräte nicht zählen. Darum sieht jede Person ihre Kennung in Einstellungen →
+/// Erweitert und kann die Löschung ihrer Einträge verlangen. Höchstens **einmal pro Tag** ein kleiner
 /// Ping mit:
 ///   • einer rein **zufälligen** Installations-ID (UUID, kein Hardware-/Personenbezug),
 ///   • der App-Version,
 ///   • der groben macOS-Version (z. B. „macOS 26.6“ — ohne Build-Nummer).
 /// KEINE Dateien, Pfade, Namen, kein Standort. Der Server speichert keine IP — auch das
 /// Webserver-Log ist für /rawselect/ abgeschaltet (server/nginx-rawselect.conf). Wer diese Garantie
-/// aufweicht (IP loggen, Pfade senden …), macht aus der Pflicht-Zählung eine unzulässige.
+/// aufweicht (IP loggen, Pfade senden …), macht aus der datensparsamen Zählung eine Profilbildung.
 /// Schlägt der Ping fehl, passiert nichts: die App-Funktion hängt nie davon ab.
 enum TelemetryService {
     private static let idKey = "rs.anonID"
@@ -26,15 +28,30 @@ enum TelemetryService {
         guard !d.bool(forKey: noticeKey) else { return }
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "Anonyme Nutzungszählung"
-        alert.informativeText = "RAW Select ist gratis. Damit sichtbar ist, wie viele Leute die App nutzen, meldet sie beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch.\n\nKeine Dateien, keine Namen, kein Standort, keine IP-Adresse."
+        alert.messageText = "Nutzungszählung"
+        alert.informativeText = "RAW Select ist gratis. Damit sichtbar ist, wie viele Leute die App nutzen, meldet sie beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch.\n\nKeine Dateien, keine Namen, kein Standort, keine IP-Adresse. Deine Kennung siehst du unter Einstellungen → Erweitert, dort kannst du auch die Löschung verlangen."
         alert.addButton(withTitle: "Verstanden")
         alert.runModal()
         d.set(true, forKey: noticeKey)
     }
 
+    /// Die Kennung, wie sie gesendet wird — für die Anzeige in den Einstellungen (Löschanfrage).
+    static var installationID: String { anonID }
+
+    /// Pre-filled deletion request: carries the id, so the entries can be found and removed.
+    static var deletionRequestURL: URL {
+        var c = URLComponents()
+        c.scheme = "mailto"
+        c.path = AppInfo.email
+        c.queryItems = [
+            URLQueryItem(name: "subject", value: "RAW Select – Löschung meiner Nutzungsdaten"),
+            URLQueryItem(name: "body", value: "Bitte lösche alle Einträge der Nutzungszählung zu dieser Kennung:\n\(installationID)\n"),
+        ]
+        return c.url ?? AppInfo.emailURL
+    }
+
     /// Stabile, rein zufällige Kennung pro Installation. Einmalig erzeugt und lokal gespeichert;
-    /// kein Bezug zu Gerät oder Person.
+    /// nicht aus Hardware abgeleitet und mit keinem Namen verknüpft.
     private static var anonID: String {
         let d = UserDefaults.standard
         if let id = d.string(forKey: idKey) { return id }

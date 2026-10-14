@@ -123,16 +123,29 @@ enum UpdateService {
         return dest
     }
 
-    /// Compare dot-separated numeric versions so that "1.10" > "1.9" and "2" > "1.9".
+    /// Compare versions numerically ("1.10" > "1.9", "2" > "1.9") with pre-releases ranked below
+    /// their release: "2.0-beta1" < "2.0-beta2" < "2.0". Apps up to 1.11 ignore the suffix
+    /// ("2.0-beta1" reads as 2.0 there), which still correctly offers the beta as an update.
     static func isNewer(_ a: String, than b: String) -> Bool {
-        let pa = a.split(separator: ".").map { Int($0) ?? 0 }
-        let pb = b.split(separator: ".").map { Int($0) ?? 0 }
+        func parse(_ s: String) -> (nums: [Int], pre: Int?) {
+            let parts = s.split(separator: "-", maxSplits: 1).map(String.init)
+            let nums = (parts.first ?? "").split(separator: ".").map { Int($0) ?? 0 }
+            guard parts.count > 1 else { return (nums, nil) }
+            return (nums, Int(parts[1].filter(\.isNumber)) ?? 0)
+        }
+        let (pa, ra) = parse(a)
+        let (pb, rb) = parse(b)
         for i in 0..<max(pa.count, pb.count) {
             let x = i < pa.count ? pa[i] : 0
             let y = i < pb.count ? pb[i] : 0
             if x != y { return x > y }
         }
-        return false
+        switch (ra, rb) {
+        case (nil, nil): return false
+        case (nil, _?): return true          // final release beats its own beta
+        case (_?, nil): return false
+        case let (x?, y?): return x > y
+        }
     }
 }
 

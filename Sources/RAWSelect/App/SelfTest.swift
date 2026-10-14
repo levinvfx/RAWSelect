@@ -364,6 +364,13 @@ enum SelfTest {
         check(UpdateService.isNewer("2", than: "1.9"), "2 > 1.9")
         check(!UpdateService.isNewer("1.2", than: "1.2"), "1.2 == 1.2 → not newer")
         check(!UpdateService.isNewer("1.1", than: "1.2"), "1.1 < 1.2 → not newer")
+        check(UpdateService.isNewer("2.0-beta1", than: "1.11"), "2.0-beta1 > 1.11")
+        check(UpdateService.isNewer("2.0", than: "2.0-beta1"), "2.0 > 2.0-beta1 (release beats its beta)")
+        check(UpdateService.isNewer("2.0-beta2", than: "2.0-beta1"), "2.0-beta2 > 2.0-beta1")
+        check(!UpdateService.isNewer("2.0-beta1", than: "2.0"), "2.0-beta1 < 2.0")
+        check(!UpdateService.isNewer("2.0-beta1", than: "2.0-beta1"), "2.0-beta1 == 2.0-beta1")
+        check(UpdateService.isNewer("2.0.1", than: "2.0"), "2.0.1 > 2.0")
+        check(!UpdateService.isNewer("", than: "1.0"), "empty version is never newer")
 
         // 16) Non-destructive edits persist per photo and survive a reload; an
         //     identity edit counts as "default" so untouched photos aren't stored.

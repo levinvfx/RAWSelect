@@ -15,7 +15,8 @@ eingebettete Kamera-Vorschau angezeigt, beim Zoom auf 100 % voll entwickelt).
    zum neuesten signierten DMG im Download-Repo
    [RAWSelect-Releases](https://github.com/levinvfx/RAWSelect-Releases/releases)), öffnen, App nach
    `Programme` ziehen.
-2. Beim ersten Start **Rechtsklick → Öffnen** (die App ist nur ad-hoc signiert, nicht notarisiert).
+2. Beim ersten Start warnt macOS (die App ist nur ad-hoc signiert, nicht notarisiert): auf **Fertig**, dann
+   **Systemeinstellungen → Datenschutz & Sicherheit → Dennoch öffnen**. Unter macOS 14 reicht **Rechtsklick → Öffnen**.
 3. Ab dann meldet sich die App selbst, wenn es ein Update gibt (siehe *Netzwerk* unten).
 
 Voraussetzung: macOS 14 oder neuer, Apple Silicon oder Intel (Universal-Build seit V1.11).
@@ -100,7 +101,7 @@ Pinch zoomt) · ⌥-Klick auf einen Filterchip = nur diese Gruppe · Ordner aufs
 - **Ansicht** – RAW+JPG gruppieren · Vorschau-Modus (Schnell / Ausgewogen / Qualität).
 - **Markierungen** – Auto-Weiterspringen · Namen und Farben der Markierungen 1–9.
 - **Erweitert** – Erscheinungsbild · Zielordner nach dem Kopieren im Finder zeigen ·
-  Hinweis zur anonymen Nutzungszählung · „Öffnen mit"-App der Symbolleiste · Cache leeren · Zurücksetzen.
+  Nutzungszählung (eigene Kennung, Löschanfrage) · „Öffnen mit"-App der Symbolleiste · Cache leeren · Zurücksetzen.
 - **Über** – Version, Kontakt.
 
 Bewusst wenige Optionen; alles andere sind feste, sinnvolle Defaults.
@@ -117,10 +118,11 @@ Zwei Dinge gehen ins Netz:
    Ein Update wird als DMG in *Downloads* abgelegt und geöffnet, nie automatisch installiert –
    und nur, wenn seine **Signatur** stimmt (Ed25519, Schlüssel in der App eingebaut). Ein
    manipuliertes oder unsigniertes DMG wird verworfen, bevor es geöffnet wird.
-2. **Anonyme Nutzungszählung** (fester Bestandteil, beim ersten Start einmal erklärt): höchstens
+2. **Nutzungszählung** (fester Bestandteil, beim ersten Start einmal erklärt): höchstens
    einmal täglich eine zufällige Kennung, App-Version und grobe macOS-Version (z. B. „macOS 26.6“)
    an `vfxmedia.ch`. Keine Dateien, Namen, Pfade, kein Standort. Der Server speichert **keine
-   IP-Adressen** – auch das Webserver-Log ist dafür abgeschaltet.
+   IP-Adressen** – auch das Webserver-Log ist dafür abgeschaltet. Die Kennung ist pseudonym; sie steht
+   in Einstellungen → Erweitert, von dort lässt sich per Mail die Löschung verlangen.
 
 Kein Login, keine Cloud, kein Konto. Datenschutzerklärung und Impressum:
 [vfxmedia.ch/rawselect/#datenschutz](https://vfxmedia.ch/rawselect/#datenschutz).
@@ -165,7 +167,8 @@ Plugin lokal nach `~/Library/Application Support/RAW Select/`.
 ## Bekannte Grenzen
 
 - Nur ad-hoc signiert, nicht notarisiert (Apple Developer Program, 99 $/Jahr, bewusst noch nicht) →
-  beim ersten Start Rechtsklick → Öffnen.
+  beim ersten Start einmal „Dennoch öffnen" (macOS 15+) bzw. Rechtsklick → Öffnen (macOS 14).
+- Versionen mit Suffix (`2.0-beta1`) sind Vorabversionen; der Updater stuft sie unter der finalen `2.0` ein.
 - „Dateidatum" ist das Dateisystem-Datum, nicht das EXIF-Aufnahmedatum.
 - Der Zoom auf 100 % braucht für ein RAW einen Moment („RAW lädt…"); das jeweils nächste Bild
   der Serie wird vorentwickelt.

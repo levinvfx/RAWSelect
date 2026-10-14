@@ -266,7 +266,7 @@
     <section class="hero">
       <div class="container hero__grid">
         <div>
-          <span class="eyebrow">Kostenlos · macOS</span>
+          <span class="eyebrow">Kostenlos · macOS · Beta</span>
           <h1>RAW Select</h1>
           <p class="lead">Tausende Bilder nach dem Spiel sichten, Treffer markieren, Schärfe bei 100 % prüfen, die Auswahl kopieren. Eine native Mac-App, die nichts an deinen Originalen verändert.</p>
           <div class="hero__cta">
@@ -292,9 +292,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
           </div>
           <div>
-            <h3>Beim ersten Start: Rechtsklick, dann «Öffnen»</h3>
-            <p>Öffne die geladene DMG-Datei und ziehe RAW Select in den Ordner «Programme». macOS kennt den Entwickler nicht und zeigt beim Doppelklick eine Warnung. Klicke die App einmal mit der rechten Maustaste an und wähle <strong>Öffnen</strong>, ab dann startet sie normal.</p>
-            <p>Der Grund ist ehrlich gesagt simpel: Die App ist nicht bei Apple notarisiert. Das kostet jährlich Geld, und RAW Select ist gratis. Updates lädt die App später selbst und prüft dabei die digitale Signatur.</p>
+            <h3>Beim ersten Start: einmal «Dennoch öffnen»</h3>
+            <p>Öffne die geladene DMG-Datei und ziehe RAW Select in den Ordner «Programme». Beim ersten Doppelklick zeigt macOS eine Warnung, weil die App nicht bei Apple registriert ist. Klicke auf <strong>Fertig</strong>, öffne dann <strong>Systemeinstellungen → Datenschutz &amp; Sicherheit</strong> und klicke ganz unten bei RAW Select auf <strong>Dennoch öffnen</strong>. Ab dann startet die App normal. Unter macOS 14 reicht stattdessen ein Rechtsklick auf die App und <strong>Öffnen</strong>.</p>
+            <p>Der Grund ist ehrlich gesagt simpel: Die Registrierung bei Apple kostet jährlich Geld, und RAW Select ist gratis. Updates lädt die App später selbst und prüft dabei die digitale Signatur, der Schritt oben ist also nur einmal nötig.</p>
+            <p>RAW Select 2.0 ist eine <strong>Beta</strong>. Fehler oder Ideen? In der App unter <strong>Hilfe → Feedback senden</strong> oder direkt an <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>.</p>
           </div>
         </div>
       </div>
@@ -417,7 +418,7 @@
           </div>
           <div class="band__item reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>
-            <h3>Anonyme Zählung</h3>
+            <h3>Nutzungszählung</h3>
             <p>Höchstens einmal täglich: eine zufällige Kennung, die App-Version und die grobe macOS-Version an vfxmedia.ch. Damit weiss ich, wie viele Leute die App nutzen. Keine IP-Adresse, keine Dateien, kein Standort.</p>
           </div>
           <div class="band__item reveal">
@@ -454,15 +455,18 @@
         <h3>3. Was die App ins Internet sendet</h3>
         <ul>
           <li><strong>Update-Prüfung.</strong> Beim Start fragt die App bei GitHub (GitHub Inc., USA) die neueste Versionsnummer ab. Dabei sieht GitHub, wie bei jedem Abruf einer Webseite, deine IP-Adresse. Es gelten die <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Datenschutzbestimmungen von GitHub</a>. Ich selbst erhalte von dieser Abfrage keine Daten. Ein Update wird nur geladen, wenn du es bestätigst.</li>
-          <li><strong>Anonyme Nutzungszählung.</strong> Höchstens einmal pro Tag sendet die App an meinen Server (vfxmedia.ch, gehostet bei Hoststar in der Schweiz) drei Angaben: eine zufällige Kennung, die beim ersten Start erzeugt wird, die App-Version und die grobe macOS-Version, zum Beispiel «macOS 15.6». Der Server speichert diese drei Angaben mit dem Datum. Er speichert keine IP-Adresse, auch nicht im Webserver-Protokoll. Die Kennung hat keinen Bezug zu deiner Person, deinem Gerät oder deinen Dateien. Zweck ist einzig zu wissen, wie viele Geräte welche Version nutzen. Die Zählung ist fester Bestandteil der App, weil sie ohne Personenbezug arbeitet. Löschst du die App samt ihren Einstellungen, verschwindet die Kennung von deinem Mac.</li>
+          <li><strong>Nutzungszählung.</strong> Höchstens einmal pro Tag sendet die App an meinen Server (vfxmedia.ch, gehostet bei Hoststar in der Schweiz) drei Angaben: eine zufällige Kennung, die beim ersten Start erzeugt wird, die App-Version und die grobe macOS-Version, zum Beispiel «macOS 15.6». Der Server speichert diese drei Angaben mit dem Datum. Er speichert keine IP-Adresse, auch nicht im Webserver-Protokoll. Die Kennung wird nicht aus deinem Gerät abgeleitet und mit keinem Namen verknüpft. Weil sie über die Zeit gleich bleibt, ist sie aber pseudonym und nicht vollständig anonym. Zweck ist einzig zu wissen, wie viele Geräte welche Version nutzen. Die Zählung ist fester Bestandteil der App. Deine Kennung siehst du in der App unter <strong>Einstellungen → Erweitert</strong>.</li>
         </ul>
         <p>Sonst sendet die App nichts: keine Dateien, keine Dateinamen, keine Pfade, keine Metadaten, keine Absturzberichte, keinen Standort.</p>
 
-        <h3>4. Diese Webseite</h3>
+        <h3>4. Speicherdauer und Rechtsgrundlage</h3>
+        <p>Die Einträge der Nutzungszählung bewahre ich auf, solange ich die Statistik führe, damit Nutzerzahlen über die Zeit vergleichbar bleiben. Verlangst du die Löschung, entferne ich alle Einträge zu deiner Kennung innert 30 Tagen. Ich gebe die Daten an niemanden weiter, sie bleiben auf meinem Server in der Schweiz. Für Nutzerinnen und Nutzer in der EU stütze ich die Zählung auf mein berechtigtes Interesse, die kostenlose App gezielt weiterzuentwickeln (Art. 6 Abs. 1 lit. f DSGVO). Du kannst jederzeit widersprechen: Ich lösche dann deine Einträge. Willst du gar nicht mitgezählt werden, nutze die App bitte nicht weiter.</p>
+
+        <h3>5. Diese Webseite</h3>
         <p>Diese Seite setzt keine Cookies und nutzt kein Tracking. Schriften werden von vfxmedia.ch selbst geliefert, nicht von Dritten. Für den Bereich dieser Seite ist das Zugriffsprotokoll des Webservers abgeschaltet, es werden also keine IP-Adressen gespeichert. Klickst du auf «Für Mac laden», zählt mein Server den Download als reine Zahl pro Tag und leitet dich zur Datei auf GitHub weiter. Dort gelten wieder die Bestimmungen von GitHub.</p>
 
-        <h3>5. Deine Rechte</h3>
-        <p>Du kannst Auskunft über deine Personendaten verlangen, sie berichtigen oder löschen lassen. Da die App und diese Seite keine Daten mit Personenbezug speichern, kann ich dir einzelne Einträge der Zählung nicht zuordnen. Fragen beantworte ich innert 30 Tagen unter <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. Wohnst du in der EU, kannst du dich zusätzlich bei der Datenschutzbehörde deines Landes beschweren.</p>
+        <h3>6. Deine Rechte</h3>
+        <p>Du kannst Auskunft über deine Daten verlangen und sie löschen lassen. Am einfachsten geht das in der App unter <strong>Einstellungen → Erweitert → Löschung meiner Daten verlangen</strong>: Die E-Mail enthält deine Kennung bereits, nur damit kann ich deine Einträge finden. Fragen beantworte ich innert 30 Tagen unter <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. Wohnst du in der Schweiz, ist der Eidgenössische Datenschutz- und Öffentlichkeitsbeauftragte (EDÖB) zuständig, in der EU die Datenschutzbehörde deines Landes.</p>
       </div>
     </section>
 
@@ -510,7 +514,7 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           if (!j || !j.version) return;
-          v.textContent = 'Version ' + j.version;
+          v.textContent = 'Version ' + j.version.replace('-beta', ' Beta ');
           if (j.size) s.textContent = ' · ' + (j.size / 1048576).toFixed(0) + ' MB';
           if (j.releases) document.querySelectorAll('[data-releases]').forEach(function (a) { a.href = j.releases; });
         })

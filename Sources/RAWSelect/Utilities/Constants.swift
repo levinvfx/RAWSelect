@@ -3,7 +3,12 @@ import SwiftUI
 /// Central place for the file types and mark styling used across the app.
 enum AppInfo {
     static let name = "RAW Select"
-    static let version = "1.11"
+    /// Release version. A pre-release carries a suffix ("2.0-beta1"); `UpdateService.isNewer` ranks
+    /// it below the final "2.0". Must match `VERSION=` in build_app.sh.
+    static let version = "2.0-beta1"
+    /// "2.0 Beta 1" — the same version as people read it.
+    static var displayVersion: String { version.replacingOccurrences(of: "-beta", with: " Beta ") }
+    static var isBeta: Bool { version.contains("-") }
 
 
     // Credits / branding
@@ -16,6 +21,19 @@ enum AppInfo {
     /// Official download page (also hosts the privacy statement and imprint).
     static let websiteURL = URL(string: "https://vfxmedia.ch/rawselect/")!
     static let privacyURL = URL(string: "https://vfxmedia.ch/rawselect/#datenschutz")!
+
+    /// Pre-filled feedback mail: version and coarse macOS version go into the body so a bug report
+    /// is useful without a back-and-forth. Nothing is sent unless the user hits "Senden".
+    static var feedbackURL: URL {
+        var c = URLComponents()
+        c.scheme = "mailto"
+        c.path = email
+        c.queryItems = [
+            URLQueryItem(name: "subject", value: "RAW Select \(displayVersion) – Feedback"),
+            URLQueryItem(name: "body", value: "\n\n\n—\nRAW Select \(version) · \(TelemetryService.coarseOSVersion)"),
+        ]
+        return c.url ?? emailURL
+    }
 
     /// Public GitHub repository the auto-updater queries (`releases/latest`, first `.dmg` asset).
     /// Since V1.11 this is a downloads-only repo (DMG + signature, no source) so the source repository

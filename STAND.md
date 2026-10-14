@@ -1,10 +1,29 @@
-# RAW Select — Stand (13.10.2026, abends)
+# RAW Select — Stand (15.10.2026)
 
 ## Ziel
 **V1.11 (Universal-Build + Download-Seite) veröffentlicht** (13.10.2026, Tag `v1.11`, in beiden Repos).
 Vorher: V1.10 (Sicherheit & Datenschutz) veröffentlicht 11.10.2026.
 
-## Design-Durchgang Markierungen 1–9 (13.10.2026, unveröffentlicht)
+## 2.0 Beta 1 – gebaut und signiert, NICHT veröffentlicht (15.10.2026)
+Levins Auftrag nach einem externen Review: „ohne Apple-Signierung, Beta 2.0, noch nicht veröffentlichen, erst zeigen,
+alles post-ready". Enthält den Design-Durchgang unten plus:
+- **Version `2.0-beta1`** (Constants + build_app.sh; Bundle-Keys numerisch `2.0`). `UpdateService.isNewer` kennt jetzt
+  Vorabversionen: 2.0-beta1 < 2.0-beta2 < 2.0; Apps ≤ 1.11 lesen 2.0-beta1 als 2.0 und bieten das Update korrekt an.
+  Anzeige „2.0 Beta 1" (`AppInfo.displayVersion`) in Über und Update-Fenster.
+- **Feedback:** Hilfe → Feedback senden und Chip in Über (mailto mit Version + macOS).
+- **Nutzungszählung bleibt fest (Levins Entscheid), aber ehrlicher:** heisst nicht mehr „anonym", sondern pseudonym;
+  Kennung sichtbar in Einstellungen → Erweitert (Kopieren, „Löschung meiner Daten verlangen" per Mail mit Kennung);
+  Datenschutzerklärung mit Speicherdauer, Rechtsgrundlage (berechtigtes Interesse), Widerspruch/Löschung, EDÖB.
+- **Download-Seite:** Beta-Kennzeichnung, Erststart-Anleitung für macOS 15+ („Dennoch öffnen" in Datenschutz &
+  Sicherheit – Rechtsklick→Öffnen gibt es dort nicht mehr), Feedback-Hinweis. Nur lokal geprüft, NICHT hochgeladen.
+- **Bereit zum Veröffentlichen:** `Releases/v2.0-beta1/` (DMG 3,2 MB Universal, .sig GÜLTIG, README.txt = Release-Text,
+  ANKUENDIGUNG.txt = Instagram/WhatsApp-Text). Ablauf bei „veröffentliche": push + Tag `v2.0-beta1` →
+  `python3 tools/publish_release.py 2.0-beta1` → `bash tools/deploy_site.sh`. Release NICHT als prerelease markieren,
+  sonst sehen Updater und Seite es nicht (`releases/latest`).
+- Bewusst nicht: Notarisierung (Levin: ohne Apple), Opt-out der Zählung (Levins früherer Entscheid; vom Review empfohlen),
+  Swift-6-Sendable-Umbau, AppState aufteilen.
+
+## Design-Durchgang Markierungen 1–9 (13.10.2026, Teil von 2.0 Beta 1)
 Levins Auftrag: „1–9 einheitlich, Farben, Apple-Finder-Look, ganze App gründlich". Umgesetzt:
 - **Eine Komponente** `Views/MarkBadge.swift` (`MarkBadge`, `UnmarkedBadge`) zeichnet jede Markierung: Kreis in
   Markenfarbe, Ziffer SF Rounded semibold, `.filled`/`.outline`, optionaler weisser Ring auf Fotos. Genutzt in
