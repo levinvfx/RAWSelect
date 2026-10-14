@@ -29,7 +29,7 @@ enum TelemetryService {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = "Nutzungszählung"
-        alert.informativeText = "RAW Select ist gratis. Damit sichtbar ist, wie viele Leute die App nutzen, meldet sie beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch.\n\nKeine Dateien, keine Namen, kein Standort, keine IP-Adresse. Deine Kennung siehst du unter Einstellungen → Erweitert, dort kannst du auch die Löschung verlangen."
+        alert.informativeText = "RAW Select ist gratis. Damit sichtbar ist, wie viele Leute die App nutzen, meldet sie beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch.\n\nKeine Bilder, Dateinamen oder Pfade, kein Standort. Die IP-Adresse wird nicht gespeichert. Deine Kennung siehst du unter Einstellungen → Erweitert, dort kannst du auch die Löschung verlangen."
         alert.addButton(withTitle: "Verstanden")
         alert.runModal()
         d.set(true, forKey: noticeKey)

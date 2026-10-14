@@ -38,10 +38,10 @@ img.paste(shadow, (0, 0), shadow)
 img.paste(icon, (ix, iy), icon)
 
 d.line((110, 204, 134, 204), fill="#0A0A0A", width=2)
-d.text((146, 190), "KOSTENLOS · MACOS", font=font(22, "SemiBold"), fill="#6B6B68")
+d.text((146, 190), "KOSTENLOS FÜR MACOS", font=font(22, "SemiBold"), fill="#6B6B68")
 d.text((106, 240), "RAW Select", font=font(104, "Medium"), fill="#0A0A0A")
 lead = font(32, "Regular")
-for i, line in enumerate(["Bilder sichten auf dem Mac.", "Schnell, offline, nichts wird", "an den Originalen verändert."]):
+for i, line in enumerate(["RAW- und JPG-Bilder sichten,", "markieren und vergleichen.", "Originale bleiben unverändert."]):
     d.text((110, 378 + i * 44), line, font=lead, fill="#3D3D3B")
 d.text((110, 560), "vfxmedia.ch/rawselect", font=font(24, "Medium"), fill="#0A0A0A")
 

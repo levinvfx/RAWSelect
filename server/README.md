@@ -13,8 +13,9 @@ der Node-Server des Portfolios ist nicht beteiligt).
 | `nginx-rawselect.conf` | `/etc/nginx/snippets/rawselect.conf` | Allowlist (eingebunden in die vfxmedia-Site) |
 | Datenbank + Cache | `/var/lib/rawselect/usage.sqlite`, `latest.json` | ausserhalb des Webroots, Ordner 750 www-data |
 
-Die Seite nutzt Schriften und Wortmarke der Hauptseite über absolute Pfade (`/css/fonts.css`,
-`/assets/brand/logo/…`), Design-Tokens „Papier und Tinte" stehen inline (Portfolio `DESIGN.md`).
+Schriften (Inter, OFL) und die Wortmarke liegen **in `site/static/`**, nicht auf der Hauptseite: das
+Zugriffsprotokoll der Hauptseite speichert IP-Adressen, das von `/rawselect/` nicht – sonst stimmte die
+Datenschutzerklärung nicht. Design-Tokens „Papier und Tinte" stehen inline (Portfolio `DESIGN.md`).
 
 ## Download-Weiche
 `download.php` fragt GitHub höchstens alle 10 Minuten (`latest.json`), Reihenfolge der Repos:

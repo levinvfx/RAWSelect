@@ -3,29 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RAW Select · Bilder sichten auf dem Mac · VFX Media</title>
-  <meta name="description" content="RAW Select ist eine kostenlose, native Mac-App zum schnellen Sichten von RAW- und JPG-Bildern: Treffer markieren, Schärfe prüfen, Auswahl kopieren. Komplett offline, nichts wird an den Originalen verändert." />
+  <title>RAW Select – RAW- und JPG-Bilder auf dem Mac sichten</title>
+  <meta name="description" content="RAW Select ist eine kostenlose macOS-App zum schnellen Sichten von RAW- und JPG-Bildern. Bilder markieren, Schärfe prüfen und die Auswahl kopieren – ohne die Originaldateien zu verändern." />
   <meta name="author" content="VFX Media" />
   <meta name="theme-color" content="#F7F7F5" />
   <meta name="color-scheme" content="light" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="RAW Select · Bilder sichten auf dem Mac" />
-  <meta property="og:description" content="Kostenlose Mac-App zum Sichten von RAW- und JPG-Bildern. Schnell, offline, nichts wird an den Originalen verändert." />
+  <meta property="og:title" content="RAW Select – Bilder auf dem Mac sichten" />
+  <meta property="og:description" content="Kostenlose macOS-App zum Sichten, Vergleichen und Auswählen von RAW- und JPG-Bildern. Die Verarbeitung der Bilder erfolgt lokal auf dem Mac." />
   <meta property="og:image" content="https://vfxmedia.ch/rawselect/static/og.png" />
   <meta property="og:url" content="https://vfxmedia.ch/rawselect/" />
   <meta property="og:locale" content="de_CH" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="RAW Select · Bilder sichten auf dem Mac" />
-  <meta name="twitter:description" content="Kostenlose Mac-App zum Sichten von RAW- und JPG-Bildern. Schnell, offline, nichts wird an den Originalen verändert." />
+  <meta name="twitter:title" content="RAW Select – Bilder auf dem Mac sichten" />
+  <meta name="twitter:description" content="Kostenlose macOS-App zum Sichten, Vergleichen und Auswählen von RAW- und JPG-Bildern. Die Verarbeitung der Bilder erfolgt lokal auf dem Mac." />
   <meta name="twitter:image" content="https://vfxmedia.ch/rawselect/static/og.png" />
 
   <link rel="icon" type="image/png" sizes="64x64" href="static/icon-64.png" />
   <link rel="apple-touch-icon" href="static/icon-256.png" />
   <link rel="canonical" href="https://vfxmedia.ch/rawselect/" />
-  <link rel="stylesheet" href="/css/fonts.css" />
+  
 
   <style>
+    /* Schriften liegen in diesem Bereich (static/), nicht auf der Hauptseite: dort protokolliert der
+       Webserver IP-Adressen, hier nicht – sonst stimmte die Datenschutzerklärung nicht. Inter, OFL. */
+    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('static/inter-400.woff2') format('woff2'); }
+    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('static/inter-500.woff2') format('woff2'); }
+    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('static/inter-600.woff2') format('woff2'); }
+    @supports (font-variation-settings: normal) {
+      @font-face { font-family: 'InterVariable'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('static/InterVariable.woff2') format('woff2'); }
+    }
     /* Papier und Tinte: die Werte sind dieselben wie in css/style.css der Hauptseite
        (DESIGN.md). Die Seite steht allein, weil sie ohne den Node-Server auskommen muss:
        nginx liefert sie direkt aus /var/www/rawselect/. */
@@ -251,12 +259,12 @@
   <a class="skip-link" href="#inhalt">Zum Inhalt</a>
 
   <header class="top">
-    <a class="top__logo" href="https://vfxmedia.ch/" aria-label="VFX Media"><img src="/assets/brand/logo/vfxmedia-wortmarke.svg" alt="VFX Media" width="144" height="20" /></a>
+    <a class="top__logo" href="https://vfxmedia.ch/" aria-label="VFX Media"><img src="static/vfxmedia-wortmarke.svg" alt="VFX Media" width="144" height="20" /></a>
     <nav class="top__nav" aria-label="Seite">
-      <a href="#ablauf">So geht's</a>
-      <a href="#kuerzel">Kürzel</a>
+      <a href="#ablauf">Funktionsweise</a>
+      <a href="#kuerzel">Tastatur</a>
       <a href="#datenschutz">Datenschutz</a>
-      <a class="btn btn--accent btn--sm" href="download" data-download>Für Mac laden</a>
+      <a class="btn btn--accent btn--sm" href="download" data-download>Download</a>
     </nav>
   </header>
 
@@ -266,21 +274,22 @@
     <section class="hero">
       <div class="container hero__grid">
         <div>
-          <span class="eyebrow">Kostenlos · macOS · Beta</span>
+          <span class="eyebrow">Kostenlos für macOS · Beta</span>
           <h1>RAW Select</h1>
-          <p class="lead">Tausende Bilder nach dem Spiel sichten, Treffer markieren, Schärfe bei 100 % prüfen, die Auswahl kopieren. Eine native Mac-App, die nichts an deinen Originalen verändert.</p>
+          <p class="lead">RAW Select hilft dir, grosse Bildserien schnell zu sichten. Du kannst Aufnahmen markieren, bei 100 % auf Schärfe prüfen, miteinander vergleichen und die Auswahl in einen Zielordner kopieren. Die Originaldateien werden dabei nicht verändert.</p>
           <div class="hero__cta">
             <a class="btn btn--accent btn--lg" href="download" data-download>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-              Für Mac laden
+              RAW Select herunterladen
             </a>
-            <a class="btn btn--ghost btn--lg" href="https://github.com/levinvfx/RAWSelect-Releases/releases" target="_blank" rel="noopener" data-releases>Alle Versionen</a>
+            <a class="btn btn--ghost btn--lg" href="https://github.com/levinvfx/RAWSelect-Releases/releases" target="_blank" rel="noopener" data-releases>Versionsübersicht</a>
           </div>
           <div class="hero__meta" aria-live="polite">
             <span><strong data-version>Aktuelle Version</strong><span data-size></span></span>
             <span>macOS 14 oder neuer</span>
             <span>Apple Silicon und Intel</span>
-            <span>Keine Anmeldung, keine Cloud</span>
+            <span>Keine Anmeldung</span>
+            <span>Bildverarbeitung lokal auf dem Mac</span>
           </div>
         </div>
         <img class="hero__icon" src="static/icon-512.png" alt="" width="512" height="512" />
@@ -292,147 +301,147 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
           </div>
           <div>
-            <h3>Beim ersten Start: einmal «Dennoch öffnen»</h3>
-            <p>Öffne die geladene DMG-Datei und ziehe RAW Select in den Ordner «Programme». Beim ersten Doppelklick zeigt macOS eine Warnung, weil die App nicht bei Apple registriert ist. Klicke auf <strong>Fertig</strong>, öffne dann <strong>Systemeinstellungen → Datenschutz &amp; Sicherheit</strong> und klicke ganz unten bei RAW Select auf <strong>Dennoch öffnen</strong>. Ab dann startet die App normal. Unter macOS 14 reicht stattdessen ein Rechtsklick auf die App und <strong>Öffnen</strong>.</p>
-            <p>Der Grund ist ehrlich gesagt simpel: Die Registrierung bei Apple kostet jährlich Geld, und RAW Select ist gratis. Updates lädt die App später selbst und prüft dabei die digitale Signatur, der Schritt oben ist also nur einmal nötig.</p>
-            <p>RAW Select 2.0 ist eine <strong>Beta</strong>. Fehler oder Ideen? In der App unter <strong>Hilfe → Feedback senden</strong> oder direkt an <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>.</p>
+            <h3>RAW Select zum ersten Mal öffnen</h3>
+            <p>Öffne die geladene DMG-Datei und ziehe RAW Select in den Ordner «Programme». Da die App nicht von Apple notarisiert ist, blockiert macOS den ersten Start.</p>
+            <p><strong>macOS 15 oder neuer:</strong> Schliesse die Meldung mit «Fertig». Öffne danach <strong>Systemeinstellungen → Datenschutz &amp; Sicherheit</strong>, klicke ganz unten bei RAW Select auf <strong>«Dennoch öffnen»</strong> und bestätige. <strong>macOS 14:</strong> Klicke RAW Select im Programme-Ordner mit der rechten Maustaste an, wähle «Öffnen» und bestätige den Dialog mit «Öffnen». Danach startet die App normal.</p>
+            <p>Neue Versionen lädt RAW Select nur nach deiner Bestätigung. Jede Update-Datei ist digital signiert, die App prüft diese Signatur vor dem Öffnen. Version 2.0 ist eine Beta: Rückmeldungen gehen über <strong>Hilfe → Feedback senden</strong> oder an <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ═══ Ablauf ═══ -->
+    <!-- ═══ Funktionsweise ═══ -->
     <section class="section" id="ablauf">
       <div class="container">
         <div class="section__head reveal">
-          <span class="eyebrow">So geht's</span>
-          <h2 class="h2">Vier Schritte, keine Einarbeitung</h2>
-          <p class="lead">Gebaut für Sportfotografie: Karte rein, durchsteppen, fertig. Die Hände bleiben auf der Tastatur.</p>
+          <span class="eyebrow">Funktionsweise</span>
+          <h2 class="h2">Vom Ordner zur Auswahl</h2>
+          <p class="lead">RAW Select ist aus meinem eigenen Arbeitsablauf in der Sportfotografie entstanden. Die Bedienung ist deshalb auf grosse Bildmengen und eine schnelle Arbeit mit der Tastatur ausgerichtet.</p>
         </div>
         <div class="steps">
           <article class="step reveal">
-            <h3>Karte oder Ordner öffnen</h3>
-            <p>Die App erkennt SD-Karten und externe Platten von selbst. Einen Ordner öffnest du mit <kbd>⌘</kbd><kbd>O</kbd> oder ziehst ihn aufs Fenster. Die ersten Bilder stehen nach einer Sekunde.</p>
+            <h3>Speicherkarte oder Ordner öffnen</h3>
+            <p>Externe Datenträger und Speicherkarten erscheinen automatisch in der Seitenleiste. Einen Ordner öffnest du mit <kbd>⌘</kbd><kbd>O</kbd> oder ziehst ihn direkt auf das Fenster. Die Bilder werden schrittweise eingelesen, du kannst also schon während des Ladens beginnen.</p>
           </article>
           <article class="step reveal">
-            <h3>Durchsteppen und markieren</h3>
-            <p>Pfeiltasten blättern, <kbd>1</kbd> bis <kbd>7</kbd> setzen einen Farbpunkt wie bei den Finder-Tags, dieselbe Taste nochmals oder <kbd>0</kbd> entfernt sie. Nach jeder Markierung springt die App zum nächsten Bild.</p>
+            <h3>Bilder sichten und markieren</h3>
+            <p>Mit den Pfeiltasten wechselst du zwischen den Bildern. Die Tasten <kbd>1</kbd> bis <kbd>7</kbd> setzen einen Farbpunkt, wie die Tags im Finder: Rot, Orange, Gelb, Grün, Blau, Violett, Grau. Dieselbe Taste erneut oder <kbd>0</kbd> entfernt ihn. Ist das automatische Weiterschalten aktiv, springt RAW Select danach zum nächsten Bild.</p>
           </article>
           <article class="step reveal">
-            <h3>Schärfe prüfen</h3>
-            <p><kbd>Return</kbd> öffnet die grosse Ansicht, <kbd>Z</kbd> oder das Mausrad zoomt auf 100 %. Der Ausschnitt bleibt beim Weiterblättern stehen, so prüfst du eine Serie am selben Auge.</p>
+            <h3>Schärfe und Bilddetails prüfen</h3>
+            <p><kbd>Return</kbd> öffnet die grosse Ansicht. Mit <kbd>Z</kbd> oder dem Mausrad wechselst du zur <span style="white-space:nowrap">100-%-Ansicht</span>. Der Bildausschnitt bleibt beim Weiterblättern erhalten, damit sich ähnliche Aufnahmen an derselben Stelle vergleichen lassen.</p>
           </article>
           <article class="step reveal">
             <h3>Auswahl kopieren</h3>
-            <p>Filtere nach Farbe und kopiere die Originale samt XMP-Dateien in einen Zielordner. Es wird nie etwas überschrieben. Danach weiter in Lightroom oder Photoshop.</p>
+            <p>Über die Farbfilter grenzt du deine Auswahl ein. Anschliessend kopiert RAW Select die Originaldateien und vorhandene XMP-Sidecars in den gewählten Zielordner. Bereits vorhandene Dateien werden nicht überschrieben.</p>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- ═══ Merkmale ═══ -->
+    <!-- ═══ Funktionen ═══ -->
     <section class="section" id="merkmale">
       <div class="container">
         <div class="section__head reveal">
-          <span class="eyebrow">Was drin ist</span>
-          <h2 class="h2">Wenig Einstellungen, gute Standards</h2>
+          <span class="eyebrow">Funktionen</span>
+          <h2 class="h2">Auf das Sichten konzentriert</h2>
         </div>
         <div class="features">
           <article class="feature reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 15 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg>
-            <h3>RAW und JPG aus einer Hand</h3>
-            <p>ARW, CR2, CR3, NEF, RAF, DNG sowie JPG, HEIC und PNG. RAW und JPG desselben Fotos werden zu einem Eintrag gruppiert, XMP-Dateien hängen automatisch dran.</p>
+            <h3>Unterstützte Bildformate</h3>
+            <p>Unterstützt werden ARW, CR2, CR3, NEF, RAF, DNG, JPG, JPEG, HEIC und PNG. RAW- und JPG-Dateien derselben Aufnahme können als ein gemeinsamer Eintrag angezeigt werden. Passende XMP-Dateien werden automatisch zugeordnet.</p>
           </article>
           <article class="feature reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>
-            <h3>Kein Ladeflackern</h3>
-            <p>Erst eine kleine Vorschau, dann scharf. Im Raster gibt es kein Ladesymbol, und das nächste Bild einer Serie wird im Zoom schon vorentwickelt.</p>
+            <h3>Vorschauen ohne Unterbruch</h3>
+            <p>RAW Select zeigt zuerst eine kleine Vorschau und ersetzt sie danach durch eine schärfere Version. Beim Prüfen in der grossen Ansicht wird das nächste Bild im Hintergrund vorbereitet.</p>
           </article>
           <article class="feature reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="16" rx="1.5"/></svg>
-            <h3>Vergleich A|B</h3>
-            <p>Zwei Bilder nebeneinander mit synchronem Zoom. <kbd>C</kbd> startet den Vergleich, <kbd>Return</kbd> macht den Kandidaten zum neuen Favoriten.</p>
+            <h3>Zwei Bilder vergleichen</h3>
+            <p>Im Vergleichsmodus stehen zwei Aufnahmen nebeneinander, der Zoom ist synchronisiert. Mit <kbd>C</kbd> startest oder beendest du den Vergleich, <kbd>Return</kbd> übernimmt das rechte Bild als neue Referenz.</p>
           </article>
           <article class="feature reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
-            <h3>Originale bleiben Originale</h3>
-            <p>Markierungen liegen in der App, nie in den Dateien. Auf die Speicherkarte wird nichts geschrieben. Löschen heisst Papierkorb, und nur von der internen Platte.</p>
+            <h3>Originaldateien bleiben unverändert</h3>
+            <p>Markierungen werden in RAW Select gespeichert und nicht in die Bilddateien geschrieben. Auf Speicherkarten verändert die App keine Dateien. Die Papierkorb-Funktion steht nur für Dateien auf internen Laufwerken zur Verfügung.</p>
           </article>
           <article class="feature reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-            <h3>Farbfilter für den zweiten Durchgang</h3>
-            <p>Die Filterleiste zeigt pro Markierung, wie viele Bilder darin sind. Ein Klick blendet eine Gruppe aus, mit <kbd>⌥</kbd> siehst du nur diese.</p>
+            <h3>Auswahl mit Farbmarkierungen</h3>
+            <p>Die Filterleiste zeigt, wie viele Bilder jeder Farbe zugeordnet sind. Ein Klick blendet eine Gruppe ein oder aus. Mit gedrückter Wahltaste <kbd>⌥</kbd> zeigst du nur die gewählte Gruppe an.</p>
           </article>
           <article class="feature reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
-            <h3>Updates, die sich melden</h3>
-            <p>Gibt es eine neue Version, sagt die App es beim Start. Sie lädt die Datei in «Downloads» und prüft die Signatur. Installiert wird nie automatisch.</p>
+            <h3>Manuell bestätigte Updates</h3>
+            <p>RAW Select prüft beim Start, ob eine neue Version verfügbar ist. Du entscheidest selbst, ob sie geladen wird. Die App installiert keine Updates automatisch und öffnet nur Dateien mit gültiger Signatur.</p>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- ═══ Kürzel ═══ -->
+    <!-- ═══ Tastatur ═══ -->
     <section class="section" id="kuerzel">
       <div class="container">
         <div class="section__head reveal">
           <span class="eyebrow">Tastatur</span>
-          <h2 class="h2">Die wichtigsten Kürzel</h2>
-          <p class="lead">Alle Kürzel zeigt die App mit <kbd>?</kbd>.</p>
+          <h2 class="h2">Wichtige Tastaturbefehle</h2>
+          <p class="lead">Eine vollständige Übersicht öffnest du in der App jederzeit mit <kbd>?</kbd>.</p>
         </div>
         <div class="keys reveal">
           <dl>
-            <div><dt>Vorheriges / nächstes Bild</dt><dd><kbd>←</kbd><kbd>→</kbd></dd></div>
+            <div><dt>Vorheriges oder nächstes Bild</dt><dd><kbd>←</kbd><kbd>→</kbd></dd></div>
             <div><dt>Nächstes unmarkiertes Bild</dt><dd><kbd>⇥</kbd></dd></div>
-            <div><dt>Farbmarkierung setzen</dt><dd><kbd>1</kbd>…<kbd>7</kbd></dd></div>
+            <div><dt>Farbmarkierung setzen (nochmals: entfernen)</dt><dd><kbd>1</kbd>…<kbd>7</kbd></dd></div>
             <div><dt>Markierung entfernen</dt><dd><kbd>0</kbd></dd></div>
-            <div><dt>Letzte Markierung rückgängig</dt><dd><kbd>⌘</kbd><kbd>Z</kbd></dd></div>
-            <div><dt>Auswahl in den Papierkorb</dt><dd><kbd>⌫</kbd></dd></div>
+            <div><dt>Letzte Markierung rückgängig machen</dt><dd><kbd>⌘</kbd><kbd>Z</kbd></dd></div>
+            <div><dt>Auswahl in den Papierkorb verschieben</dt><dd><kbd>⌫</kbd></dd></div>
           </dl>
           <dl>
-            <div><dt>Grosse Ansicht / Fokusmodus</dt><dd><kbd>Return</kbd></dd></div>
-            <div><dt>100 % / Einpassen</dt><dd><kbd>Z</kbd></dd></div>
-            <div><dt>Vergleich A|B</dt><dd><kbd>C</kbd></dd></div>
-            <div><dt>EXIF-Infos ein/aus</dt><dd><kbd>I</kbd></dd></div>
-            <div><dt>Vollbild</dt><dd><kbd>F</kbd></dd></div>
-            <div><dt>Im Finder zeigen</dt><dd><kbd>⌘</kbd><kbd>R</kbd></dd></div>
+            <div><dt>Grosse Ansicht oder Fokusmodus</dt><dd><kbd>Return</kbd></dd></div>
+            <div><dt>100 % oder ans Fenster anpassen</dt><dd><kbd>Z</kbd></dd></div>
+            <div><dt>Zwei Bilder vergleichen</dt><dd><kbd>C</kbd></dd></div>
+            <div><dt>EXIF-Informationen ein- oder ausblenden</dt><dd><kbd>I</kbd></dd></div>
+            <div><dt>Vollbild ein- oder ausschalten</dt><dd><kbd>F</kbd></dd></div>
+            <div><dt>Aktuelles Bild im Finder anzeigen</dt><dd><kbd>⌘</kbd><kbd>R</kbd></dd></div>
           </dl>
         </div>
-        <p class="keys__more">Maus: Klick wählt, <kbd>⌘</kbd>-Klick fügt hinzu, <kbd>⇧</kbd>-Klick wählt eine Reihe, Doppelklick öffnet die grosse Ansicht, das Mausrad zoomt auf den Zeiger.</p>
+        <p class="keys__more">Mit einem Klick wählst du ein Bild aus. <kbd>⌘</kbd>-Klick ergänzt oder entfernt einzelne Bilder, <kbd>⇧</kbd>-Klick wählt einen zusammenhängenden Bereich. Ein Doppelklick öffnet die grosse Ansicht. Mit dem Mausrad zoomst du auf die Position des Mauszeigers.</p>
       </div>
     </section>
 
-    <!-- ═══ Dunkles Band: Vertrauen ═══ -->
+    <!-- ═══ Datenverarbeitung ═══ -->
     <section class="section band" id="vertrauen">
       <div class="container">
         <div class="section__head reveal">
-          <span class="eyebrow">Ehrlich gesagt</span>
-          <h2 class="h2">Was die App ins Netz schickt, und was nicht</h2>
-          <p class="lead">RAW Select arbeitet lokal. Bilder, Markierungen und Kopien verlassen deinen Mac nie. Genau zwei Dinge gehen online.</p>
+          <span class="eyebrow">Datenverarbeitung</span>
+          <h2 class="h2">Welche Verbindungen RAW Select herstellt</h2>
+          <p class="lead">Die Bilder selbst werden ausschliesslich auf deinem Mac verarbeitet. Bilder, Dateinamen, Pfade, Markierungen und EXIF-Daten werden nicht an einen Server übertragen. Netzwerkverbindungen stellt die App nur für die Update-Prüfung und die Nutzungsstatistik her.</p>
         </div>
         <div class="band__grid">
           <div class="band__item reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
-            <h3>Update-Check beim Start</h3>
-            <p>Die App fragt bei GitHub nach der neuesten Versionsnummer. Ein Update wird nur geladen, wenn du zustimmst, und nur geöffnet, wenn seine Signatur stimmt.</p>
+            <h3>Update-Prüfung über GitHub</h3>
+            <p>Beim Start fragt RAW Select bei GitHub nach der aktuellen Versionsnummer. Eine neue Version wird nur nach deiner Bestätigung geladen und vor dem Öffnen anhand ihrer Signatur geprüft.</p>
           </div>
           <div class="band__item reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>
-            <h3>Nutzungszählung</h3>
-            <p>Höchstens einmal täglich: eine zufällige Kennung, die App-Version und die grobe macOS-Version an vfxmedia.ch. Damit weiss ich, wie viele Leute die App nutzen. Keine IP-Adresse, keine Dateien, kein Standort.</p>
+            <h3>Pseudonyme Nutzungsstatistik</h3>
+            <p>Höchstens einmal pro Tag übermittelt die App eine zufällig erzeugte Installationskennung, die App-Version und die grobe macOS-Version an vfxmedia.ch. Damit wird erfasst, wie viele Installationen aktiv sind und welche Versionen verwendet werden. Die Kennung wird nicht mit einem Namen, Konto oder Bilddaten verbunden.</p>
           </div>
           <div class="band__item reveal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3z"/><path d="m3 9 18 0"/><path d="M9 21V9"/></svg>
-            <h3>Sonst nichts</h3>
-            <p>Kein Konto, keine Cloud, keine Werbung, keine Absturzberichte. Diese Seite setzt keine Cookies und speichert keine IP-Adressen.</p>
+            <h3>Keine weiteren Übertragungen</h3>
+            <p>RAW Select verwendet kein Benutzerkonto, keine Cloud-Synchronisierung, keine Werbung und keine Absturzberichte. Die Download-Seite setzt keine Cookies und verwendet kein externes Analysewerkzeug.</p>
           </div>
         </div>
         <div class="band__cta reveal">
           <a class="btn btn--on-ink btn--lg" href="download" data-download>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-            Für Mac laden
+            RAW Select herunterladen
           </a>
-          <a class="btn btn--ghost-on-ink btn--lg" href="#datenschutz">Datenschutz im Detail</a>
+          <a class="btn btn--ghost-on-ink btn--lg" href="#datenschutz">Datenschutzerklärung</a>
         </div>
       </div>
     </section>
@@ -442,51 +451,66 @@
       <div class="container legal">
         <span class="eyebrow">Datenschutz</span>
         <h2 class="h2">Datenschutzerklärung für RAW Select</h2>
-        <p>Diese Erklärung gilt für die Mac-App RAW Select und für diese Download-Seite. Massgebend ist das Schweizer Datenschutzgesetz (DSG). Nutzt du die App aus der EU, gelten ergänzend die Vorgaben der DSGVO. Stand: Oktober 2026.</p>
+        <p>Diese Datenschutzerklärung gilt für die macOS-App RAW Select und die Download-Seite unter vfxmedia.ch/rawselect. Für die Datenbearbeitung gilt das Schweizer Datenschutzgesetz. Soweit Personen in der Europäischen Union betroffen sind, können ergänzend die Bestimmungen der Datenschutz-Grundverordnung (DSGVO) gelten. Stand: Oktober 2026.</p>
 
         <h3>1. Verantwortlicher</h3>
         <address>
-          <p>Levin Anneler, VFX Media<br />Mühlemattweg 2k, 3608 Thun, Schweiz<br />E-Mail: <a href="mailto:levin@annelers.ch">levin@annelers.ch</a></p>
+          <p>Levin Anneler<br />VFX Media<br />Mühlemattweg 2k<br />3608 Thun<br />Schweiz<br />E-Mail: <a href="mailto:levin@annelers.ch">levin@annelers.ch</a></p>
         </address>
 
-        <h3>2. Was die App lokal macht</h3>
-        <p>RAW Select liest Bilder von deinen Datenträgern und zeigt sie an. Markierungen speichert die App in deinem Benutzerordner unter <code>~/Library/Application Support/RAW Select</code>, nie in den Bilddateien und nie auf der Speicherkarte. Vorschaubilder liegen im Cache deines Macs. Nichts davon verlässt deinen Computer.</p>
+        <h3>2. Lokale Verarbeitung von Bildern</h3>
+        <p>RAW Select liest Bilder aus Ordnern, von Speicherkarten und von anderen Datenträgern, die du auswählst. Die Verarbeitung und Anzeige der Bilder erfolgt lokal auf deinem Mac.</p>
+        <p>Markierungen und Sitzungsdaten speichert die App unter <code>~/Library/Application Support/RAW Select</code>. Vorschaubilder können vorübergehend im lokalen Cache des Macs gespeichert werden. Diese Daten werden nicht an vfxmedia.ch oder einen anderen von mir betriebenen Dienst übertragen.</p>
 
-        <h3>3. Was die App ins Internet sendet</h3>
+        <h3>3. Update-Prüfung</h3>
+        <p>Beim Start fragt RAW Select über die GitHub-API ab, ob eine neue Version verfügbar ist. Bei dieser Verbindung erhält GitHub technisch bedingt unter anderem die IP-Adresse des verwendeten Internetanschlusses. Für die Verarbeitung durch GitHub gelten die <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Datenschutzbestimmungen von GitHub</a>.</p>
+        <p>Ich erhalte durch die Update-Prüfung keine Bild-, Benutzer- oder Gerätedaten. Eine Update-Datei wird nur geladen, wenn du den Download bestätigst.</p>
+
+        <h3>4. Nutzungsstatistik</h3>
+        <p>RAW Select übermittelt höchstens einmal innerhalb von 24 Stunden folgende Angaben an vfxmedia.ch:</p>
         <ul>
-          <li><strong>Update-Prüfung.</strong> Beim Start fragt die App bei GitHub (GitHub Inc., USA) die neueste Versionsnummer ab. Dabei sieht GitHub, wie bei jedem Abruf einer Webseite, deine IP-Adresse. Es gelten die <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Datenschutzbestimmungen von GitHub</a>. Ich selbst erhalte von dieser Abfrage keine Daten. Ein Update wird nur geladen, wenn du es bestätigst.</li>
-          <li><strong>Nutzungszählung.</strong> Höchstens einmal pro Tag sendet die App an meinen Server (vfxmedia.ch, gehostet bei Hoststar in der Schweiz) drei Angaben: eine zufällige Kennung, die beim ersten Start erzeugt wird, die App-Version und die grobe macOS-Version, zum Beispiel «macOS 15.6». Der Server speichert diese drei Angaben mit dem Datum. Er speichert keine IP-Adresse, auch nicht im Webserver-Protokoll. Die Kennung wird nicht aus deinem Gerät abgeleitet und mit keinem Namen verknüpft. Weil sie über die Zeit gleich bleibt, ist sie aber pseudonym und nicht vollständig anonym. Zweck ist einzig zu wissen, wie viele Geräte welche Version nutzen. Die Zählung ist fester Bestandteil der App. Deine Kennung siehst du in der App unter <strong>Einstellungen → Erweitert</strong>.</li>
+          <li>eine zufällig erzeugte und dauerhaft lokal gespeicherte Installationskennung</li>
+          <li>die verwendete Version von RAW Select</li>
+          <li>die Haupt- und Nebenversion von macOS</li>
         </ul>
-        <p>Sonst sendet die App nichts: keine Dateien, keine Dateinamen, keine Pfade, keine Metadaten, keine Absturzberichte, keinen Standort.</p>
+        <p>Der Server speichert diese Angaben zusammen mit dem Datum des Empfangs.</p>
+        <p>Die Installationskennung wird nicht aus Hardwaredaten erzeugt und nicht mit einem Namen, einer E-Mail-Adresse, einem Benutzerkonto, Bilddaten oder Dateipfaden verbunden. Sie ermöglicht jedoch, dieselbe Installation über mehrere Tage wiederzuerkennen. Deshalb bezeichne ich sie als pseudonyme und nicht als vollständig anonyme Kennung. Deine Kennung siehst du in der App unter <strong>Einstellungen → Erweitert</strong>.</p>
+        <p>Der Server wird bei Hoststar in der Schweiz betrieben. Für diesen Bereich ist die Speicherung von IP-Adressen im Webserver-Zugriffsprotokoll deaktiviert. Zweck der Statistik ist, die Anzahl aktiver Installationen und die Verteilung der App-Versionen zu ermitteln. Die Daten werden nicht an Dritte weitergegeben.</p>
+        <p><strong>Speicherdauer:</strong> Eine automatische Löschfrist gibt es derzeit nicht. Die Einträge bleiben gespeichert, solange ich die Statistik führe, damit sich Nutzerzahlen über die Zeit vergleichen lassen. Auf Anfrage lösche ich alle Einträge zu deiner Kennung innert 30 Tagen.</p>
+        <p>Die Statistik ist fester Bestandteil der App und lässt sich nicht abschalten. Wenn du nicht erfasst werden möchtest, kannst du die App nicht verwenden. Falls für diese Verarbeitung die DSGVO anwendbar ist, stützt sie sich auf das berechtigte Interesse, Nutzung und Versionsverteilung der kostenlos angebotenen App in möglichst geringem Umfang zu erfassen (Art. 6 Abs. 1 lit. f DSGVO).</p>
 
-        <h3>4. Speicherdauer und Rechtsgrundlage</h3>
-        <p>Die Einträge der Nutzungszählung bewahre ich auf, solange ich die Statistik führe, damit Nutzerzahlen über die Zeit vergleichbar bleiben. Verlangst du die Löschung, entferne ich alle Einträge zu deiner Kennung innert 30 Tagen. Ich gebe die Daten an niemanden weiter, sie bleiben auf meinem Server in der Schweiz. Für Nutzerinnen und Nutzer in der EU stütze ich die Zählung auf mein berechtigtes Interesse, die kostenlose App gezielt weiterzuentwickeln (Art. 6 Abs. 1 lit. f DSGVO). Du kannst jederzeit widersprechen: Ich lösche dann deine Einträge. Willst du gar nicht mitgezählt werden, nutze die App bitte nicht weiter.</p>
+        <h3>5. Download-Seite</h3>
+        <p>Die Download-Seite setzt keine Cookies und verwendet kein Analyse- oder Werbenetzwerk. Schriften, Bilder und Seitenelemente werden direkt aus diesem Bereich von vfxmedia.ch geladen.</p>
+        <p>Beim Aufruf der Seite entsteht technisch eine Verbindung zum Webserver. Das Zugriffsprotokoll ist für den Bereich von RAW Select deaktiviert. Beim Klick auf «RAW Select herunterladen» wird der Download als Gesamtzahl pro Tag gezählt. Anschliessend wirst du zur Datei auf GitHub weitergeleitet. Ab diesem Zeitpunkt gelten auch die Datenschutzbestimmungen von GitHub.</p>
 
-        <h3>5. Diese Webseite</h3>
-        <p>Diese Seite setzt keine Cookies und nutzt kein Tracking. Schriften werden von vfxmedia.ch selbst geliefert, nicht von Dritten. Für den Bereich dieser Seite ist das Zugriffsprotokoll des Webservers abgeschaltet, es werden also keine IP-Adressen gespeichert. Klickst du auf «Für Mac laden», zählt mein Server den Download als reine Zahl pro Tag und leitet dich zur Datei auf GitHub weiter. Dort gelten wieder die Bestimmungen von GitHub.</p>
+        <h3>6. Weitere Datenübertragungen</h3>
+        <p>RAW Select überträgt keine Bilder, Dateinamen, Dateipfade, Markierungen, EXIF-Daten, Standortdaten oder Absturzberichte. Die App verwendet kein Benutzerkonto und keine Cloud-Synchronisierung. Das Löschen der App entfernt die lokale Kennung, nicht aber bereits übermittelte Statistikeinträge auf dem Server.</p>
 
-        <h3>6. Deine Rechte</h3>
-        <p>Du kannst Auskunft über deine Daten verlangen und sie löschen lassen. Am einfachsten geht das in der App unter <strong>Einstellungen → Erweitert → Löschung meiner Daten verlangen</strong>: Die E-Mail enthält deine Kennung bereits, nur damit kann ich deine Einträge finden. Fragen beantworte ich innert 30 Tagen unter <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. Wohnst du in der Schweiz, ist der Eidgenössische Datenschutz- und Öffentlichkeitsbeauftragte (EDÖB) zuständig, in der EU die Datenschutzbehörde deines Landes.</p>
+        <h3>7. Rechte und Kontakt</h3>
+        <p>Du kannst Auskunft über die Bearbeitung deiner Personendaten sowie deren Berichtigung oder Löschung verlangen. Soweit die DSGVO anwendbar ist, können zusätzliche Rechte auf Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch bestehen.</p>
+        <p>Die Nutzungsstatistik ist nicht mit Namen oder Kontaktdaten verbunden. Einen Eintrag kann ich deshalb nur zuordnen, wenn du mir deine Kennung nennst. Am einfachsten geht das in der App unter <strong>Einstellungen → Erweitert → «Löschung meiner Daten verlangen»</strong>: Die vorbereitete E-Mail enthält deine Kennung bereits.</p>
+        <p>Für Fragen zum Datenschutz oder zur Ausübung deiner Rechte erreichst du mich unter <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. In der Schweiz ist der Eidgenössische Datenschutz- und Öffentlichkeitsbeauftragte (EDÖB) zuständig. Personen in der Europäischen Union können sich an die zuständige Datenschutzaufsichtsbehörde wenden.</p>
       </div>
     </section>
 
-    <!-- ═══ Impressum / Lizenz ═══ -->
+    <!-- ═══ Impressum / Nutzung ═══ -->
     <section class="section" id="impressum">
       <div class="container legal">
         <span class="eyebrow">Impressum</span>
         <h2 class="h2">Anbieter und Nutzung</h2>
         <address>
-          <p>Levin Anneler, VFX Media<br />Mühlemattweg 2k, 3608 Thun, Schweiz<br />E-Mail: <a href="mailto:levin@annelers.ch">levin@annelers.ch</a></p>
+          <p>Levin Anneler<br />VFX Media<br />Mühlemattweg 2k<br />3608 Thun<br />Schweiz<br />E-Mail: <a href="mailto:levin@annelers.ch">levin@annelers.ch</a></p>
         </address>
 
-        <h3>Nutzungsbedingungen</h3>
-        <p>RAW Select ist für private und geschäftliche Zwecke kostenlos. Du darfst die App installieren und nutzen, nicht aber verkaufen, verändern oder als eigene Software ausgeben. Der Quellcode ist nicht offen. Die App wird ohne Gewähr bereitgestellt. Sie ist so gebaut, dass sie Originaldateien nicht verändert; eine Sicherungskopie deiner Bilder bleibt trotzdem deine Sache. Soweit gesetzlich zulässig, ist die Haftung für Schäden aus der Nutzung ausgeschlossen.</p>
+        <h3>Nutzung von RAW Select</h3>
+        <p>RAW Select kann kostenlos für private und geschäftliche Zwecke verwendet werden. Die Weitergabe, der Verkauf, die Veränderung oder die Veröffentlichung als eigenes Produkt sind ohne meine ausdrückliche Zustimmung nicht gestattet. Der Quellcode ist nicht öffentlich lizenziert.</p>
+        <p>Die App wird ohne Zusicherung einer bestimmten Verfügbarkeit oder Eignung bereitgestellt. RAW Select ist darauf ausgelegt, Originaldateien beim Sichten und Kopieren nicht zu verändern. Die Verantwortung für eine ausreichende Sicherung der Bilddateien bleibt dennoch bei dir. Eine Haftung wird im gesetzlich zulässigen Umfang ausgeschlossen.</p>
 
-        <h3>Sicherheitshinweise</h3>
-        <p>Hast du eine Sicherheitslücke gefunden, schreib bitte an <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>, bevor du sie veröffentlichst. Ich melde mich zügig.</p>
+        <h3>Sicherheitsmeldungen</h3>
+        <p>Wenn du eine mögliche Sicherheitslücke findest, sende die Informationen bitte an <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. Beschreibe möglichst genau, welche Version betroffen ist und wie sich das Problem nachvollziehen lässt.</p>
 
-        <h3>Marken</h3>
-        <p>macOS und Apple Silicon sind Marken von Apple Inc. Lightroom und Photoshop sind Marken von Adobe Inc. RAW Select steht in keiner Verbindung zu diesen Unternehmen.</p>
+        <h3>Markenhinweis</h3>
+        <p>macOS und Apple Silicon sind Marken von Apple Inc. Adobe, Lightroom und Photoshop sind Marken von Adobe Inc. RAW Select ist ein unabhängiges Produkt und steht in keiner geschäftlichen Verbindung zu Apple oder Adobe.</p>
       </div>
     </section>
 
@@ -494,7 +518,7 @@
 
   <footer class="foot">
     <div class="container">
-      <span>© 2026 VFX Media · Thun</span>
+      <span>© 2026 Levin Anneler · VFX Media</span>
       <nav aria-label="Weitere Links">
         <a href="https://vfxmedia.ch/">vfxmedia.ch</a>
         <a href="https://www.instagram.com/levin.vfx/" target="_blank" rel="noopener">Instagram</a>
