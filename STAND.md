@@ -23,6 +23,14 @@ alles post-ready". Enthält den Design-Durchgang unten plus:
 - Bewusst nicht: Notarisierung (Levin: ohne Apple), Opt-out der Zählung (Levins früherer Entscheid; vom Review empfohlen),
   Swift-6-Sendable-Umbau, AppState aufteilen.
 
+## Download-Seite neu getextet (15.10.2026, lokal, nicht hochgeladen)
+Levins Textvorlage (sachlich, kein Werbeton) umgesetzt, gegen den Code geprüft. Abweichungen von der Vorlage, weil sie
+technisch nicht stimmte: Erststart für macOS 15+ („Dennoch öffnen", Rechtsklick nur macOS 14) · nicht „App ist digital
+signiert" (nur ad-hoc), sondern „Update-Dateien sind signiert" · Tasten 1–7 statt 1–9 · Schriften/Logo nach `static/`
+verlegt, damit „kein IP-Protokoll" für die ganze Seite stimmt · Rechte-Abschnitt mit Kennung + Löschanfrage aus der App.
+**Offen (Levins Entscheid):** Speicherdauer der Statistik – steht jetzt ehrlich „keine automatische Löschfrist, auf
+Anfrage innert 30 Tagen". Alternative wäre eine echte Frist (z. B. Kennungen nach 24 Monaten Inaktivität löschen).
+
 ## Sieben Finder-Farben ohne Zahl (15.10.2026, Teil von 2.0 Beta 1)
 Levin: „nur 7, gar nicht nummerieren, mehr Erkennung, Apple-Style" (Vorbild: Finder-Tag-Leiste).
 - `MarkDefinition.count = 7`, Defaults in Finder-Reihenfolge Rot, Orange, Gelb, Grün, Blau, Violett, Grau; unberührte
