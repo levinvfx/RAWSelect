@@ -18,6 +18,8 @@ enum AppInfo {
     static let instagramURL = URL(string: "https://instagram.com/levin.vfx")!
     static let email = "levin@annelers.ch"
     static var emailURL: URL { URL(string: "mailto:\(email)")! }
+    /// VFX Media main site (About tab).
+    static let companyURL = URL(string: "https://vfxmedia.ch/")!
     /// Official download page (also hosts the privacy statement and imprint).
     static let websiteURL = URL(string: "https://vfxmedia.ch/rawselect/")!
     static let privacyURL = URL(string: "https://vfxmedia.ch/rawselect/#datenschutz")!
@@ -56,7 +58,7 @@ enum AppInfo {
 /// ship in Contents/Resources; returns nil in a plain `swift run` (no bundle).
 enum AppAssets {
     static func logo(dark: Bool) -> NSImage? {
-        let name = dark ? "Logo-Weiss" : "Logo-Schwarz"
+        let name = dark ? "VFXMedia-Weiss" : "VFXMedia-Schwarz"
         if let url = Bundle.main.url(forResource: name, withExtension: "png"),
            let img = NSImage(contentsOf: url) {
             return img

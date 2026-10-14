@@ -67,8 +67,8 @@ else
     ICON_KEY=""
 fi
 
-# Brand logo (black + white variants) used by the Über/Credits tab and dark mode.
-for logo in assets/Logo-Schwarz.png assets/Logo-Weiss.png; do
+# VFX Media wordmark (black + white) for the Über tab, rendered from the Portfolio SVG.
+for logo in assets/VFXMedia-Schwarz.png assets/VFXMedia-Weiss.png; do
     [[ -f "$logo" ]] && cp "$logo" "${APP_DIR}/Contents/Resources/"
 done
 
