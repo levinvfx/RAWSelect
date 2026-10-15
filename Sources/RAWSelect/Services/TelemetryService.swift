@@ -69,6 +69,12 @@ enum TelemetryService {
 
     /// Feuert höchstens 1×/Tag, non-blocking, alle Fehler werden still ignoriert.
     static func ping() {
+        #if DEBUG
+        // Entwicklungs-Builds (swift build, Screenshot-Haken, Selbsttest) zählen NIE mit – die Statistik
+        // soll nur echte Installationen zeigen (Levins Regel Nr. 1, 15.10.2026). Nur die gepackte
+        // Release-App (build_app.sh) pingt.
+        return
+        #else
         guard let endpoint = AppInfo.telemetryEndpoint else { return }   // kein Endpunkt → nichts senden
 
         let d = UserDefaults.standard
@@ -94,5 +100,6 @@ enum TelemetryService {
             guard err == nil, let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return }
             UserDefaults.standard.set(now, forKey: lastPingKey)   // erst bei Erfolg merken
         }.resume()
+        #endif
     }
 }
