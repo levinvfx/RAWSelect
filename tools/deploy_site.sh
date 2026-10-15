@@ -2,7 +2,7 @@
 # Lädt die Download-Seite auf den vServer und prüft sie live.
 #   bash tools/deploy_site.sh            Seiten + static/ (index, datenschutz, impressum, Schriften, Animation)
 #   bash tools/deploy_site.sh --nginx    zusätzlich das nginx-Snippet (Backup, nginx -t, reload)
-# ping.php/stats.php/download.php bleiben unberührt (stats.php braucht das Token, siehe server/README.md).
+# ping.php und download.php bleiben unberührt. Die Statistik steht im Portfolio-Admin (Insights → RAW Select).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 HOST=root@185.16.62.11

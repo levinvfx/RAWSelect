@@ -4,7 +4,7 @@
 // Bewusst KEINE IP-Speicherung (pseudonym, nicht anonym: die Zufallskennung bleibt über Tage gleich).
 // Ein Eintrag pro Gerät pro Tag: so zählt "aktive Geräte" sauber, ohne Mehrfach-Pings.
 
-// Datenbank AUSSERHALB des Webroots — nginx liefert unter /rawselect/ ohnehin nur ping.php/stats.php
+// Datenbank AUSSERHALB des Webroots — nginx liefert unter /rawselect/ ohnehin nur die Allowlist
 // aus (server/nginx-rawselect.conf), aber eine DB gehört nie neben öffentliche Dateien.
 const DB_PFAD = '/var/lib/rawselect/usage.sqlite';
 

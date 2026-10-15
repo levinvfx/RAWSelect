@@ -160,7 +160,7 @@ Plugin lokal nach `~/Library/Application Support/RAW Select/`.
   `FileOperationService`, `MetadataService`, `UpdateService`, `TelemetryService`
 - `Views/` – Raster, Loupe, Vergleich, Filterleiste, Statusleiste, Sidebar, Settings
 - `Utilities/` – `Constants`, `FolderIdentity`, `CancellationToken`
-- `server/` – Download-Seite (`site/`), Download-Weiche `download.php`, Nutzungszählung `ping.php`/`stats.php`,
+- `server/` – Download-Seite (`site/`), Download-Weiche `download.php`, Nutzungszählung `ping.php` (Auswertung im Portfolio-Admin unter Insights),
   nginx-Snippet (Aufbau + Deploy-Regeln in `server/README.md`)
 - `tools/` – `sign_update.swift` (Update-Signatur, Schlüssel ausserhalb des Repos) · `publish_release.py`
   (GitHub-Release in alle Download-Repos; bricht ohne gültige Signatur ab) · `make_og.py` (Social-Preview-Bild)

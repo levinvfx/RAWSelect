@@ -10,7 +10,7 @@ der Node-Server des Portfolios ist nicht beteiligt).
 | `site/datenschutz.html`, `site/impressum.html` | `/var/www/rawselect/` | eigene Seiten, nginx liefert sie unter `/rawselect/datenschutz` und `/rawselect/impressum` |
 | `site/static/*` | `/var/www/rawselect/static/` | `site.css` (geteilt), Schriften, Wortmarke, App-Icon, `og.png` (`tools/make_og.py`), `tutorial/` (Animation + Fotos aus öffentlichen Portfolio-Seiten) |
 | `download.php` | `/var/www/rawselect/download.php` | `/rawselect/download` → 302 auf das neueste **signierte** DMG; `?info` → JSON für die Seite |
-| `ping.php`, `stats.php` | `/var/www/rawselect/` | Nutzungszählung und Auswertung |
+| `ping.php` | `/var/www/rawselect/` | Nutzungszählung (nimmt den täglichen Ping der App an) |
 | `nginx-rawselect.conf` | `/etc/nginx/snippets/rawselect.conf` | Allowlist (eingebunden in die vfxmedia-Site) |
 | Datenbank + Cache | `/var/lib/rawselect/usage.sqlite`, `latest.json` | ausserhalb des Webroots, Ordner 750 www-data |
 
@@ -23,7 +23,7 @@ Datenschutzerklärung nicht. Design-Tokens „Papier und Tinte" stehen inline (P
 `levinvfx/RAWSelect-Releases` (öffentliches Download-Repo, nur DMG + .sig), dann `levinvfx/RAWSelect`
 (Rückfall, solange öffentlich). Ein Release **ohne** `.sig` wird übergangen – die App würde es auch verwerfen.
 Fällt GitHub aus, gilt der letzte bekannte Stand; ohne jeden Stand antwortet die Weiche 503 mit Klartext.
-Jeder Klick zählt eine Zahl pro Tag (Tabelle `downloads`), ohne IP, ohne Cookie – sichtbar in `stats.php`.
+Jeder echte Download (GET, kein Bot) zählt eine Zahl pro Tag (Tabelle `downloads`), ohne IP, ohne Cookie.
 
 ## Was gezählt wird (App)
 Pro Gerät und Tag eine Zeile: **zufällige Installations-ID** (UUID, kein Hardware-/Personenbezug),
@@ -45,9 +45,8 @@ in den HTML-Dateien erhöhen (static/ wird 7 Tage gecacht).
 1. **Backups nie in den Webroot** – immer nach `/root/backups/rawselect/<datum>/`. Eine `.bak` im
    Webroot wird als Klartext ausgeliefert (so ist am 02.09.2026 das Stats-Token geleakt). nginx liefert
    heute nur die Allowlist aus, die Regel gilt trotzdem.
-2. `stats.php` enthält im Repo nur den Platzhalter `HIER-EIN-GEHEIMES-WORT-SETZEN`. Das echte Token
-   liegt lokal in `~/.config/rawselect/stats-token` und wird beim Deploy per Skript eingesetzt
-   (nie in der Kommandozeile/im Log); die lokale Kopie danach löschen.
+2. Keine öffentliche Auswertung mehr: `stats.php` ist seit 15.10.2026 entfernt (lag unter
+   `/root/backups/rawselect/2026-10-15/`). Nichts mit Token in den Webroot legen.
 3. Statische Dateien und PHP: `scp` nach `/var/www/rawselect/`, dann `chown www-data:www-data`,
    Ordner 755, Dateien 644, `php -l`.
 4. nginx-Snippet: Backup, `scp` nach `/etc/nginx/snippets/rawselect.conf`, `nginx -t`, erst dann
@@ -56,4 +55,8 @@ in den HTML-Dateien erhöhen (static/ wird 7 Tage gecacht).
    302 auf ein `.dmg`, eine fremde Datei unter `/rawselect/` 404, Hauptseite `https://vfxmedia.ch/` 200.
 
 ## Ansehen
-`https://vfxmedia.ch/rawselect/stats.php?token=<~/.config/rawselect/stats-token>`
+Im Portfolio-Admin (vfxmedia.ch/admin, Login + 2FA) unter **Insights → RAW Select**: aktive Geräte (30 Tage),
+Geräte insgesamt, heute, Downloads, Versionen, macOS, Verlauf pro Tag. Umgesetzt im Portfolio-Projekt:
+`services/rawselectStats.js` liest `/var/lib/rawselect/usage.sqlite` **nur lesend** (Ordner 751, damit der
+Portfolio-User `vfx` die 644-Datei lesen kann), Route `GET /api/admin/rawselect` (adminOnly), Anzeige
+`js/admin-rawselect.js`. Nur Summen, nie einzelne Kennungen.

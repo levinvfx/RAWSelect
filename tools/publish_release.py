@@ -12,7 +12,7 @@ Veröffentlicht wird in ALLE Repos in REPOS:
   - levinvfx/RAWSelect-Releases: öffentliches Download-Repo (nur DMG + .sig, kein Code). Hier
     fragen Apps ab V1.11 und die Download-Seite (vfxmedia.ch/rawselect/) nach.
   - levinvfx/RAWSelect: das Code-Repo. Apps ≤ 1.10 fragen noch hier nach; bleibt in der Liste,
-    bis kein altes Gerät mehr aktiv ist (stats.php) und das Repo privat geschaltet wurde.
+    bis kein altes Gerät mehr aktiv ist (Admin → Insights → RAW Select) und das Repo privat geschaltet wurde.
 Ein Repo, das 404 liefert (noch nicht angelegt / Token ohne Zugriff / privat), wird mit Warnung
 übersprungen; mindestens eines muss gelingen.
 Token: ~/.config/rawselect/gh-token (wird nie ausgegeben).

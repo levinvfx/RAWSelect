@@ -4,6 +4,14 @@
 **V1.11 (Universal-Build + Download-Seite) veröffentlicht** (13.10.2026, Tag `v1.11`, in beiden Repos).
 Vorher: V1.10 (Sicherheit & Datenschutz) veröffentlicht 11.10.2026.
 
+## Statistik im Portfolio-Admin (15.10.2026)
+Levin: „mach das in mein Admin unter Insights, lösche den Link". Öffentliche `stats.php` (Token-URL) ist vom Server
+entfernt (Backup /root/backups/rawselect/2026-10-15/), aus nginx und Repo gelöscht. Neu: Portfolio-Admin → Insights →
+Abschnitt „RAW Select" (aktive Geräte 30 T., insgesamt, heute, Downloads, Versionen inkl. Beta, macOS, Verlauf).
+Technik im Portfolio-Repo: `services/rawselectStats.js` (better-sqlite3 readonly), `GET /api/admin/rawselect` (adminOnly),
+`js/admin-rawselect.js`. Server: `/var/lib/rawselect` auf 751, damit User `vfx` lesen kann. `~/.config/rawselect/stats-token`
+wird nicht mehr gebraucht.
+
 ## 2.0 Beta 1 LIVE (15.10.2026, morgens)
 Levin: „veröffentliche die Beta, auf die Webseite, alles final, Alle-Versionen-Button weg, Datenschutz/Impressum auf
 eigene Seiten, Animation zum Erklären" (ultracode). Umgesetzt und live:
@@ -89,12 +97,12 @@ bewusst gestrichen.
   Desktop + Handy per Headless-Chrome geprüft.
 - **Repo-Wechsel für Updates:** `AppInfo.githubRepo = levinvfx/RAWSelect-Releases` (Download-Repo, nur DMG + .sig).
   `publish_release.py` veröffentlicht in ALLE Repos (`REPOS`), 404 wird übersprungen. Apps ≤ 1.10 fragen das alte
-  Repo – darum 1.11 in beide. Stand stats.php 13.10.: 4 Geräte auf 1.9, 1 auf 1.8, 1 auf 1.10.
+  Repo – darum 1.11 in beide. Stand Statistik 13.10.: 4 Geräte auf 1.9, 1 auf 1.8, 1 auf 1.10.
 - **Über-Tab:** Links „Website" + „Datenschutz"; Hinweis Nutzungszählung verlinkt die Erklärung.
 - **Erledigt 13.10.:** Repo `levinvfx/RAWSelect-Releases` (öffentlich, README) angelegt und im Token freigegeben
   (per Playwright in Levins GitHub-Session), 1.11 in beide Repos veröffentlicht, Download aus dem neuen Repo
   mit `--verify-update` GÜLTIG. Token hat nur Contents read/write + Metadata (kein Admin).
-- **OFFEN:** Altes Repo `levinvfx/RAWSelect` privat schalten, sobald stats.php keine Geräte < 1.11 mehr zeigt
+- **OFFEN:** Altes Repo `levinvfx/RAWSelect` privat schalten, sobald die Statistik (Admin → Insights) keine Geräte < 1.11 mehr zeigt
   (Token kann das nicht – Levin macht das auf GitHub: Settings → Danger Zone → Change visibility, oder ich per
   Playwright in seiner Session). Screenshot der App für die Seite fehlt (Hero zeigt nur das Icon).
 
