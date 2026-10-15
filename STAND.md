@@ -4,6 +4,14 @@
 **V1.11 (Universal-Build + Download-Seite) veröffentlicht** (13.10.2026, Tag `v1.11`, in beiden Repos).
 Vorher: V1.10 (Sicherheit & Datenschutz) veröffentlicht 11.10.2026.
 
+## Zählung auf 0 gesetzt (15.10.2026, 09:58) – Regel Nr. 1
+Levin: „Daten auf 0, erst ab Beta tracken, ich zähle, wenn ich mein DMG lade. Ab dann: Statistiken nie mehr raten,
+verändern oder auf Wunsch anpassen – nur 1:1 Auskunft." Umgesetzt ohne Löschen: `pings` → `pings_bis_2026_10_15`,
+`downloads` → `downloads_bis_2026_10_15` (51 bzw. 3 Zeilen), neue leere Tabellen mit gleicher Struktur; Backup
+`/root/backups/rawselect/2026-10-15/usage-vor-reset-0958.sqlite`. Dashboard zeigt 0/0. Debug-Builds pingen seit
+Commit `264d13d` nie (nur die gepackte Release-App). Hintergrund: die „3 Geräte auf 2.0" waren Levins Mac, ein Kollege
+und ein Test-Ping – darum zählt ab jetzt nur noch Echtes, und niemand fasst die Zahlen mehr an.
+
 ## Statistik im Portfolio-Admin (15.10.2026)
 Levin: „mach das in mein Admin unter Insights, lösche den Link". Öffentliche `stats.php` (Token-URL) ist vom Server
 entfernt (Backup /root/backups/rawselect/2026-10-15/), aus nginx und Repo gelöscht. Neu: Portfolio-Admin → Insights →
