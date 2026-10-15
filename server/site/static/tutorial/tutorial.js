@@ -234,7 +234,8 @@
       var zp = zin * (1 - zout);
       if (zp > 0) {
         // 100 %: um das Detail zoomen und es dabei Richtung Mitte holen
-        var z = mix(1, ZOOM, zp);
+        // 100 %: so weit zoomen, dass das Bild die ganze Fläche füllt (wie in der App)
+        var z = mix(1, Math.max(ZOOM, (G.cw / L.w) * 1.12), zp);
         var fx = L.x + FOCUS.x * L.w, fy = L.y + FOCUS.y * L.h;
         var gx = mix(fx, G.cw / 2, zp), gy = mix(fy, G.ch * 0.42, zp);
         tf(loupeImg, gx + z * (L.x - fx) - L.x, gy + z * (L.y - fy) - L.y, z, 1);

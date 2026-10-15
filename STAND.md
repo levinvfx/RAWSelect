@@ -4,7 +4,19 @@
 **V1.11 (Universal-Build + Download-Seite) veröffentlicht** (13.10.2026, Tag `v1.11`, in beiden Repos).
 Vorher: V1.10 (Sicherheit & Datenschutz) veröffentlicht 11.10.2026.
 
-## 2.0 Beta 1 – gebaut und signiert, NICHT veröffentlicht (15.10.2026)
+## 2.0 Beta 1 LIVE (15.10.2026, morgens)
+Levin: „veröffentliche die Beta, auf die Webseite, alles final, Alle-Versionen-Button weg, Datenschutz/Impressum auf
+eigene Seiten, Animation zum Erklären" (ultracode). Umgesetzt und live:
+- Seite: `server/site/index.html` + `datenschutz.html` + `impressum.html` (nginx-Locations), geteiltes `static/site.css`
+  (`?v=`-Cache-Version erhöhen bei Änderungen), Erklär-Animation `static/tutorial/` (reines JS, Fotos aus öffentlichen
+  Portfolio-Seiten TST + Feusi-Cup, Kinder nur von hinten/weit). Button „Versionsübersicht" entfernt, 100&nbsp;% ohne Umbruch.
+- Workflow-Prüfung (4 Prüfer, 27 Funde) umgesetzt: u. a. Kennung bleibt in ~/Library/Preferences (nicht „beim Löschen
+  weg"), GitHub = USA, E-Mail-Abschnitt, http-Umleitung wird protokolliert, ping.php speichert nur „macOS X.Y" (alte
+  Zeilen normalisiert, DB-Backup /root/backups/rawselect/2026-10-15/), überall „pseudonym".
+- Deploy: `bash tools/deploy_site.sh [--nginx]` (lädt, prüft alle Pfade live). Test-Ping „selftest-0000" liegt in der DB
+  (Löschen nur mit Levins OK, Hook blockt DELETE).
+
+## 2.0 Beta 1 – Vorbereitung (15.10.2026)
 Levins Auftrag nach einem externen Review: „ohne Apple-Signierung, Beta 2.0, noch nicht veröffentlichen, erst zeigen,
 alles post-ready". Enthält den Design-Durchgang unten plus:
 - **Version `2.0-beta1`** (Constants + build_app.sh; Bundle-Keys numerisch `2.0`). `UpdateService.isNewer` kennt jetzt

@@ -113,5 +113,9 @@ if (!$stand) {
     exit;
 }
 
-zaehleDownload();
+// Nur echte Downloads zählen: GET, kein Bot/Link-Vorschau (HEAD-Prüfungen und Crawler verfälschten die Zahl).
+$ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && !preg_match('/bot|crawl|spider|preview|slurp|facebookexternalhit|whatsapp|curl|wget|python/i', $ua)) {
+    zaehleDownload();
+}
 header('Location: ' . $stand['url'], true, 302);

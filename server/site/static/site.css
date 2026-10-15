@@ -243,8 +243,8 @@ p, li, dt { text-wrap: pretty; }
 .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 640px) { .steps { grid-template-columns: 1fr; } }
 
-/* Hero-Metazeile mit Trennpunkten */
-.hero__meta > span:not(:first-child)::before { content: "·"; margin-right: 18px; color: var(--line-strong); }
+/* Hero-Metazeile: klare Abstände statt Trennpunkte (Punkte landeten beim Umbruch am Zeilenanfang) */
+.hero__meta { gap: 6px 28px; }
 
 /* Abstände zwischen Funktionen und Band-Punkten: Icon gehört sichtbar zur eigenen Überschrift */
 .features, .band__grid { row-gap: clamp(40px, 6vw, 56px); }
@@ -268,5 +268,7 @@ p, li, dt { text-wrap: pretty; }
 .legal .legal-back { margin-top: 56px; }
 @media (max-width: 640px) {
   .hero__meta { display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 20px; }
-  .hero__meta > span::before { content: none; }
 }
+
+/* Lange Pfade in code dürfen umbrechen (sonst auf dem Handy abgeschnitten) */
+.legal code { overflow-wrap: anywhere; }
