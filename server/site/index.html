@@ -25,234 +25,8 @@
   <link rel="canonical" href="https://vfxmedia.ch/rawselect/" />
   
 
-  <style>
-    /* Schriften liegen in diesem Bereich (static/), nicht auf der Hauptseite: dort protokolliert der
-       Webserver IP-Adressen, hier nicht – sonst stimmte die Datenschutzerklärung nicht. Inter, OFL. */
-    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('static/inter-400.woff2') format('woff2'); }
-    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('static/inter-500.woff2') format('woff2'); }
-    @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('static/inter-600.woff2') format('woff2'); }
-    @supports (font-variation-settings: normal) {
-      @font-face { font-family: 'InterVariable'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('static/InterVariable.woff2') format('woff2'); }
-    }
-    /* Papier und Tinte: die Werte sind dieselben wie in css/style.css der Hauptseite
-       (DESIGN.md). Die Seite steht allein, weil sie ohne den Node-Server auskommen muss:
-       nginx liefert sie direkt aus /var/www/rawselect/. */
-    :root {
-      --bg: #F7F7F5;
-      --surface: #FFFFFF;
-      --surface-2: #EFEFEC;
-      --ink: #141413;
-      --on-ink: #FFFFFF;
-      --on-ink-soft: rgba(255, 255, 255, 0.72);
-      --text: #0A0A0A;
-      --text-soft: #3D3D3B;
-      --text-dim: #6B6B68;
-      --accent: #161616;
-      --accent-hover: #262625;
-      --accent-soft: rgba(10, 10, 10, 0.08);
-      --warn: #B4791C;
-      --line: rgba(10, 10, 10, 0.10);
-      --line-strong: rgba(10, 10, 10, 0.18);
-      --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -18px rgba(0, 0, 0, 0.18);
-      --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.10), 0 8px 24px -10px rgba(0, 0, 0, 0.35);
-      --shadow-btn-dark: 0 2px 4px rgba(0, 0, 0, 0.12), 0 12px 32px -8px rgba(0, 0, 0, 0.45);
-      --radius: 12px;
-      --radius-sm: 8px;
-      --radius-pill: 999px;
-      --container: 1100px;
-      --font: "InterVariable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      --track-display: -0.035em;
-      --track-title: -0.03em;
-      --track-label: 0.14em;
-      --ease: cubic-bezier(0.22, 1, 0.36, 1);
-      --dur-fast: 160ms;
-      --dur: 220ms;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; }
-    * { margin: 0; }
-    html { scroll-behavior: smooth; scroll-padding-top: 84px; -webkit-text-size-adjust: 100%; color-scheme: light; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 16px;
-      line-height: 1.6;
-      font-optical-sizing: auto;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-      overflow-x: hidden;
-    }
-    img { max-width: 100%; display: block; }
-    a { color: inherit; text-decoration: none; }
-    ::selection { background: var(--accent); color: #fff; }
-    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-
-    .skip-link {
-      position: fixed; top: 10px; left: 50%;
-      transform: translateX(-50%) translateY(-140%);
-      background: var(--accent); color: #fff;
-      padding: .6rem 1.1rem; border-radius: var(--radius-pill);
-      font-size: .9rem; font-weight: 600; z-index: 200;
-      transition: transform .2s var(--ease);
-    }
-    .skip-link:focus { transform: translateX(-50%) translateY(0); }
-
-    .container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: clamp(20px, 5vw, 40px); }
-    .section { padding-block: clamp(64px, 9vw, 112px); }
-    .section + .section { border-top: 1px solid var(--line); }
-
-    .eyebrow {
-      display: inline-flex; align-items: center; gap: 10px;
-      font-size: .76rem; font-weight: 600; letter-spacing: var(--track-label);
-      text-transform: uppercase; color: var(--text-dim);
-    }
-    .eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--text); }
-    .h2 { font-size: clamp(1.9rem, 3.1vw, 2.6rem); font-weight: 500; letter-spacing: var(--track-title); line-height: 1.08; margin-top: 14px; }
-    .lead { font-size: 1.125rem; line-height: 1.55; color: var(--text-soft); max-width: 56ch; }
-    .section__head { max-width: 760px; margin-bottom: clamp(30px, 4.5vw, 56px); }
-    .section__head .lead { margin-top: 16px; }
-
-    /* ── Knöpfe ── */
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-      min-height: 48px; padding: 0 24px;
-      border-radius: var(--radius-pill); border: 1px solid transparent;
-      font-size: .95rem; font-weight: 600; white-space: nowrap; cursor: pointer;
-      transition: transform var(--dur-fast) var(--ease), background-color var(--dur) ease, border-color var(--dur) ease, color var(--dur) ease;
-    }
-    .btn:active { transform: scale(.97); }
-    .btn svg { width: 18px; height: 18px; flex: none; }
-    .btn--accent { background: var(--accent); color: #fff; box-shadow: var(--shadow-btn); }
-    .btn--accent:hover { background: var(--accent-hover); }
-    .btn--ghost { background: transparent; color: var(--text); border-color: var(--line-strong); }
-    .btn--ghost:hover { border-color: var(--text); background: var(--accent-soft); }
-    .btn--lg { min-height: 54px; padding: 0 28px; font-size: 1rem; }
-    .btn--sm { min-height: 40px; padding: 0 18px; font-size: .9rem; }
-    .btn--on-ink { background: #fff; color: var(--ink); box-shadow: var(--shadow-btn-dark); }
-    .btn--on-ink:hover { background: rgba(255, 255, 255, 0.9); }
-    .btn--ghost-on-ink { color: #fff; border-color: rgba(255, 255, 255, 0.42); }
-    .btn--ghost-on-ink:hover { border-color: #fff; background: rgba(255, 255, 255, 0.10); }
-    .btn--ghost-on-ink:focus-visible, .btn--on-ink:focus-visible { outline-color: #fff; }
-
-    /* ── Kopf ── */
-    .top {
-      position: sticky; top: 0; z-index: 50;
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      padding: 16px clamp(20px, 5vw, 40px);
-      background: rgba(247, 247, 245, 0.88);
-      -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--line);
-    }
-    .top__logo img { height: 20px; width: auto; }
-    .top__nav { display: flex; align-items: center; gap: 22px; font-size: .9rem; color: var(--text-dim); }
-    .top__nav a:hover { color: var(--text); }
-    .top__nav .btn { color: #fff; }
-    @media (max-width: 640px) { .top__nav a:not(.btn) { display: none; } }
-
-    /* ── Hero ── */
-    .hero { padding-block: clamp(56px, 9vw, 120px) clamp(48px, 7vw, 96px); }
-    .hero__grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(32px, 6vw, 80px); align-items: center; }
-    .hero__icon { width: clamp(160px, 22vw, 260px); height: auto; filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.18)); }
-    .hero h1 { font-size: clamp(2.6rem, 6vw, 5rem); font-weight: 500; letter-spacing: var(--track-display); line-height: 1.02; margin-top: 16px; }
-    .hero .lead { margin-top: 22px; }
-    .hero__cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 32px; }
-    .hero__meta {
-      display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 18px;
-      font-size: .875rem; color: var(--text-dim);
-    }
-    .hero__meta span { display: inline-flex; align-items: center; gap: 7px; }
-    .hero__meta svg { width: 14px; height: 14px; }
-    .hero__meta strong { color: var(--text); font-weight: 600; }
-    @media (max-width: 760px) {
-      .hero__grid { grid-template-columns: 1fr; }
-      .hero__icon { width: 128px; order: -1; }
-    }
-
-    /* ── Hinweis Erststart ── */
-    .notice {
-      display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start;
-      margin-top: clamp(40px, 6vw, 64px);
-      padding: 20px 22px;
-      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-    }
-    .notice__icon { width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--surface-2); display: grid; place-items: center; }
-    .notice__icon svg { width: 20px; height: 20px; }
-    .notice h3 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
-    .notice p { color: var(--text-soft); font-size: .95rem; margin-top: 4px; }
-    .notice p + p { margin-top: 8px; }
-    kbd {
-      display: inline-block; min-width: 1.6em; padding: 0 .45em; text-align: center;
-      font-family: var(--font); font-size: .85em; font-weight: 600; line-height: 1.7;
-      color: var(--text); background: var(--surface);
-      border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 6px;
-    }
-
-    /* ── Schritte ── */
-    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: clamp(14px, 2vw, 24px); counter-reset: s; }
-    .step { counter-increment: s; padding: 22px 22px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
-    .step::before {
-      content: counter(s, decimal-leading-zero);
-      display: block; font-size: .76rem; font-weight: 600; letter-spacing: var(--track-label); color: var(--text-dim);
-    }
-    .step h3 { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.015em; margin-top: 12px; }
-    .step p { color: var(--text-soft); font-size: .95rem; margin-top: 8px; }
-
-    /* ── Merkmale ── */
-    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: clamp(20px, 3vw, 40px) clamp(20px, 3vw, 32px); }
-    .feature svg { width: 26px; height: 26px; }
-    .feature h3 { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.015em; margin-top: 14px; }
-    .feature p { color: var(--text-soft); font-size: .95rem; margin-top: 8px; }
-
-    /* ── Kürzel ── */
-    .keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 clamp(24px, 4vw, 56px); }
-    .keys dl { margin: 0; }
-    .keys div { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
-    .keys dt { font-size: .95rem; color: var(--text-soft); }
-    .keys dd { display: flex; gap: 4px; flex: none; }
-    .keys__more { margin-top: 24px; font-size: .9rem; color: var(--text-dim); }
-
-    /* ── Dunkles Band: Sicherheit ── */
-    .band { background: var(--ink); color: var(--on-ink); }
-    .band .eyebrow { color: var(--on-ink-soft); }
-    .band .eyebrow::before { background: #fff; }
-    .band .lead { color: var(--on-ink-soft); }
-    .band__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: clamp(20px, 3vw, 40px); margin-top: clamp(30px, 4vw, 48px); }
-    .band__item h3 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
-    .band__item p { color: var(--on-ink-soft); font-size: .95rem; margin-top: 8px; }
-    .band__item svg { width: 24px; height: 24px; margin-bottom: 14px; }
-    .band__cta { margin-top: clamp(32px, 5vw, 56px); display: flex; flex-wrap: wrap; gap: 12px; }
-
-    /* ── Rechtliches ── */
-    .legal { max-width: 760px; }
-    .legal h3 { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.015em; margin-top: 28px; }
-    .legal p, .legal li { color: var(--text-soft); line-height: 1.7; }
-    .legal p { margin-top: 10px; }
-    .legal ul { padding-left: 1.2rem; margin-top: 10px; }
-    .legal li + li { margin-top: 6px; }
-    .legal a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
-    .legal a:hover { text-decoration-color: var(--text); }
-    .legal code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: .1em .4em; border-radius: 5px; }
-    address { font-style: normal; }
-
-    /* ── Fuss ── */
-    .foot { border-top: 1px solid var(--line); padding: 32px 0 40px; font-size: .875rem; color: var(--text-dim); }
-    .foot .container { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; }
-    .foot nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
-    .foot a:hover { color: var(--text); }
-
-    /* ── Reveal ── */
-    @media (prefers-reduced-motion: no-preference) {
-      .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s var(--ease), transform .7s var(--ease); }
-      .reveal.is-in { opacity: 1; transform: none; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .btn, .skip-link { transition: none; }
-      .btn:active { transform: none; }
-      html { scroll-behavior: auto; }
-    }
-  </style>
+  <script>document.documentElement.classList.add('js')</script>
+  <link rel="stylesheet" href="static/site.css?v=20261015c" />
 </head>
 
 <body>
@@ -263,7 +37,7 @@
     <nav class="top__nav" aria-label="Seite">
       <a href="#ablauf">Funktionsweise</a>
       <a href="#kuerzel">Tastatur</a>
-      <a href="#datenschutz">Datenschutz</a>
+      <a href="datenschutz">Datenschutz</a>
       <a class="btn btn--accent btn--sm" href="download" data-download>Download</a>
     </nav>
   </header>
@@ -276,20 +50,18 @@
         <div>
           <span class="eyebrow">Kostenlos für macOS · Beta</span>
           <h1>RAW Select</h1>
-          <p class="lead">RAW Select hilft dir, grosse Bildserien schnell zu sichten. Du kannst Aufnahmen markieren, bei 100 % auf Schärfe prüfen, miteinander vergleichen und die Auswahl in einen Zielordner kopieren. Die Originaldateien werden dabei nicht verändert.</p>
+          <p class="lead">RAW Select hilft dir, grosse Bildserien schnell zu sichten. Du kannst Aufnahmen markieren, bei 100&nbsp;% auf Schärfe prüfen, miteinander vergleichen und die Auswahl in einen Zielordner kopieren. Die Originaldateien werden dabei nicht verändert.</p>
           <div class="hero__cta">
             <a class="btn btn--accent btn--lg" href="download" data-download>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
               RAW Select herunterladen
             </a>
-            <a class="btn btn--ghost btn--lg" href="https://github.com/levinvfx/RAWSelect-Releases/releases" target="_blank" rel="noopener" data-releases>Versionsübersicht</a>
           </div>
           <div class="hero__meta" aria-live="polite">
-            <span><strong data-version>Aktuelle Version</strong><span data-size></span></span>
+            <span><strong data-version>Version 2.0 Beta</strong><span data-size></span></span>
             <span>macOS 14 oder neuer</span>
             <span>Apple Silicon und Intel</span>
             <span>Keine Anmeldung</span>
-            <span>Bildverarbeitung lokal auf dem Mac</span>
           </div>
         </div>
         <img class="hero__icon" src="static/icon-512.png" alt="" width="512" height="512" />
@@ -318,18 +90,96 @@
           <h2 class="h2">Vom Ordner zur Auswahl</h2>
           <p class="lead">RAW Select ist aus meinem eigenen Arbeitsablauf in der Sportfotografie entstanden. Die Bedienung ist deshalb auf grosse Bildmengen und eine schnelle Arbeit mit der Tastatur ausgerichtet.</p>
         </div>
+        <!-- TUTORIAL:START -->
+        <link rel="stylesheet" href="static/tutorial/tutorial.css?v=20261015" />
+        <div class="tut" data-tut>
+          <div class="tut__viewport">
+            <div class="tut__scaler">
+              <div class="tut-win" role="img" aria-label="Animation des Arbeitsablaufs in RAW Select: Mit den Pfeiltasten wechselst du das Bild, die Tasten 1 bis 7 setzen einen Farbpunkt und die Auswahl springt zum nächsten Bild. Return öffnet die grosse Ansicht, Z zeigt das Bild bei 100 Prozent, Esc führt zurück ins Raster. Ein Klick mit gedrückter Wahltaste auf einen Farbpunkt zeigt nur diese Bilder, Befehl A wählt sie aus und «Auswahl kopieren» kopiert sie in einen Zielordner.">
+                <aside class="tut-side">
+                  <div class="tut-lights"><i></i><i></i><i></i><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14"/></svg></div>
+                  <h4>Datenträger</h4>
+                  <div class="tut-side__item"><svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M10 3v4M13 3v4"/></svg>SD-Karte</div>
+                  <div class="tut-side__item"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg>Ordner öffnen…</div>
+                  <h4>Zuletzt geöffnet</h4>
+                  <div class="tut-side__item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>Spieltag</div>
+                  <h4>Ordner</h4>
+                  <div class="tut-side__item is-active"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Spieltag</div>
+                </aside>
+                <div class="tut-main">
+                  <div class="tut-toolbar">
+                    <div class="tut-toolbar__title"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Spieltag</div>
+                    <div class="tut-seg">
+                      <i class="tut-seg__pill"></i>
+                      <span><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.3"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.3"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.3"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.3"/></svg></span>
+                      <span><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9.5" r="1.4"/></svg></span>
+                      <span><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14"/></svg></span>
+                    </div>
+                    <div class="tut-toolbar__right">
+                      <svg viewBox="0 0 24 24"><path d="M7 4v16M3.5 7.5 7 4l3.5 3.5M17 20V4M13.5 16.5 17 20l3.5-3.5"/></svg>
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></svg>
+                      <span class="tut-copy"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/></svg>Auswahl kopieren…<i class="tut-copy__flash"></i></span>
+                      <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M10 14l6-6M11 8h5v5"/></svg>
+                    </div>
+                  </div>
+                  <div class="tut-filter">
+                    <span class="tut-chip tut-chip--all"><span class="tut-chip__icon"><svg class="tut-all-on" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8"/><path d="m5.6 9.2 2.3 2.3 4.5-4.6"/></svg><svg class="tut-all-off" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.6"/></svg></span><b>Alle</b></span>
+                    <i class="tut-filter__div"></i>
+                    <span class="tut-chip" data-b="0"><span class="tut-chip__icon"><i class="tut-badge--none"></i><i class="tut-badge--none-off"></i></span><b>9</b></span>
+            <span class="tut-chip" data-b="1" style="--c:var(--c-red)"><span class="tut-chip__icon"><i class="tut-badge"></i><i class="tut-badge tut-badge--ring"></i></span><b>·</b></span>
+            <span class="tut-chip" data-b="2" style="--c:var(--c-orange)"><span class="tut-chip__icon"><i class="tut-badge"></i><i class="tut-badge tut-badge--ring"></i></span><b>·</b></span>
+            <span class="tut-chip" data-b="3" style="--c:var(--c-yellow)"><span class="tut-chip__icon"><i class="tut-badge"></i><i class="tut-badge tut-badge--ring"></i></span><b>·</b></span>
+            <span class="tut-chip" data-b="4" style="--c:var(--c-green)"><span class="tut-chip__icon"><i class="tut-badge"></i><i class="tut-badge tut-badge--ring"></i></span><b>·</b></span>
+            <span class="tut-chip" data-b="5" style="--c:var(--c-blue)"><span class="tut-chip__icon"><i class="tut-badge"></i><i class="tut-badge tut-badge--ring"></i></span><b>·</b></span>
+            <span class="tut-chip" data-b="6" style="--c:var(--c-purple)"><span class="tut-chip__icon"><i class="tut-badge"></i><i class="tut-badge tut-badge--ring"></i></span><b>·</b></span>
+            <span class="tut-chip" data-b="7" style="--c:var(--c-gray)"><span class="tut-chip__icon"><i class="tut-badge"></i><i class="tut-badge tut-badge--ring"></i></span><b>·</b></span>
+                  </div>
+                  <div class="tut-content">
+                    <div class="tut-grid">
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-1.jpg" alt="" width="360" height="240" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><i class="tut-flash"></i></div><span class="tut-name">DSC08401.ARW</span></div>
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-2.jpg" alt="" width="288" height="360" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><span class="tut-dot" style="--c:var(--c-red)"></span><i class="tut-flash"></i></div><span class="tut-name">DSC08402.ARW</span></div>
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-3.jpg" alt="" width="360" height="240" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><span class="tut-dot" style="--c:var(--c-green)"></span><i class="tut-flash"></i></div><span class="tut-name">DSC08403.ARW</span></div>
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-4.jpg" alt="" width="288" height="360" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><span class="tut-dot" style="--c:var(--c-red)"></span><i class="tut-flash"></i></div><span class="tut-name">DSC08404.ARW</span></div>
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-5.jpg" alt="" width="288" height="360" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><i class="tut-flash"></i></div><span class="tut-name">DSC08405.ARW</span></div>
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-6.jpg" alt="" width="360" height="240" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><i class="tut-flash"></i></div><span class="tut-name">DSC08406.ARW</span></div>
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-7.jpg" alt="" width="288" height="360" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><i class="tut-flash"></i></div><span class="tut-name">DSC08407.ARW</span></div>
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-8.jpg" alt="" width="360" height="240" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><i class="tut-flash"></i></div><span class="tut-name">DSC08408.ARW</span></div>
+            <div class="tut-cell"><div class="tut-thumb"><img src="static/tutorial/foto-9.jpg" alt="" width="240" height="360" loading="lazy" decoding="async" /><span class="tut-raw">RAW</span><i class="tut-flash"></i></div><span class="tut-name">DSC08409.ARW</span></div>
+                    </div>
+                    <i class="tut-sel tut-sel--a"></i><i class="tut-sel tut-sel--b"></i><i class="tut-sel tut-sel--c"></i>
+                    <div class="tut-loupe">
+                      <i class="tut-loupe__bg"></i>
+                      <div class="tut-loupe__img"><img src="static/tutorial/foto-5-gross.jpg" alt="" width="1024" height="1280" decoding="async" /></div>
+                      <span class="tut-loupe__name">DSC08405.ARW</span>
+                      <span class="tut-hud">100 %</span>
+                    </div>
+                  </div>
+                  <div class="tut-status">
+                    <span data-tut-msg>9 Bilder gefunden</span>
+                    <span class="tut-status__right"><span class="tut-status__sel" data-tut-sel>1 ausgewählt</span><span class="tut-status__dim" data-tut-pos>1 / 9</span></span>
+                  </div>
+                </div>
+                <span class="tut-cursor"><svg viewBox="0 0 17 25"><path d="M1.2 1.2v19.6l4.9-4.7 3.2 7.2 3.3-1.4-3.2-7.1h6.9z"/></svg></span>
+              </div>
+            </div>
+          </div>
+          <div class="tut__bar" aria-hidden="true"><span class="tut__keys"></span><p class="tut__cap"></p></div>
+          <p class="tut__legend"><span><kbd>←</kbd> <kbd>→</kbd> Bild wechseln</span><span><kbd>1</kbd>–<kbd>7</kbd> Farbpunkt setzen</span><span><kbd>Return</kbd> grosse Ansicht</span><span><kbd>Z</kbd> 100&nbsp;%</span><span><kbd>⌥</kbd>-Klick auf einen Farbpunkt: nur diese Bilder</span></p>
+        </div>
+        <script src="static/tutorial/tutorial.js?v=20261015" defer></script>
+        <!-- TUTORIAL:END -->
         <div class="steps">
           <article class="step reveal">
             <h3>Speicherkarte oder Ordner öffnen</h3>
-            <p>Externe Datenträger und Speicherkarten erscheinen automatisch in der Seitenleiste. Einen Ordner öffnest du mit <kbd>⌘</kbd><kbd>O</kbd> oder ziehst ihn direkt auf das Fenster. Die Bilder werden schrittweise eingelesen, du kannst also schon während des Ladens beginnen.</p>
+            <p>Externe Datenträger und Speicherkarten erscheinen automatisch in der Seitenleiste. Einen Ordner öffnest du mit <span class="combo"><kbd>⌘</kbd><kbd>O</kbd></span> oder ziehst ihn direkt auf das Fenster. Die Bilder werden schrittweise eingelesen, du kannst also schon während des Ladens beginnen.</p>
           </article>
           <article class="step reveal">
             <h3>Bilder sichten und markieren</h3>
-            <p>Mit den Pfeiltasten wechselst du zwischen den Bildern. Die Tasten <kbd>1</kbd> bis <kbd>7</kbd> setzen einen Farbpunkt, wie die Tags im Finder: Rot, Orange, Gelb, Grün, Blau, Violett, Grau. Dieselbe Taste erneut oder <kbd>0</kbd> entfernt ihn. Ist das automatische Weiterschalten aktiv, springt RAW Select danach zum nächsten Bild.</p>
+            <p>Mit den Pfeiltasten wechselst du zwischen den Bildern. Die Tasten <kbd>1</kbd>&nbsp;bis&nbsp;<kbd>7</kbd> setzen einen Farbpunkt, wie die Tags im Finder: Rot, Orange, Gelb, Grün, Blau, Violett, Grau. Danach springt RAW Select zum nächsten Bild (in den Einstellungen abschaltbar). Auf einem markierten Bild entfernt dieselbe Taste oder&nbsp;<kbd>0</kbd> den Farbpunkt wieder.</p>
           </article>
           <article class="step reveal">
             <h3>Schärfe und Bilddetails prüfen</h3>
-            <p><kbd>Return</kbd> öffnet die grosse Ansicht. Mit <kbd>Z</kbd> oder dem Mausrad wechselst du zur <span style="white-space:nowrap">100-%-Ansicht</span>. Der Bildausschnitt bleibt beim Weiterblättern erhalten, damit sich ähnliche Aufnahmen an derselben Stelle vergleichen lassen.</p>
+            <p><kbd>Return</kbd> öffnet die grosse Ansicht. Mit <kbd>Z</kbd> wechselst du zur <span class="nobr">100-%-Ansicht</span>, mit dem Mausrad oder per Pinch auf dem Trackpad zoomst du stufenlos. Der Bildausschnitt bleibt beim Weiterblättern erhalten, damit sich ähnliche Aufnahmen an derselben Stelle vergleichen lassen.</p>
           </article>
           <article class="step reveal">
             <h3>Auswahl kopieren</h3>
@@ -368,7 +218,7 @@
             <p>Markierungen werden in RAW Select gespeichert und nicht in die Bilddateien geschrieben. Auf Speicherkarten verändert die App keine Dateien. Die Papierkorb-Funktion steht nur für Dateien auf internen Laufwerken zur Verfügung.</p>
           </article>
           <article class="feature reveal">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
             <h3>Auswahl mit Farbmarkierungen</h3>
             <p>Die Filterleiste zeigt, wie viele Bilder jeder Farbe zugeordnet sind. Ein Klick blendet eine Gruppe ein oder aus. Mit gedrückter Wahltaste <kbd>⌥</kbd> zeigst du nur die gewählte Gruppe an.</p>
           </article>
@@ -391,20 +241,20 @@
         </div>
         <div class="keys reveal">
           <dl>
-            <div><dt>Vorheriges oder nächstes Bild</dt><dd><kbd>←</kbd><kbd>→</kbd></dd></div>
+            <div><dt>Vorheriges oder nächstes Bild</dt><dd><span class="combo"><kbd>←</kbd><kbd>→</kbd></span></dd></div>
             <div><dt>Nächstes unmarkiertes Bild</dt><dd><kbd>⇥</kbd></dd></div>
             <div><dt>Farbmarkierung setzen (nochmals: entfernen)</dt><dd><kbd>1</kbd>…<kbd>7</kbd></dd></div>
             <div><dt>Markierung entfernen</dt><dd><kbd>0</kbd></dd></div>
-            <div><dt>Letzte Markierung rückgängig machen</dt><dd><kbd>⌘</kbd><kbd>Z</kbd></dd></div>
+            <div><dt>Letzte Markierung rückgängig machen</dt><dd><span class="combo"><kbd>⌘</kbd><kbd>Z</kbd></span></dd></div>
             <div><dt>Auswahl in den Papierkorb verschieben</dt><dd><kbd>⌫</kbd></dd></div>
           </dl>
           <dl>
             <div><dt>Grosse Ansicht oder Fokusmodus</dt><dd><kbd>Return</kbd></dd></div>
-            <div><dt>100 % oder ans Fenster anpassen</dt><dd><kbd>Z</kbd></dd></div>
+            <div><dt>100&nbsp;% oder ans Fenster anpassen</dt><dd><kbd>Z</kbd></dd></div>
             <div><dt>Zwei Bilder vergleichen</dt><dd><kbd>C</kbd></dd></div>
             <div><dt>EXIF-Informationen ein- oder ausblenden</dt><dd><kbd>I</kbd></dd></div>
             <div><dt>Vollbild ein- oder ausschalten</dt><dd><kbd>F</kbd></dd></div>
-            <div><dt>Aktuelles Bild im Finder anzeigen</dt><dd><kbd>⌘</kbd><kbd>R</kbd></dd></div>
+            <div><dt>Aktuelles Bild im Finder anzeigen</dt><dd><span class="combo"><kbd>⌘</kbd><kbd>R</kbd></span></dd></div>
           </dl>
         </div>
         <p class="keys__more">Mit einem Klick wählst du ein Bild aus. <kbd>⌘</kbd>-Klick ergänzt oder entfernt einzelne Bilder, <kbd>⇧</kbd>-Klick wählt einen zusammenhängenden Bereich. Ein Doppelklick öffnet die grosse Ansicht. Mit dem Mausrad zoomst du auf die Position des Mauszeigers.</p>
@@ -431,7 +281,7 @@
             <p>Höchstens einmal pro Tag übermittelt die App eine zufällig erzeugte Installationskennung, die App-Version und die grobe macOS-Version an vfxmedia.ch. Damit wird erfasst, wie viele Installationen aktiv sind und welche Versionen verwendet werden. Die Kennung wird nicht mit einem Namen, Konto oder Bilddaten verbunden.</p>
           </div>
           <div class="band__item reveal">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3z"/><path d="m3 9 18 0"/><path d="M9 21V9"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 2 20 20"/><path d="M5.8 5.8A7 7 0 0 0 7 19h10.5"/><path d="M20.5 16.5A4.5 4.5 0 0 0 17.5 9h-1.3A7 7 0 0 0 9.5 5.2"/></svg>
             <h3>Keine weiteren Übertragungen</h3>
             <p>RAW Select verwendet kein Benutzerkonto, keine Cloud-Synchronisierung, keine Werbung und keine Absturzberichte. Die Download-Seite setzt keine Cookies und verwendet kein externes Analysewerkzeug.</p>
           </div>
@@ -441,76 +291,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
             RAW Select herunterladen
           </a>
-          <a class="btn btn--ghost-on-ink btn--lg" href="#datenschutz">Datenschutzerklärung</a>
+          <a class="btn btn--ghost-on-ink btn--lg" href="datenschutz">Datenschutzerklärung</a>
         </div>
-      </div>
-    </section>
-
-    <!-- ═══ Datenschutz ═══ -->
-    <section class="section" id="datenschutz">
-      <div class="container legal">
-        <span class="eyebrow">Datenschutz</span>
-        <h2 class="h2">Datenschutzerklärung für RAW Select</h2>
-        <p>Diese Datenschutzerklärung gilt für die macOS-App RAW Select und die Download-Seite unter vfxmedia.ch/rawselect. Für die Datenbearbeitung gilt das Schweizer Datenschutzgesetz. Soweit Personen in der Europäischen Union betroffen sind, können ergänzend die Bestimmungen der Datenschutz-Grundverordnung (DSGVO) gelten. Stand: Oktober 2026.</p>
-
-        <h3>1. Verantwortlicher</h3>
-        <address>
-          <p>Levin Anneler<br />VFX Media<br />Mühlemattweg 2k<br />3608 Thun<br />Schweiz<br />E-Mail: <a href="mailto:levin@annelers.ch">levin@annelers.ch</a></p>
-        </address>
-
-        <h3>2. Lokale Verarbeitung von Bildern</h3>
-        <p>RAW Select liest Bilder aus Ordnern, von Speicherkarten und von anderen Datenträgern, die du auswählst. Die Verarbeitung und Anzeige der Bilder erfolgt lokal auf deinem Mac.</p>
-        <p>Markierungen und Sitzungsdaten speichert die App unter <code>~/Library/Application Support/RAW Select</code>. Vorschaubilder können vorübergehend im lokalen Cache des Macs gespeichert werden. Diese Daten werden nicht an vfxmedia.ch oder einen anderen von mir betriebenen Dienst übertragen.</p>
-
-        <h3>3. Update-Prüfung</h3>
-        <p>Beim Start fragt RAW Select über die GitHub-API ab, ob eine neue Version verfügbar ist. Bei dieser Verbindung erhält GitHub technisch bedingt unter anderem die IP-Adresse des verwendeten Internetanschlusses. Für die Verarbeitung durch GitHub gelten die <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Datenschutzbestimmungen von GitHub</a>.</p>
-        <p>Ich erhalte durch die Update-Prüfung keine Bild-, Benutzer- oder Gerätedaten. Eine Update-Datei wird nur geladen, wenn du den Download bestätigst.</p>
-
-        <h3>4. Nutzungsstatistik</h3>
-        <p>RAW Select übermittelt höchstens einmal innerhalb von 24 Stunden folgende Angaben an vfxmedia.ch:</p>
-        <ul>
-          <li>eine zufällig erzeugte und dauerhaft lokal gespeicherte Installationskennung</li>
-          <li>die verwendete Version von RAW Select</li>
-          <li>die Haupt- und Nebenversion von macOS</li>
-        </ul>
-        <p>Der Server speichert diese Angaben zusammen mit dem Datum des Empfangs.</p>
-        <p>Die Installationskennung wird nicht aus Hardwaredaten erzeugt und nicht mit einem Namen, einer E-Mail-Adresse, einem Benutzerkonto, Bilddaten oder Dateipfaden verbunden. Sie ermöglicht jedoch, dieselbe Installation über mehrere Tage wiederzuerkennen. Deshalb bezeichne ich sie als pseudonyme und nicht als vollständig anonyme Kennung. Deine Kennung siehst du in der App unter <strong>Einstellungen → Erweitert</strong>.</p>
-        <p>Der Server wird bei Hoststar in der Schweiz betrieben. Für diesen Bereich ist die Speicherung von IP-Adressen im Webserver-Zugriffsprotokoll deaktiviert. Zweck der Statistik ist, die Anzahl aktiver Installationen und die Verteilung der App-Versionen zu ermitteln. Die Daten werden nicht an Dritte weitergegeben.</p>
-        <p><strong>Speicherdauer:</strong> Eine automatische Löschfrist gibt es derzeit nicht. Die Einträge bleiben gespeichert, solange ich die Statistik führe, damit sich Nutzerzahlen über die Zeit vergleichen lassen. Auf Anfrage lösche ich alle Einträge zu deiner Kennung innert 30 Tagen.</p>
-        <p>Die Statistik ist fester Bestandteil der App und lässt sich nicht abschalten. Wenn du nicht erfasst werden möchtest, kannst du die App nicht verwenden. Falls für diese Verarbeitung die DSGVO anwendbar ist, stützt sie sich auf das berechtigte Interesse, Nutzung und Versionsverteilung der kostenlos angebotenen App in möglichst geringem Umfang zu erfassen (Art. 6 Abs. 1 lit. f DSGVO).</p>
-
-        <h3>5. Download-Seite</h3>
-        <p>Die Download-Seite setzt keine Cookies und verwendet kein Analyse- oder Werbenetzwerk. Schriften, Bilder und Seitenelemente werden direkt aus diesem Bereich von vfxmedia.ch geladen.</p>
-        <p>Beim Aufruf der Seite entsteht technisch eine Verbindung zum Webserver. Das Zugriffsprotokoll ist für den Bereich von RAW Select deaktiviert. Beim Klick auf «RAW Select herunterladen» wird der Download als Gesamtzahl pro Tag gezählt. Anschliessend wirst du zur Datei auf GitHub weitergeleitet. Ab diesem Zeitpunkt gelten auch die Datenschutzbestimmungen von GitHub.</p>
-
-        <h3>6. Weitere Datenübertragungen</h3>
-        <p>RAW Select überträgt keine Bilder, Dateinamen, Dateipfade, Markierungen, EXIF-Daten, Standortdaten oder Absturzberichte. Die App verwendet kein Benutzerkonto und keine Cloud-Synchronisierung. Das Löschen der App entfernt die lokale Kennung, nicht aber bereits übermittelte Statistikeinträge auf dem Server.</p>
-
-        <h3>7. Rechte und Kontakt</h3>
-        <p>Du kannst Auskunft über die Bearbeitung deiner Personendaten sowie deren Berichtigung oder Löschung verlangen. Soweit die DSGVO anwendbar ist, können zusätzliche Rechte auf Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch bestehen.</p>
-        <p>Die Nutzungsstatistik ist nicht mit Namen oder Kontaktdaten verbunden. Einen Eintrag kann ich deshalb nur zuordnen, wenn du mir deine Kennung nennst. Am einfachsten geht das in der App unter <strong>Einstellungen → Erweitert → «Löschung meiner Daten verlangen»</strong>: Die vorbereitete E-Mail enthält deine Kennung bereits.</p>
-        <p>Für Fragen zum Datenschutz oder zur Ausübung deiner Rechte erreichst du mich unter <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. In der Schweiz ist der Eidgenössische Datenschutz- und Öffentlichkeitsbeauftragte (EDÖB) zuständig. Personen in der Europäischen Union können sich an die zuständige Datenschutzaufsichtsbehörde wenden.</p>
-      </div>
-    </section>
-
-    <!-- ═══ Impressum / Nutzung ═══ -->
-    <section class="section" id="impressum">
-      <div class="container legal">
-        <span class="eyebrow">Impressum</span>
-        <h2 class="h2">Anbieter und Nutzung</h2>
-        <address>
-          <p>Levin Anneler<br />VFX Media<br />Mühlemattweg 2k<br />3608 Thun<br />Schweiz<br />E-Mail: <a href="mailto:levin@annelers.ch">levin@annelers.ch</a></p>
-        </address>
-
-        <h3>Nutzung von RAW Select</h3>
-        <p>RAW Select kann kostenlos für private und geschäftliche Zwecke verwendet werden. Die Weitergabe, der Verkauf, die Veränderung oder die Veröffentlichung als eigenes Produkt sind ohne meine ausdrückliche Zustimmung nicht gestattet. Der Quellcode ist nicht öffentlich lizenziert.</p>
-        <p>Die App wird ohne Zusicherung einer bestimmten Verfügbarkeit oder Eignung bereitgestellt. RAW Select ist darauf ausgelegt, Originaldateien beim Sichten und Kopieren nicht zu verändern. Die Verantwortung für eine ausreichende Sicherung der Bilddateien bleibt dennoch bei dir. Eine Haftung wird im gesetzlich zulässigen Umfang ausgeschlossen.</p>
-
-        <h3>Sicherheitsmeldungen</h3>
-        <p>Wenn du eine mögliche Sicherheitslücke findest, sende die Informationen bitte an <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. Beschreibe möglichst genau, welche Version betroffen ist und wie sich das Problem nachvollziehen lässt.</p>
-
-        <h3>Markenhinweis</h3>
-        <p>macOS und Apple Silicon sind Marken von Apple Inc. Adobe, Lightroom und Photoshop sind Marken von Adobe Inc. RAW Select ist ein unabhängiges Produkt und steht in keiner geschäftlichen Verbindung zu Apple oder Adobe.</p>
       </div>
     </section>
 
@@ -522,13 +304,18 @@
       <nav aria-label="Weitere Links">
         <a href="https://vfxmedia.ch/">vfxmedia.ch</a>
         <a href="https://www.instagram.com/levin.vfx/" target="_blank" rel="noopener">Instagram</a>
-        <a href="#datenschutz">Datenschutz</a>
-        <a href="#impressum">Impressum</a>
+        <a href="datenschutz">Datenschutz</a>
+        <a href="impressum">Impressum</a>
       </nav>
     </div>
   </footer>
 
   <script>
+    // Alte Links (App bis 1.11: …/rawselect/#datenschutz) führen auf die eigenen Seiten.
+    (function () {
+      var h = location.hash;
+      if (h === '#datenschutz' || h === '#impressum') location.replace(h.slice(1));
+    })();
     // Versionsangabe aus der Download-Weiche (ohne JS stimmt die Seite trotzdem, der Knopf
     // leitet immer auf das neueste DMG weiter).
     (function () {
@@ -540,7 +327,6 @@
           if (!j || !j.version) return;
           v.textContent = 'Version ' + j.version.replace('-beta', ' Beta ');
           if (j.size) s.textContent = ' · ' + (j.size / 1048576).toFixed(0) + ' MB';
-          if (j.releases) document.querySelectorAll('[data-releases]').forEach(function (a) { a.href = j.releases; });
         })
         .catch(function () {});
     })();

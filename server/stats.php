@@ -1,5 +1,5 @@
 <?php
-// RAW Select – Auswertung der anonymen Nutzung. Zeigt NUR aggregierte Zahlen.
+// RAW Select – Auswertung der pseudonymen Nutzungszählung. Zeigt NUR aggregierte Zahlen.
 // Schutz per Token: stats.php?token=DEIN-WORT  (unten setzen!). Ohne gültiges Token: kein Zugriff.
 
 $TOKEN = 'HIER-EIN-GEHEIMES-WORT-SETZEN';
@@ -202,7 +202,7 @@ header('Content-Type: text/html; charset=utf-8');
 
   <header>
     <h1>RAW Select – Nutzung</h1>
-    <p class="unterzeile">Anonyme Zählung. Ein Eintrag pro Gerät und Tag, keine persönlichen Daten.</p>
+    <p class="unterzeile">Pseudonyme Zählung. Ein Eintrag pro Installation und Tag (Zufallskennung, Version, macOS-Version).</p>
   </header>
 
   <div class="karten">

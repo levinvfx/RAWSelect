@@ -1,7 +1,7 @@
 <?php
-// RAW Select – anonymer Nutzungs-Ping.
-// Speichert NUR: anonyme Zufalls-ID (aus der App), Version, grobe OS-Version, Datum.
-// Bewusst KEINE IP-Speicherung – dadurch bleibt der Ping anonym (CH-DSG / DSGVO).
+// RAW Select – pseudonymer Nutzungs-Ping.
+// Speichert NUR: Zufalls-ID (aus der App), Version, grobe OS-Version, Datum.
+// Bewusst KEINE IP-Speicherung (pseudonym, nicht anonym: die Zufallskennung bleibt über Tage gleich).
 // Ein Eintrag pro Gerät pro Tag: so zählt "aktive Geräte" sauber, ohne Mehrfach-Pings.
 
 // Datenbank AUSSERHALB des Webroots — nginx liefert unter /rawselect/ ohnehin nur ping.php/stats.php
@@ -21,7 +21,8 @@ if (!is_array($data) || empty($data['id']) || empty($data['version'])) {
 // Whitelist + Längenbegrenzung – keine Freitext-Injektion, keine überlangen Werte.
 $id      = substr(preg_replace('/[^A-Za-z0-9\-]/', '', $data['id']), 0, 64);
 $version = substr(preg_replace('/[^0-9A-Za-z.\-]/', '', $data['version']), 0, 20);
-$os      = substr(preg_replace('/[^0-9A-Za-z. ]/', '', $data['os'] ?? ''), 0, 60);
+// Nur Haupt- und Nebenversion speichern („macOS 15.6“), auch wenn alte Apps (≤ 1.9) Patch und Build senden.
+$os      = preg_match('/(\d+)\.(\d+)/', (string)($data['os'] ?? ''), $m) ? "macOS {$m[1]}.{$m[2]}" : '';
 $day     = gmdate('Y-m-d');
 
 try {

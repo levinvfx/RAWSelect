@@ -11,7 +11,7 @@ eingebettete Kamera-Vorschau angezeigt, beim Zoom auf 100 % voll entwickelt).
 
 ## Installation
 
-1. Auf **[vfxmedia.ch/rawselect](https://vfxmedia.ch/rawselect/)** „Für Mac laden" klicken (führt
+1. Auf **[vfxmedia.ch/rawselect](https://vfxmedia.ch/rawselect/)** „RAW Select herunterladen" klicken (führt
    zum neuesten signierten DMG im Download-Repo
    [RAWSelect-Releases](https://github.com/levinvfx/RAWSelect-Releases/releases)), öffnen, App nach
    `Programme` ziehen.
@@ -126,7 +126,7 @@ Zwei Dinge gehen ins Netz:
    in Einstellungen → Erweitert, von dort lässt sich per Mail die Löschung verlangen.
 
 Kein Login, keine Cloud, kein Konto. Datenschutzerklärung und Impressum:
-[vfxmedia.ch/rawselect/#datenschutz](https://vfxmedia.ch/rawselect/#datenschutz).
+[vfxmedia.ch/rawselect/datenschutz](https://vfxmedia.ch/rawselect/datenschutz), Impressum unter [/rawselect/impressum](https://vfxmedia.ch/rawselect/impressum).
 
 ---
 

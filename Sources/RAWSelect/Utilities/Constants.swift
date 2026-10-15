@@ -22,7 +22,7 @@ enum AppInfo {
     static let companyURL = URL(string: "https://vfxmedia.ch/")!
     /// Official download page (also hosts the privacy statement and imprint).
     static let websiteURL = URL(string: "https://vfxmedia.ch/rawselect/")!
-    static let privacyURL = URL(string: "https://vfxmedia.ch/rawselect/#datenschutz")!
+    static let privacyURL = URL(string: "https://vfxmedia.ch/rawselect/datenschutz")!
 
     /// Pre-filled feedback mail: version and coarse macOS version go into the body so a bug report
     /// is useful without a back-and-forth. Nothing is sent unless the user hits "Senden".
@@ -48,9 +48,9 @@ enum AppInfo {
     /// so a hijacked GitHub account or token can no longer push code onto every user's Mac.
     static let updatePublicKey = "8CjOD5QdNg02klSeWcYEOxlyLrKce8hEtDObj/Nm7Sg="
 
-    /// Endpoint of the anonymous usage count (see `TelemetryService`): Levin's own server, which
-    /// stores only the random id + version + macOS version, never the IP. `nil` would switch the
-    /// feature off entirely; the user-facing switch is Einstellungen → Erweitert.
+    /// Endpoint of the pseudonymous usage count (see `TelemetryService`): Levin's own server, which
+    /// stores only the random id + version + macOS version, never the IP. There is no user-facing
+    /// switch; `nil` disables the feature at build time.
     static let telemetryEndpoint: URL? = URL(string: "https://vfxmedia.ch/rawselect/ping.php")
 }
 

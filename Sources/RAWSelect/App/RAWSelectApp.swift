@@ -98,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         AppSettings.shared.removeObsoleteKeys()
         TelemetryService.showNoticeIfNeeded()   // einmalig informieren, BEVOR das erste Mal gezählt wird
-        TelemetryService.ping()                 // anonym, max. 1×/Tag
+        TelemetryService.ping()                 // pseudonym, max. 1×/Tag
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

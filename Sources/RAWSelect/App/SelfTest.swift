@@ -523,7 +523,7 @@ enum SelfTest {
             check(UpdateSignature.embeddedKey != nil, "update: embedded public key parses")
         }
 
-        // Anonymous count sends only the coarse macOS version ("macOS 26.6", no build number).
+        // The usage count sends only the coarse macOS version ("macOS 26.6", no build number).
         let os = TelemetryService.coarseOSVersion
         check(os.hasPrefix("macOS ") && os.split(separator: ".").count == 2 && !os.contains("Build"),
               "telemetry: coarse OS version (\(os))")

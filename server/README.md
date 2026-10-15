@@ -6,8 +6,9 @@ der Node-Server des Portfolios ist nicht beteiligt).
 ## Was hier liegt
 | Datei | Ort auf dem Server | Zweck |
 |---|---|---|
-| `site/index.html` | `/var/www/rawselect/index.html` | Download-Seite mit Erststart-Hinweis, Kürzeln, Datenschutzerklärung, Impressum |
-| `site/static/*` | `/var/www/rawselect/static/` | App-Icon, Social-Preview (`og.png`, erzeugt von `tools/make_og.py`) |
+| `site/index.html` | `/var/www/rawselect/index.html` | Download-Seite: Erststart-Hinweis, Erklär-Animation, Funktionen, Tastatur, Datenverarbeitung |
+| `site/datenschutz.html`, `site/impressum.html` | `/var/www/rawselect/` | eigene Seiten, nginx liefert sie unter `/rawselect/datenschutz` und `/rawselect/impressum` |
+| `site/static/*` | `/var/www/rawselect/static/` | `site.css` (geteilt), Schriften, Wortmarke, App-Icon, `og.png` (`tools/make_og.py`), `tutorial/` (Animation + Fotos aus öffentlichen Portfolio-Seiten) |
 | `download.php` | `/var/www/rawselect/download.php` | `/rawselect/download` → 302 auf das neueste **signierte** DMG; `?info` → JSON für die Seite |
 | `ping.php`, `stats.php` | `/var/www/rawselect/` | Nutzungszählung und Auswertung |
 | `nginx-rawselect.conf` | `/etc/nginx/snippets/rawselect.conf` | Allowlist (eingebunden in die vfxmedia-Site) |
@@ -35,7 +36,12 @@ mit Speicherdauer. **Löschanfrage umsetzen:** Zeilen mit dieser `id` aus `pings
 Wer IP-Logging, Pfade oder Namen ergänzt, macht daraus Profilbildung – dann wäre die Pflicht-Zählung nicht
 mehr vertretbar und die Datenschutzerklärung falsch.
 
-## Deploy (Regeln)
+## Deploy
+`bash tools/deploy_site.sh` lädt Seiten und `static/` hoch und prüft alle Pfade live; mit `--nginx` spielt es
+vorher das Snippet ein (Backup, `nginx -t`, reload). Nach Änderungen an `site.css`/`tutorial.*` den `?v=`-Parameter
+in den HTML-Dateien erhöhen (static/ wird 7 Tage gecacht).
+
+### Regeln
 1. **Backups nie in den Webroot** – immer nach `/root/backups/rawselect/<datum>/`. Eine `.bak` im
    Webroot wird als Klartext ausgeliefert (so ist am 02.09.2026 das Stats-Token geleakt). nginx liefert
    heute nur die Allowlist aus, die Regel gilt trotzdem.
