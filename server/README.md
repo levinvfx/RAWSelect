@@ -32,9 +32,10 @@ Jeder echte Download (GET, kein Bot) zählt eine Zahl pro Tag (Tabelle `download
   stecken auch die Downloads über die Seite und die Updates, die die App direkt bei GitHub lädt.
 
 Die App (ab 2.0) sendet nichts mehr. `ping.php` nimmt Meldungen alter Versionen an und verwirft sie.
-**Altbestand:** Die Tabellen `pings` und `pings_bis_2026_10_15` (Kennung, Version, macOS, Tag, keine IP) liegen
-noch in `usage.sqlite`. Löschen nur mit Levins OK. Löschanfrage mit Kennung: Zeilen dieser `id` aus beiden
-Tabellen entfernen.
+**Altbestand gelöscht (21.10.2026, Levins OK):** Die Tabellen `pings` und `pings_bis_2026_10_15` (Kennung, Version,
+macOS, Tag) wurden entfernt (DROP + VACUUM). Backup davor: `/root/backups/rawselect/2026-10-21/usage-vor-loeschung-pings.sqlite`
+(nach Kontrolle löschen, sonst stimmt «gelöscht» in der Datenschutzerklärung nur halb). In `usage.sqlite` bleiben
+`downloads` (seit 15.10.2026) und `downloads_bis_2026_10_15` (reine Tageszahlen).
 
 ## Deploy
 `bash tools/deploy_site.sh` lädt Seiten und `static/` hoch und prüft alle Pfade live; mit `--nginx` spielt es
@@ -55,8 +56,8 @@ in den HTML-Dateien erhöhen (static/ wird 7 Tage gecacht).
    302 auf ein `.dmg`, eine fremde Datei unter `/rawselect/` 404, Hauptseite `https://vfxmedia.ch/` 200.
 
 ## Ansehen
-Im Portfolio-Admin (vfxmedia.ch/admin, Login + 2FA) unter **Insights → RAW Select** (Inhalt pflegt das
+Im Portfolio-Admin (vfxmedia.ch/admin, Login + 2FA) unter **Analyse → RAW Select** (Inhalt pflegt das
 Portfolio-Projekt; seit 21.10.2026 nur noch Downloads). Umgesetzt im Portfolio-Projekt:
 `services/rawselectStats.js` liest `/var/lib/rawselect/usage.sqlite` **nur lesend** (Ordner 751, damit der
 Portfolio-User `vfx` die 644-Datei lesen kann), Route `GET /api/admin/rawselect` (adminOnly), Anzeige
-`js/admin-rawselect.js`. Nur Summen, nie einzelne Kennungen.
+`js/admin-rawselect.js`. Zeigt Website-Downloads und GitHub-Zahlen.
