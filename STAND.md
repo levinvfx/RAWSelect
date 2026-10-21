@@ -1,7 +1,7 @@
 # RAW Select — Stand (21.10.2026)
 
 ## Ziel
-**V2.0 (final) gebaut und signiert, NICHT veröffentlicht** (21.10.2026). Live ist weiterhin 2.0 Beta 1.
+**V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
 Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
 
 ## Nur noch Downloads zählen, Nutzungszählung entfernt (21.10.2026)
@@ -12,18 +12,21 @@ Einwilligung (DSGVO, § 25 TDDDG). Statt Einwilligungsdialog: gar nichts mehr sa
   Einstellungen → Erweitert weg. `rs.anonID`, `rs.lastUsagePing`, `rs.usageNoticeV2` stehen in `obsoleteKeys`
   und werden bei jedem Start entfernt. `coarseOSVersion` lebt in `AppInfo` (nur noch für die Feedback-Mail).
   Einzige Netzwerkverbindung: Update-Prüfung bei GitHub.
-- **Server (im Repo, NICHT deployt):** `ping.php` antwortet 204 und speichert nichts (Apps bis 2.0 Beta 1 pingen
-  weiter, bis sie aktualisieren). Altdaten in `pings`/`pings_bis_2026_10_15` bleiben (Löschen nur mit Levins OK).
+- **Server (live 21.10.):** `ping.php` antwortet 204 und speichert nichts (Apps bis 2.0 Beta 1 pingen weiter, bis
+  sie aktualisieren). Altdaten gelöscht mit Levins OK (Levin hat das Skript selbst ausgeführt, Hook blockt DROP):
+  `pings` 4 + `pings_bis_2026_10_15` 51 Zeilen, danach VACUUM. Backup `/root/backups/rawselect/2026-10-21/
+  usage-vor-loeschung-pings.sqlite` → nach Kontrolle löschen (Datenschutzerklärung sagt «gelöscht»).
 - **Gezählt wird:** `download.php` (Klicks pro Tag, ohne IP/Cookie) + GitHub `download_count` der Release-Assets.
-  Auswertung im Portfolio-Admin (Insights → RAW Select) baut die Portfolio-Session um.
+  Auswertung im Portfolio-Admin (Analyse → RAW Select, Portfolio-Commit 65c9f25, live). Stand 21.10.: Website 0
+  seit 15.10. (alle 2.0-Beta-DMG-Downloads auf GitHub waren App-Updates: .dmg = .sig = 4), GitHub 46 insgesamt.
 - **Texte:** Download-Seite (Beta-Kennzeichnung weg, «Nur Downloads werden gezählt», Satz «kostenlos, ohne Gewähr»),
   Datenschutzerklärung (Abschnitt 4 «Keine Nutzungsstatistik», ältere Versionen + Löschanfrage mit Kennung,
   Download-Zähler und GitHub-Zähler in Abschnitt 5), README, server/README, nginx-Kommentare.
-- **Release bereit:** `Releases/v2.0/` (DMG Universal, .sig GÜLTIG, README.txt = Release-Text).
-  Ablauf bei «veröffentliche»: push + Tag `v2.0` → `python3 tools/publish_release.py 2.0` →
-  `scp server/ping.php` (Regeln in server/README) → `bash tools/deploy_site.sh`.
-- Offen: Altdaten der Zählung ganz löschen? (sauberster Weg, die Kennung ist ab 2.0 auf den Macs gelöscht,
-  Löschanfragen lassen sich danach kaum noch zuordnen). Levin entscheidet.
+- **Veröffentlicht:** `Releases/v2.0/` (DMG Universal, .sig GÜLTIG). Seite + Datenschutz deployt und live geprüft.
+- **Tag-Schönheitsfehler:** `git push` scheiterte zuerst (kein Credential), `publish_release.py` legte den Tag `v2.0`
+  im Code-Repo darum auf `bd1ac7d` an (Stand vor den 2.0-Commits). Lokaler Tag zeigt auf `6b51883`. Für Updater und
+  Seite egal; korrigieren ginge nur per Tag-Löschen/Force (nicht gemacht).
+- **Push-Weg:** immer mit Token-Helper (siehe Memory `rawselect-github-deploy`), normales `git push` hat kein Credential.
 
 ## Zählung auf 0 gesetzt (15.10.2026, 09:58) – Regel Nr. 1
 Levin: „Daten auf 0, erst ab Beta tracken, ich zähle, wenn ich mein DMG lade. Ab dann: Statistiken nie mehr raten,
