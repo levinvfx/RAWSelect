@@ -97,8 +97,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         BridgeInstaller.installIfNeeded()
         #endif
         AppSettings.shared.removeObsoleteKeys()
-        TelemetryService.showNoticeIfNeeded()   // einmalig informieren, BEVOR das erste Mal gezählt wird
-        TelemetryService.ping()                 // pseudonym, max. 1×/Tag
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

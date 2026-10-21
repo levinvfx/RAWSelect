@@ -102,7 +102,7 @@ Pinch zoomt) · ⌥-Klick auf einen Filterchip = nur diese Gruppe · Ordner aufs
 - **Ansicht** – RAW+JPG gruppieren · Vorschau-Modus (Schnell / Ausgewogen / Qualität).
 - **Markierungen** – Auto-Weiterspringen · Namen und Farben der sieben Markierungen (Tasten 1–7).
 - **Erweitert** – Erscheinungsbild · Zielordner nach dem Kopieren im Finder zeigen ·
-  Nutzungszählung (eigene Kennung, Löschanfrage) · „Öffnen mit"-App der Symbolleiste · Cache leeren · Zurücksetzen.
+  „Öffnen mit"-App der Symbolleiste · Cache leeren · Zurücksetzen.
 - **Über** – Version, Kontakt.
 
 Bewusst wenige Optionen; alles andere sind feste, sinnvolle Defaults.
@@ -112,18 +112,18 @@ Bewusst wenige Optionen; alles andere sind feste, sinnvolle Defaults.
 ## Netzwerk & Datenschutz – ehrlich
 
 RAW Select arbeitet komplett **lokal** – Bilder, Markierungen, Kopien verlassen den Mac nie.
-Zwei Dinge gehen ins Netz:
+Nur eine Verbindung geht ins Netz:
 
-1. **Update-Check** beim Start (GitHub-API `releases/latest` des Download-Repos `RAWSelect-Releases`,
+- **Update-Check** beim Start (GitHub-API `releases/latest` des Download-Repos `RAWSelect-Releases`,
    nur die Versionsnummer wird gelesen).
    Ein Update wird als DMG in *Downloads* abgelegt und geöffnet, nie automatisch installiert –
    und nur, wenn seine **Signatur** stimmt (Ed25519, Schlüssel in der App eingebaut). Ein
    manipuliertes oder unsigniertes DMG wird verworfen, bevor es geöffnet wird.
-2. **Nutzungszählung** (fester Bestandteil, beim ersten Start einmal erklärt): höchstens
-   einmal täglich eine zufällige Kennung, App-Version und grobe macOS-Version (z. B. „macOS 26.6“)
-   an `vfxmedia.ch`. Keine Dateien, Namen, Pfade, kein Standort. Der Server speichert **keine
-   IP-Adressen** – auch das Webserver-Log ist dafür abgeschaltet. Die Kennung ist pseudonym; sie steht
-   in Einstellungen → Erweitert, von dort lässt sich per Mail die Löschung verlangen.
+
+**Keine Nutzungszählung** (seit 2.0, Levins Entscheid 21.10.2026): Die App sendet keine Kennung und
+keine Nutzungsdaten. Beim Start löscht sie die Schlüssel der früheren Zählung (`rs.anonID`,
+`rs.lastUsagePing`, `rs.usageNoticeV2`). Gezählt werden nur Downloads: die Download-Seite zählt Klicks
+(eine Zahl pro Tag, ohne IP, ohne Cookie), GitHub zählt die DMG-Downloads.
 
 Kein Login, keine Cloud, kein Konto. Datenschutzerklärung und Impressum:
 [vfxmedia.ch/rawselect/datenschutz](https://vfxmedia.ch/rawselect/datenschutz), Impressum unter [/rawselect/impressum](https://vfxmedia.ch/rawselect/impressum).
@@ -157,10 +157,10 @@ Plugin lokal nach `~/Library/Application Support/RAW Select/`.
 - `App/` – `RAWSelectApp` (Einstieg), `AppState` (zentraler Zustand, Navigation, Tastatur), `SelfTest`
 - `Models/` – `PhotoGroup`, `AppSettings`, `VolumeInfo`, `ExportModels`
 - `Services/` – `PhotoScanner`, `VolumeScanner`, `ThumbnailLoader`, `SessionStore`,
-  `FileOperationService`, `MetadataService`, `UpdateService`, `TelemetryService`
+  `FileOperationService`, `MetadataService`, `UpdateService`
 - `Views/` – Raster, Loupe, Vergleich, Filterleiste, Statusleiste, Sidebar, Settings
 - `Utilities/` – `Constants`, `FolderIdentity`, `CancellationToken`
-- `server/` – Download-Seite (`site/`), Download-Weiche `download.php`, Nutzungszählung `ping.php` (Auswertung im Portfolio-Admin unter Insights),
+- `server/` – Download-Seite (`site/`), Download-Weiche `download.php`, stillgelegter Ping `ping.php` (antwortet 204, speichert nichts), Auswertung der Downloads im Portfolio-Admin unter Insights,
   nginx-Snippet (Aufbau + Deploy-Regeln in `server/README.md`)
 - `tools/` – `sign_update.swift` (Update-Signatur, Schlüssel ausserhalb des Repos) · `publish_release.py`
   (GitHub-Release in alle Download-Repos; bricht ohne gültige Signatur ab) · `make_og.py` (Social-Preview-Bild)

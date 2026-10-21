@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="RAW Select"
 BUNDLE_ID="ch.anneler.rawselect"
-VERSION="2.0-beta1"
+VERSION="2.0"
 # Bundle keys must stay numeric ("2.0"); the full string with the beta suffix lives in the app.
 SHORT_VERSION="${VERSION%%-*}"
 EXECUTABLE="RAWSelect"

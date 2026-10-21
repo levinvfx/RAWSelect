@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Datenschutzerklärung · RAW Select</title>
-  <meta name="description" content="Datenschutzerklärung für die macOS-App RAW Select und die Download-Seite: lokale Bildverarbeitung, Update-Prüfung über GitHub, pseudonyme Nutzungsstatistik." />
+  <meta name="description" content="Datenschutzerklärung für die macOS-App RAW Select und die Download-Seite: lokale Bildverarbeitung, Update-Prüfung über GitHub, Download-Zähler." />
   <meta name="author" content="VFX Media" />
   <meta name="theme-color" content="#F7F7F5" />
   <meta name="color-scheme" content="light" />
@@ -36,7 +36,7 @@
       <div class="container"><div class="legal">
         <span class="eyebrow">Datenschutz</span>
         <h1 class="h2">Datenschutzerklärung für RAW Select</h1>
-        <p>Diese Datenschutzerklärung gilt für die macOS-App RAW Select und die Download-Seite unter vfxmedia.ch/rawselect. Für die Datenbearbeitung gilt das Schweizer Datenschutzgesetz. Soweit Personen in der Europäischen Union betroffen sind, können ergänzend die Bestimmungen der Datenschutz-Grundverordnung (DSGVO) gelten. Stand: Oktober 2026.</p>
+        <p>Diese Datenschutzerklärung gilt für die macOS-App RAW Select und die Download-Seite unter vfxmedia.ch/rawselect. Für die Datenbearbeitung gilt das Schweizer Datenschutzgesetz. Soweit Personen in der Europäischen Union betroffen sind, können ergänzend die Bestimmungen der Datenschutz-Grundverordnung (DSGVO) gelten. Stand: 21.&nbsp;Oktober&nbsp;2026.</p>
 
         <h3>1. Verantwortlicher</h3>
         <address>
@@ -45,39 +45,30 @@
 
         <h3>2. Lokale Verarbeitung von Bildern</h3>
         <p>RAW Select liest Bilder aus Ordnern, von Speicherkarten und von anderen Datenträgern, die du auswählst. Die Verarbeitung und Anzeige der Bilder erfolgt lokal auf deinem Mac.</p>
-        <p>Markierungen und Sitzungsdaten speichert die App unter <code>~/Library/Application&nbsp;Support/RAW&nbsp;Select</code>, Einstellungen und die Installationskennung (siehe Abschnitt 4) in <code>~/Library/Preferences/ch.anneler.rawselect.plist</code>. Vorschaubilder können vorübergehend im lokalen Cache des Macs gespeichert werden. Diese Daten werden nicht an vfxmedia.ch oder einen anderen von mir betriebenen Dienst übertragen.</p>
+        <p>Markierungen und Sitzungsdaten speichert die App unter <code>~/Library/Application&nbsp;Support/RAW&nbsp;Select</code>, Einstellungen in <code>~/Library/Preferences/ch.anneler.rawselect.plist</code>. Vorschaubilder können vorübergehend im lokalen Cache des Macs gespeichert werden. Diese Daten werden nicht an vfxmedia.ch oder einen anderen von mir betriebenen Dienst übertragen.</p>
 
         <h3>3. Update-Prüfung</h3>
         <p>Beim Start fragt RAW Select über die GitHub-API ab, ob eine neue Version verfügbar ist. Bei dieser Verbindung erhält GitHub technisch bedingt unter anderem die IP-Adresse des verwendeten Internetanschlusses. GitHub wird von GitHub, Inc. mit Sitz in den USA betrieben, die Daten können dort bearbeitet werden. Für die Verarbeitung durch GitHub gelten die <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Datenschutzbestimmungen von GitHub</a>.</p>
         <p>Ich erhalte durch die Update-Prüfung keine Bild-, Benutzer- oder Gerätedaten. Eine Update-Datei wird nur geladen, wenn du den Download bestätigst.</p>
 
-        <h3>4. Nutzungsstatistik</h3>
-        <p>RAW Select übermittelt höchstens einmal innerhalb von 24&nbsp;Stunden folgende Angaben an vfxmedia.ch:</p>
-        <ul>
-          <li>eine zufällig erzeugte und dauerhaft lokal gespeicherte Installationskennung</li>
-          <li>die verwendete Version von RAW Select</li>
-          <li>die Haupt- und Nebenversion von macOS</li>
-        </ul>
-        <p>Der Server speichert diese Angaben zusammen mit dem Datum des Empfangs.</p>
-        <p>Die Installationskennung wird nicht aus Hardwaredaten erzeugt und nicht mit einem Namen, einer E-Mail-Adresse, einem Benutzerkonto, Bilddaten oder Dateipfaden verbunden. Sie ermöglicht jedoch, dieselbe Installation über mehrere Tage wiederzuerkennen. Deshalb bezeichne ich sie als pseudonyme und nicht als vollständig anonyme Kennung. Deine Kennung siehst du in der App unter <strong>Einstellungen → Erweitert</strong>.</p>
-        <p>Der Server wird bei Hoststar in der Schweiz betrieben. Für diesen Bereich ist die Speicherung von IP-Adressen im Webserver-Zugriffsprotokoll deaktiviert. Zweck der Statistik ist, die Anzahl aktiver Installationen und die Verteilung der App-Versionen zu ermitteln. Die Daten werden nicht an Dritte weitergegeben.</p>
-        <p><strong>Speicherdauer:</strong> Eine automatische Löschfrist gibt es derzeit nicht. Die Einträge bleiben gespeichert, solange ich die Statistik führe, damit sich Nutzerzahlen über die Zeit vergleichen lassen. Auf Anfrage lösche ich alle Einträge zu deiner Kennung innert 30&nbsp;Tagen. Startest du RAW Select danach wieder mit derselben Kennung, entstehen neue Einträge.</p>
-        <p>Die Statistik ist fester Bestandteil der App und lässt sich nicht abschalten. Wenn du der künftigen Erfassung widersprichst, lässt sich das nur umsetzen, indem du die App nicht mehr verwendest und die lokale Kennung löschst (siehe Abschnitt 6). Falls für diese Verarbeitung die DSGVO anwendbar ist, stützt sie sich auf das berechtigte Interesse, Nutzung und Versionsverteilung der kostenlos angebotenen App in möglichst geringem Umfang zu erfassen (Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO).</p>
+        <h3>4. Keine Nutzungsstatistik</h3>
+        <p>Ab Version 2.0 sammelt RAW Select keine Nutzungsdaten. Die App sendet keine Kennung, keine Versionsangaben und keine Angaben zu deinem Mac an vfxmedia.ch. Die einzige Verbindung, die sie von sich aus aufbaut, ist die Update-Prüfung bei GitHub (Abschnitt 3).</p>
+        <p><strong>Ältere Versionen:</strong> Bis Version 2.0&nbsp;Beta&nbsp;1 hat RAW Select höchstens einmal pro Tag eine zufällig erzeugte Installationskennung, die App-Version und die Haupt- und Nebenversion von macOS an vfxmedia.ch übermittelt. Seit dem 21.&nbsp;Oktober&nbsp;2026 nimmt der Server solche Meldungen noch an, speichert sie aber nicht mehr. Ältere Versionen senden sie weiter, bis du auf Version 2.0 aktualisierst.</p>
+        <p>Die bis dahin gespeicherten Einträge (Kennung, Version, macOS-Version, Datum, keine IP-Adressen) liegen weiterhin auf dem Server bei Hoststar in der Schweiz und werden nicht an Dritte weitergegeben. Auf Anfrage lösche ich die Einträge zu deiner Kennung innert 30&nbsp;Tagen. Die Kennung findest du in älteren Versionen unter <strong>Einstellungen → Erweitert</strong>. Version 2.0 löscht sie beim ersten Start von deinem Mac. Ohne Kennung lässt sich ein Eintrag nicht zuordnen.</p>
 
         <h3>5. Download-Seite</h3>
         <p>Die Download-Seite setzt keine Cookies und verwendet kein Analyse- oder Werbenetzwerk. Schriften, Bilder und Seitenelemente werden direkt aus diesem Bereich von vfxmedia.ch geladen.</p>
-        <p>Beim Aufruf der Seite entsteht technisch eine Verbindung zum Webserver. Für Abrufe unter https://vfxmedia.ch/rawselect/ ist das Zugriffsprotokoll deaktiviert. Rufst du die Seite über eine unverschlüsselte http-Adresse auf, leitet der Server zuerst auf https um; diese Umleitung wird wie auf der Hauptseite protokolliert. Beim Klick auf «RAW Select herunterladen» wird der Download als Gesamtzahl pro Tag gezählt. Anschliessend wirst du zur Datei auf GitHub weitergeleitet. Ab diesem Zeitpunkt gelten auch die Datenschutzbestimmungen von GitHub.</p>
+        <p>Beim Aufruf der Seite entsteht technisch eine Verbindung zum Webserver. Für Abrufe unter https://vfxmedia.ch/rawselect/ ist das Zugriffsprotokoll deaktiviert. Rufst du die Seite über eine unverschlüsselte http-Adresse auf, leitet der Server zuerst auf https um; diese Umleitung wird wie auf der Hauptseite protokolliert. Beim Klick auf «RAW Select herunterladen» erhöht der Server einen Zähler um eins. Gespeichert wird nur die Gesamtzahl pro Tag, ohne IP-Adresse, ohne Cookie und ohne weitere Angaben zu dir. Anschliessend wirst du zur Datei auf GitHub weitergeleitet. GitHub zählt ebenfalls, wie oft eine Datei geladen wurde, und zeigt diese Zahl öffentlich an. Ab diesem Zeitpunkt gelten auch die Datenschutzbestimmungen von GitHub.</p>
 
         <h3>6. Weitere Datenübertragungen</h3>
-        <p>RAW Select überträgt keine Bilder, Dateinamen, Dateipfade, Markierungen, EXIF-Daten, Standortdaten oder Absturzberichte. Die App verwendet kein Benutzerkonto und keine Cloud-Synchronisierung. Die Kennung bleibt in den Einstellungen deines Macs gespeichert, auch wenn du die App löschst, und wird bei einer erneuten Installation weiterverwendet. Entfernen kannst du sie, indem du die Datei <code>~/Library/Preferences/ch.anneler.rawselect.plist</code> löschst oder im Terminal <code>defaults delete ch.anneler.rawselect</code> ausführst. Bereits übermittelte Statistikeinträge bleiben auf dem Server, bis du ihre Löschung verlangst.</p>
+        <p>RAW Select überträgt keine Bilder, Dateinamen, Dateipfade, Markierungen, EXIF-Daten, Standortdaten oder Absturzberichte. Die App verwendet kein Benutzerkonto und keine Cloud-Synchronisierung. Wenn du die App vollständig entfernen willst, lösche zusätzlich die Datei <code>~/Library/Preferences/ch.anneler.rawselect.plist</code> und den Ordner <code>~/Library/Application&nbsp;Support/RAW&nbsp;Select</code>.</p>
 
         <h3>7. Kontakt per E-Mail</h3>
-        <p>Wenn du mir schreibst, zum Beispiel über <strong>Hilfe → Feedback senden</strong>, bearbeite ich deine E-Mail-Adresse und den Inhalt deiner Nachricht, um sie zu beantworten. Die Feedback-Vorlage enthält die Version von RAW Select und von macOS. Bei einer Löschanfrage nutze ich die mitgesendete Kennung nur, um die zugehörigen Einträge zu löschen. E-Mails bewahre ich auf, solange es für die Bearbeitung nötig ist.</p>
+        <p>Wenn du mir schreibst, zum Beispiel über <strong>Hilfe → Feedback senden</strong>, bearbeite ich deine E-Mail-Adresse und den Inhalt deiner Nachricht, um sie zu beantworten. Die Feedback-Vorlage enthält die Version von RAW Select und von macOS. Bei einer Löschanfrage zu älteren Statistikeinträgen nutze ich die genannte Kennung nur, um die zugehörigen Einträge zu löschen. E-Mails bewahre ich auf, solange es für die Bearbeitung nötig ist.</p>
 
         <h3>8. Rechte und Kontakt</h3>
         <p>Du kannst Auskunft über die Bearbeitung deiner Personendaten sowie deren Berichtigung oder Löschung verlangen. Soweit die DSGVO anwendbar ist, können zusätzliche Rechte auf Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch bestehen.</p>
-        <p>Die Nutzungsstatistik ist nicht mit Namen oder Kontaktdaten verbunden. Einen Eintrag kann ich deshalb nur zuordnen, wenn du mir deine Kennung nennst. Am einfachsten geht das in der App unter <strong>Einstellungen → Erweitert → «Löschung meiner Daten verlangen»</strong>: Die vorbereitete E-Mail enthält deine Kennung bereits.</p>
-        <p>Für Fragen zum Datenschutz oder zur Ausübung deiner Rechte erreichst du mich unter <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. In der Schweiz ist der Eidgenössische Datenschutz- und Öffentlichkeitsbeauftragte (EDÖB) zuständig. Personen in der Europäischen Union können sich an die zuständige Datenschutzaufsichtsbehörde wenden.</p>
+                <p>Für Fragen zum Datenschutz oder zur Ausübung deiner Rechte erreichst du mich unter <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. In der Schweiz ist der Eidgenössische Datenschutz- und Öffentlichkeitsbeauftragte (EDÖB) zuständig. Personen in der Europäischen Union können sich an die zuständige Datenschutzaufsichtsbehörde wenden.</p>
       </div></div>
     </section>
 

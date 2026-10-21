@@ -113,29 +113,6 @@ struct AdvancedSettingsTab: View {
             Section("Kopieren") {
                 SettingToggle(title: "Nach dem Kopieren Zielordner im Finder zeigen", isOn: $settings.revealAfterExport)
             }
-            Section("Nutzungszählung") {
-                Text("RAW Select meldet beim Start höchstens einmal täglich eine zufällige Kennung, die App-Version und die macOS-Version an vfxmedia.ch – so ist sichtbar, wie viele Installationen aktiv sind. Keine Bilder, Dateinamen oder Pfade, kein Standort; die IP-Adresse wird nicht gespeichert.")
-                    .font(.caption).foregroundStyle(.secondary)
-                HStack(spacing: 8) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Deine Kennung")
-                        Text(TelemetryService.installationID)
-                            .font(.caption.monospaced()).foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
-                    Spacer()
-                    Button("Kopieren") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(TelemetryService.installationID, forType: .string)
-                        status = "Kennung kopiert."
-                    }
-                }
-                HStack(spacing: 16) {
-                    Link("Löschung meiner Daten verlangen", destination: TelemetryService.deletionRequestURL)
-                    Link("Datenschutzerklärung", destination: AppInfo.privacyURL)
-                }
-                .font(.caption)
-            }
             Section("Bilder öffnen mit") {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {

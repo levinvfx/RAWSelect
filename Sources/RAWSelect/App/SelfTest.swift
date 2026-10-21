@@ -523,10 +523,10 @@ enum SelfTest {
             check(UpdateSignature.embeddedKey != nil, "update: embedded public key parses")
         }
 
-        // The usage count sends only the coarse macOS version ("macOS 26.6", no build number).
-        let os = TelemetryService.coarseOSVersion
+        // The feedback mail carries only the coarse macOS version ("macOS 26.6", no build number).
+        let os = AppInfo.coarseOSVersion
         check(os.hasPrefix("macOS ") && os.split(separator: ".").count == 2 && !os.contains("Build"),
-              "telemetry: coarse OS version (\(os))")
+              "feedback: coarse OS version (\(os))")
 
         // Marks (2.0): seven Finder colours. Untouched defaults of any earlier palette follow the new
         // one; anything the user customised (name or colour) is kept exactly; 8/9 are dropped.

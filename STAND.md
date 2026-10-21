@@ -1,8 +1,29 @@
-# RAW Select — Stand (15.10.2026)
+# RAW Select — Stand (21.10.2026)
 
 ## Ziel
-**V1.11 (Universal-Build + Download-Seite) veröffentlicht** (13.10.2026, Tag `v1.11`, in beiden Repos).
-Vorher: V1.10 (Sicherheit & Datenschutz) veröffentlicht 11.10.2026.
+**V2.0 (final) gebaut und signiert, NICHT veröffentlicht** (21.10.2026). Live ist weiterhin 2.0 Beta 1.
+Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
+
+## Nur noch Downloads zählen, Nutzungszählung entfernt (21.10.2026)
+Levins Entscheid: «ich will wirklich nichts von den Leuten, nur Downloads». Hintergrund: Mit dem YouTube-Tutorial
+erreicht die App viele Leute aus Deutschland; eine feste Zählung mit gespeicherter Kennung bräuchte dort eine
+Einwilligung (DSGVO, § 25 TDDDG). Statt Einwilligungsdialog: gar nichts mehr sammeln.
+- **App 2.0:** `TelemetryService` gelöscht, kein Ping, kein Hinweis beim Start, Abschnitt «Nutzungszählung» in
+  Einstellungen → Erweitert weg. `rs.anonID`, `rs.lastUsagePing`, `rs.usageNoticeV2` stehen in `obsoleteKeys`
+  und werden bei jedem Start entfernt. `coarseOSVersion` lebt in `AppInfo` (nur noch für die Feedback-Mail).
+  Einzige Netzwerkverbindung: Update-Prüfung bei GitHub.
+- **Server (im Repo, NICHT deployt):** `ping.php` antwortet 204 und speichert nichts (Apps bis 2.0 Beta 1 pingen
+  weiter, bis sie aktualisieren). Altdaten in `pings`/`pings_bis_2026_10_15` bleiben (Löschen nur mit Levins OK).
+- **Gezählt wird:** `download.php` (Klicks pro Tag, ohne IP/Cookie) + GitHub `download_count` der Release-Assets.
+  Auswertung im Portfolio-Admin (Insights → RAW Select) baut die Portfolio-Session um.
+- **Texte:** Download-Seite (Beta-Kennzeichnung weg, «Nur Downloads werden gezählt», Satz «kostenlos, ohne Gewähr»),
+  Datenschutzerklärung (Abschnitt 4 «Keine Nutzungsstatistik», ältere Versionen + Löschanfrage mit Kennung,
+  Download-Zähler und GitHub-Zähler in Abschnitt 5), README, server/README, nginx-Kommentare.
+- **Release bereit:** `Releases/v2.0/` (DMG Universal, .sig GÜLTIG, README.txt = Release-Text).
+  Ablauf bei «veröffentliche»: push + Tag `v2.0` → `python3 tools/publish_release.py 2.0` →
+  `scp server/ping.php` (Regeln in server/README) → `bash tools/deploy_site.sh`.
+- Offen: Altdaten der Zählung ganz löschen? (sauberster Weg, die Kennung ist ab 2.0 auf den Macs gelöscht,
+  Löschanfragen lassen sich danach kaum noch zuordnen). Levin entscheidet.
 
 ## Zählung auf 0 gesetzt (15.10.2026, 09:58) – Regel Nr. 1
 Levin: „Daten auf 0, erst ab Beta tracken, ich zähle, wenn ich mein DMG lade. Ab dann: Statistiken nie mehr raten,

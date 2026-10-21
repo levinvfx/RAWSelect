@@ -5,7 +5,7 @@ enum AppInfo {
     static let name = "RAW Select"
     /// Release version. A pre-release carries a suffix ("2.0-beta1"); `UpdateService.isNewer` ranks
     /// it below the final "2.0". Must match `VERSION=` in build_app.sh.
-    static let version = "2.0-beta1"
+    static let version = "2.0"
     /// "2.0 Beta 1" — the same version as people read it.
     static var displayVersion: String { version.replacingOccurrences(of: "-beta", with: " Beta ") }
     static var isBeta: Bool { version.contains("-") }
@@ -32,9 +32,16 @@ enum AppInfo {
         c.path = email
         c.queryItems = [
             URLQueryItem(name: "subject", value: "RAW Select \(displayVersion) – Feedback"),
-            URLQueryItem(name: "body", value: "\n\n\n—\nRAW Select \(version) · \(TelemetryService.coarseOSVersion)"),
+            URLQueryItem(name: "body", value: "\n\n\n—\nRAW Select \(version) · \(coarseOSVersion)"),
         ]
         return c.url ?? emailURL
+    }
+
+    /// "macOS 26.6": Major.Minor is enough for a bug report. Only used in the feedback mail,
+    /// which the user sends (or not) from their own mail app.
+    static var coarseOSVersion: String {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        return "macOS \(v.majorVersion).\(v.minorVersion)"
     }
 
     /// Public GitHub repository the auto-updater queries (`releases/latest`, first `.dmg` asset).
@@ -47,11 +54,6 @@ enum AppInfo {
     /// (~/.config/rawselect/update-signing.key). Without a valid signature the app refuses an update —
     /// so a hijacked GitHub account or token can no longer push code onto every user's Mac.
     static let updatePublicKey = "8CjOD5QdNg02klSeWcYEOxlyLrKce8hEtDObj/Nm7Sg="
-
-    /// Endpoint of the pseudonymous usage count (see `TelemetryService`): Levin's own server, which
-    /// stores only the random id + version + macOS version, never the IP. There is no user-facing
-    /// switch; `nil` disables the feature at build time.
-    static let telemetryEndpoint: URL? = URL(string: "https://vfxmedia.ch/rawselect/ping.php")
 }
 
 /// Loads the bundled brand logo (black on light, white on dark). Both variants

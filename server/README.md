@@ -1,4 +1,4 @@
-# RAW Select – Server (Download-Seite + Nutzungszählung)
+# RAW Select – Server (Download-Seite + Download-Zähler)
 
 Läuft auf Levins vServer unter `https://vfxmedia.ch/rawselect/` (nginx liefert den Ordner direkt aus,
 der Node-Server des Portfolios ist nicht beteiligt).
@@ -10,7 +10,7 @@ der Node-Server des Portfolios ist nicht beteiligt).
 | `site/datenschutz.html`, `site/impressum.html` | `/var/www/rawselect/` | eigene Seiten, nginx liefert sie unter `/rawselect/datenschutz` und `/rawselect/impressum` |
 | `site/static/*` | `/var/www/rawselect/static/` | `site.css` (geteilt), Schriften, Wortmarke, App-Icon, `og.png` (`tools/make_og.py`), `tutorial/` (Animation + Fotos aus öffentlichen Portfolio-Seiten) |
 | `download.php` | `/var/www/rawselect/download.php` | `/rawselect/download` → 302 auf das neueste **signierte** DMG; `?info` → JSON für die Seite |
-| `ping.php` | `/var/www/rawselect/` | Nutzungszählung (nimmt den täglichen Ping der App an) |
+| `ping.php` | `/var/www/rawselect/` | Stillgelegt seit 21.10.2026: antwortet 204, liest und speichert nichts (Apps bis 2.0 Beta 1 pingen weiter, bis sie aktualisieren) |
 | `nginx-rawselect.conf` | `/etc/nginx/snippets/rawselect.conf` | Allowlist (eingebunden in die vfxmedia-Site) |
 | Datenbank + Cache | `/var/lib/rawselect/usage.sqlite`, `latest.json` | ausserhalb des Webroots, Ordner 750 www-data |
 
@@ -25,16 +25,16 @@ Datenschutzerklärung nicht. Design-Tokens „Papier und Tinte" stehen inline (P
 Fällt GitHub aus, gilt der letzte bekannte Stand; ohne jeden Stand antwortet die Weiche 503 mit Klartext.
 Jeder echte Download (GET, kein Bot) zählt eine Zahl pro Tag (Tabelle `downloads`), ohne IP, ohne Cookie.
 
-## Was gezählt wird (App)
-Pro Gerät und Tag eine Zeile: **zufällige Installations-ID** (UUID, kein Hardware-/Personenbezug),
-**App-Version**, **grobe macOS-Version** („macOS 26.6"), **Datum**. Sonst nichts.
-**Keine IP** – weder in der Datenbank noch im Webserver-Log (`access_log off` für den ganzen Bereich).
-Rechtlich ehrlich: Die stabile Kennung ist **pseudonym**, nicht anonym (DSGVO nennt Online-Kennungen
-ausdrücklich). Die Zählung ist trotzdem fest eingebaut (Levins Entscheid), gestützt auf berechtigtes Interesse
-und abgesichert durch: sichtbare Kennung in der App, Löschanfrage per Mail mit Kennung, Datenschutzerklärung
-mit Speicherdauer. **Löschanfrage umsetzen:** Zeilen mit dieser `id` aus `pings` entfernen (Levin bestätigt).
-Wer IP-Logging, Pfade oder Namen ergänzt, macht daraus Profilbildung – dann wäre die Pflicht-Zählung nicht
-mehr vertretbar und die Datenschutzerklärung falsch.
+## Was gezählt wird
+**Nur Downloads** (Levins Entscheid 21.10.2026: «ich will wirklich nichts von den Leuten, nur Downloads»):
+- `download.php`: jeder echte Klick auf «Herunterladen» (GET, kein Bot) erhöht die Tageszahl in `downloads`.
+- GitHub zählt die Downloads jedes Release-Assets selbst (öffentlich über die API, `download_count`). Darin
+  stecken auch die Downloads über die Seite und die Updates, die die App direkt bei GitHub lädt.
+
+Die App (ab 2.0) sendet nichts mehr. `ping.php` nimmt Meldungen alter Versionen an und verwirft sie.
+**Altbestand:** Die Tabellen `pings` und `pings_bis_2026_10_15` (Kennung, Version, macOS, Tag, keine IP) liegen
+noch in `usage.sqlite`. Löschen nur mit Levins OK. Löschanfrage mit Kennung: Zeilen dieser `id` aus beiden
+Tabellen entfernen.
 
 ## Deploy
 `bash tools/deploy_site.sh` lädt Seiten und `static/` hoch und prüft alle Pfade live; mit `--nginx` spielt es
@@ -55,8 +55,8 @@ in den HTML-Dateien erhöhen (static/ wird 7 Tage gecacht).
    302 auf ein `.dmg`, eine fremde Datei unter `/rawselect/` 404, Hauptseite `https://vfxmedia.ch/` 200.
 
 ## Ansehen
-Im Portfolio-Admin (vfxmedia.ch/admin, Login + 2FA) unter **Insights → RAW Select**: aktive Geräte (30 Tage),
-Geräte insgesamt, heute, Downloads, Versionen, macOS, Verlauf pro Tag. Umgesetzt im Portfolio-Projekt:
+Im Portfolio-Admin (vfxmedia.ch/admin, Login + 2FA) unter **Insights → RAW Select** (Inhalt pflegt das
+Portfolio-Projekt; seit 21.10.2026 nur noch Downloads). Umgesetzt im Portfolio-Projekt:
 `services/rawselectStats.js` liest `/var/lib/rawselect/usage.sqlite` **nur lesend** (Ordner 751, damit der
 Portfolio-User `vfx` die 644-Datei lesen kann), Route `GET /api/admin/rawselect` (adminOnly), Anzeige
 `js/admin-rawselect.js`. Nur Summen, nie einzelne Kennungen.

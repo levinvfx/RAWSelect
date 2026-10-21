@@ -212,7 +212,7 @@ final class AppSettings: ObservableObject {
     /// Removed on every launch — idempotent and cheap — so old installs don't carry dead state
     /// forever and a stale value can never resurface if a key name is ever reused.
     private static let obsoleteKeys: [String] = [
-        "rs.accent", "rs.accentCustomHex", "rs.advanceDirection", "rs.aiDenoiseAmount",
+        "rs.accent", "rs.accentCustomHex", "rs.advanceDirection", "rs.aiDenoiseAmount", "rs.anonID",
         "rs.allowDeleteFromSD", "rs.allowMoveFromSD", "rs.appBackground", "rs.autoCleanCache",
         "rs.autoDetectVolumes", "rs.autoManageMemory", "rs.autoScanOnLaunch", "rs.cacheAge",
         "rs.cacheLimit", "rs.cachePath", "rs.cameraFoldersOnly", "rs.cancelStalePreloads",
@@ -223,6 +223,7 @@ final class AppSettings: ObservableObject {
         "rs.exportFolderFormat", "rs.exportFolderStructure", "rs.exportSubfolders", "rs.exposureMode",
         "rs.externalAppPath", "rs.fitToPreview", "rs.ignoreHidden", "rs.ignoreUnmarked", "rs.instantFirst",
         "rs.instantQuality", "rs.instantSize", "rs.jpegQuality", "rs.keepFileDates", "rs.lastExportTarget",
+        "rs.lastUsagePing",
         "rs.loadPerfectOnZoom", "rs.maxExternalOpen", "rs.maxParallelJobs", "rs.metadataPanel",
         "rs.perfectAuto", "rs.perfectCache", "rs.perfectQuality", "rs.photoshopAutoDetect",
         "rs.photoshopExport", "rs.photoshopPath", "rs.preloadBackward", "rs.preloadCurrentFilterOnly",
@@ -236,7 +237,8 @@ final class AppSettings: ObservableObject {
         "rs.showMarkToolbar", "rs.showTypeBadge", "rs.singleMarkPerPhoto", "rs.smartExposure",
         "rs.smartExposureMax", "rs.smoothPreviewSwap", "rs.startBehavior", "rs.stopOnError",
         "rs.storeMarksLocally", "rs.subtleTransitions", "rs.syncPreviewGrid", "rs.thumbnailCache",
-        "rs.thumbnailSize", "rs.thumbnailSizeChoice", "rs.usageNoticeShown", "rs.useMarkFolderNames",
+        "rs.thumbnailSize", "rs.thumbnailSizeChoice", "rs.usageNoticeShown", "rs.usageNoticeV2",
+        "rs.useMarkFolderNames",
         "rs.warnBeforeDelete", "rs.warnBeforeMove", "rs.warnManyExternal", "rs.warnOnQuitDuringOp",
         "rs.warnOnResetMarks", "rs.wrapNavigation", "rs.writeMetadataJpeg", "rs.xmpExport",
         "rs.zeroClearsMark", "rs.zoomWithZ"
@@ -251,10 +253,7 @@ final class AppSettings: ObservableObject {
 
     func resetAll() {
         objectWillChange.send()
-        // Keep the (pseudonymous) stats identity: a settings reset is not a new installation, and
-        // re-rolling the id would count this Mac twice in the usage numbers.
-        let keep: Set<String> = ["rs.anonID", "rs.lastUsagePing", "rs.usageNoticeV2"]
-        for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") && !keep.contains(key) {
+        for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") {
             d.removeObject(forKey: key)
         }
     }
