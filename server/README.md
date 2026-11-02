@@ -23,7 +23,7 @@ Datenschutzerklärung nicht. Design-Tokens „Papier und Tinte" stehen inline (P
 `levinvfx/RAWSelect-Releases` (öffentliches Download-Repo, nur DMG + .sig), dann `levinvfx/RAWSelect`
 (Rückfall, solange öffentlich). Ein Release **ohne** `.sig` wird übergangen – die App würde es auch verwerfen.
 Fällt GitHub aus, gilt der letzte bekannte Stand; ohne jeden Stand antwortet die Weiche 503 mit Klartext.
-Jeder echte Download (GET, kein Bot) zählt eine Zahl pro Tag (Tabelle `downloads`), ohne IP, ohne Cookie.
+Seit 02.11.2026 liefert die Weiche das DMG selbst aus (Kopie in `/var/lib/rawselect/dmg/`, einmal pro Version von GitHub geholt, Grösse geprüft) und zählt nur vollständig übertragene Downloads, höchstens einmal pro Person und Tag (Tabelle `downloads_fertig`). Dafür ein Prüfwert aus Tag, Salz (`/var/lib/rawselect/salz`), IP und Browserkennung in `/var/lib/rawselect/heute/<tag>.txt`, ältere Tage werden beim nächsten Download gelöscht. Die alte Klickzählung `downloads` bleibt als Altbestand. Fehlt die lokale Kopie, 302 auf GitHub wie früher.
 
 ## Was gezählt wird
 **Nur Downloads** (Levins Entscheid 21.10.2026: «ich will wirklich nichts von den Leuten, nur Downloads»):
