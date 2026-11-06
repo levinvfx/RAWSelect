@@ -217,6 +217,38 @@ enum SelfTest {
                   "existing photo in the target untouched")
         } catch { check(false, "group copy threw: \(error.localizedDescription)") }
 
+        // 13b2) Copying onto exFAT (most external drives and cards): 2.1 used an atomic rename that
+        //       exFAT doesn't support, and every single file failed. Tested on a real exFAT image.
+        let exImage = root.appendingPathComponent("exfat.dmg")
+        let mk = Process.launchedProcess(launchPath: "/usr/bin/hdiutil",
+                                         arguments: ["create", "-quiet", "-size", "8m", "-fs", "ExFAT", "-volname", "RSSELFTEST", exImage.path])
+        mk.waitUntilExit()
+        let attach = Process(), pipe = Pipe()
+        attach.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+        attach.arguments = ["attach", "-nobrowse", "-plist", exImage.path]
+        attach.standardOutput = pipe
+        try? attach.run(); attach.waitUntilExit()
+        let plist = (try? PropertyListSerialization.propertyList(from: pipe.fileHandleForReading.readDataToEndOfFile(), format: nil)) as? [String: Any]
+        let mount = ((plist?["system-entities"] as? [[String: Any]]) ?? []).compactMap { $0["mount-point"] as? String }.first
+        if let mount {
+            let exDst = URL(fileURLWithPath: mount).appendingPathComponent("ziel")
+            do {
+                let out = try FileOperationService.copy(groups: [gXs], targetRoot: exDst, includeSidecars: true,
+                                                        progress: { _, _ in }, isCancelled: { false })
+                let c = Set((try? fm.contentsOfDirectory(atPath: exDst.path)) ?? [])
+                check(out.failures.isEmpty && c == ["X.ARW", "X.xmp", "X.ARW.xmp"],
+                      "copy onto exFAT works (got \(c.sorted()), failures \(out.failures))")
+                let again = try FileOperationService.copy(groups: [gXs], targetRoot: exDst, includeSidecars: true,
+                                                          progress: { _, _ in }, isCancelled: { false })
+                let c2 = Set((try? fm.contentsOfDirectory(atPath: exDst.path)) ?? [])
+                check(again.failures.isEmpty && c2.count == 6 && c2.contains("X_1.ARW"), "exFAT: second copy gets _1, nothing overwritten")
+            } catch { check(false, "exFAT copy threw: \(error.localizedDescription)") }
+            let detach = Process.launchedProcess(launchPath: "/usr/bin/hdiutil", arguments: ["detach", "-quiet", "-force", mount])
+            detach.waitUntilExit()
+        } else {
+            print("  – exFAT test skipped (no disk image available)")
+        }
+
         // 13c) Sorting like the Finder: saved settings keep their meaning, "Ohne" is new.
         check(SortField(rawValue: "filename") == .filename && SortField(rawValue: "captureDate") == .captureDate,
               "saved sort settings still decode")

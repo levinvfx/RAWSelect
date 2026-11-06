@@ -142,8 +142,15 @@ struct FileOperationService {
             .appendingPathComponent(".rawselect-\(UUID().uuidString).part")
         do {
             try fm.copyItem(at: source, to: temp)
-            guard renamex_np(temp.path, destination.path, UInt32(RENAME_EXCL)) == 0 else {
-                throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+            if renamex_np(temp.path, destination.path, UInt32(RENAME_EXCL)) != 0 {
+                let err = errno
+                // exFAT/FAT (most external drives and cards), SMB shares and some cloud folders don't
+                // know RENAME_EXCL and answer ENOTSUP — 2.1 failed EVERY file there. moveItem refuses
+                // an existing destination too, it just can't do it in one atomic step.
+                guard [ENOTSUP, EINVAL, ENOSYS].contains(err) else {
+                    throw NSError(domain: NSPOSIXErrorDomain, code: Int(err))
+                }
+                try fm.moveItem(at: temp, to: destination)
             }
         } catch {
             try? fm.removeItem(at: temp)

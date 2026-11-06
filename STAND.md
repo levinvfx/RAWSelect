@@ -4,6 +4,13 @@
 **V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
 Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
 
+## 2.1.1 Hotfix veröffentlicht (07.11.2026)
+**Fehler in 2.1:** Kopieren schlug auf exFAT/FAT (die meisten externen Platten und Karten, z. B. «Levin 2TB») für JEDE
+Datei fehl. Das atomare Umbenennen `renamex_np(…, RENAME_EXCL)` liefert dort ENOTSUP (nachgestellt auf einem
+exFAT-Abbild). Betroffen: alle 2.1-Nutzer mit exFAT/FAT-Ziel, vermutlich auch SMB-Freigaben; APFS/HFS gingen.
+Fix: bei ENOTSUP/EINVAL/ENOSYS Rückfall auf `FileManager.moveItem` (überschreibt ebenfalls nie). Selbsttest 13b2
+kopiert jetzt auf ein echtes exFAT-Abbild (hdiutil, nobrowse). Version 2.1.1 in Constants + build_app.sh.
+
 ## 2.1 veröffentlicht (06.11.2026)
 Levin: «ist alles gut? prüfe kurz, dann 2.1 auf GitHub pushen, veröffentlichen, Webseite anpassen». Website-Texte
 (Vergleich raus, Liste + Teilen rein, ⌘⇧C statt C), Datenschutz Abschnitt 2 (Google Drive über die Google-App), README.
