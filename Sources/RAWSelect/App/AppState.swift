@@ -854,9 +854,13 @@ final class AppState: ObservableObject {
     func toggleInfo() { showInfo.toggle() }
 
     // MARK: Finder
+    /// Shows the whole selection in the Finder, all files selected (one window per folder) — the
+    /// RAW of each photo, like "Öffnen mit". No selection: the photo under the cursor.
     func revealCurrent() {
-        guard let g = currentGroup else { statusMessage = "Kein Bild ausgewählt."; return }
-        FinderService.reveal(g.previewURL)
+        let sel = selectedGroups
+        let photos = sel.isEmpty ? (currentGroup.map { [$0] } ?? []) : sel
+        guard !photos.isEmpty else { statusMessage = "Kein Bild ausgewählt."; return }
+        FinderService.reveal(photos.map { rawURL(for: $0) })
     }
     func revealFolder(_ url: URL) { FinderService.revealFolder(url) }
 

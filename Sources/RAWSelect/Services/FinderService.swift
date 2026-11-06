@@ -3,8 +3,8 @@ import AppKit
 /// Thin wrapper around Finder integration and file dialogs (AppKit).
 enum FinderService {
 
-    static func reveal(_ url: URL) {
-        NSWorkspace.shared.activateFileViewerSelecting([url])
+    static func reveal(_ urls: [URL]) {
+        NSWorkspace.shared.activateFileViewerSelecting(urls)
     }
 
     static func revealFolder(_ url: URL) {
