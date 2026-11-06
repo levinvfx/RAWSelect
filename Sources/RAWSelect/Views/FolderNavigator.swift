@@ -67,19 +67,19 @@ private struct FolderRow: View {
     }
 
     private var label: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: SidebarMetrics.spacing) {
             Image(systemName: iconName)
                 .foregroundStyle(iconColor)
-                .frame(width: 16)
+                .frame(width: SidebarMetrics.iconWidth)
             Text(url.lastPathComponent)
                 .foregroundStyle(isCurrent ? Color.white : Color.primary)
                 .fontWeight(isCurrent || isAncestorOfCurrent ? .semibold : .regular)
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(RoundedRectangle(cornerRadius: 6).fill(rowFill))
+        .padding(.vertical, SidebarMetrics.verticalPadding)
+        .padding(.horizontal, SidebarMetrics.horizontalPadding)
+        .background(RoundedRectangle(cornerRadius: SidebarMetrics.cornerRadius).fill(rowFill))
         .animation(.easeOut(duration: 0.12), value: hovering)
         .contentShape(Rectangle())
         .onHover { inside in
@@ -87,8 +87,10 @@ private struct FolderRow: View {
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .onTapGesture(count: 2) { app.open(url, setBrowseRoot: false) }   // load images
-        .onTapGesture(count: 1) { if canExpand { expanded.toggle() } }    // just navigate
-        .help("Doppelklick lädt die Bilder dieses Ordners")
+        // A folder without subfolders has nothing to expand: one click loads it (the double
+        // click was the only way, and a single click did nothing at all).
+        .onTapGesture(count: 1) { if canExpand { expanded.toggle() } else { app.open(url, setBrowseRoot: false) } }
+        .help(canExpand ? "Klick klappt auf · Doppelklick lädt die Bilder dieses Ordners" : "Klick lädt die Bilder dieses Ordners")
     }
 
     private func loadChildren() {

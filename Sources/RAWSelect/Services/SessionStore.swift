@@ -55,6 +55,24 @@ struct SessionStore {
         return .states(session.states)
     }
 
+    /// Takes over the session an older identity scheme wrote for this source — once, only when
+    /// nothing is stored under the new id yet and exactly ONE old session matches. The old file
+    /// stays as it is. Returns true when a session was adopted.
+    @discardableResult
+    static func adoptLegacy(prefix: String, to identityID: String) -> Bool {
+        guard case .none = read(identityID: identityID),
+              let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        else { return false }
+        let matches = files.filter { $0.pathExtension == "json" }.compactMap { url -> SessionData? in
+            guard let data = try? Data(contentsOf: url),
+                  let session = try? JSONDecoder().decode(SessionData.self, from: data),
+                  session.identity.hasPrefix(prefix) else { return nil }
+            return session
+        }
+        guard matches.count == 1, let old = matches.first else { return false }
+        return save(identityID: identityID, states: old.states, scope: []) == .ok
+    }
+
     static func load(identityID: String) -> [String: PhotoState] {
         if case .states(let s) = read(identityID: identityID) { return s }
         return [:]
@@ -86,8 +104,10 @@ struct SessionStore {
         case .none:
             break
         case .unreadable:
-            // Never overwrite a file we couldn't read — it may still be recoverable.
+            // Never overwrite a file we couldn't read — it may still be recoverable. If it can't
+            // even be moved aside, stop here instead of writing over it.
             quarantined = quarantine(identityID: identityID)
+            if quarantined == nil { return .failed("Gespeicherte Markierungen unlesbar und nicht sicherbar") }
         }
 
         for key in scope { merged[key] = nil }

@@ -11,26 +11,30 @@ struct SidebarView: View {
                 if app.volumes.isEmpty {
                     Text("Keine externen Datenträger")
                         .font(.callout).foregroundStyle(.secondary)
+                        // Starts in the text column of the rows below.
+                        .padding(.leading, SidebarMetrics.horizontalPadding + SidebarMetrics.iconWidth + SidebarMetrics.spacing)
                 }
                 ForEach(app.volumes) { volume in
-                    VolumeRow(volume: volume)
+                    SidebarRow(title: volume.name, systemImage: "sdcard",
+                               isActive: app.browseRoot?.standardizedFileURL == volume.url.standardizedFileURL) {
+                        app.browse(volume.url)
+                    }
                 }
-                Button { app.openFolderDialog() } label: {
-                    Label("Ordner öffnen…", systemImage: "folder.badge.plus")
-                }
-                .buttonStyle(.plain)
+                SidebarRow(title: "Ordner öffnen…", systemImage: "folder.badge.plus") { app.openFolderDialog() }
             }
 
             // Same folder on the internal disk the next day: one click instead of the whole tree.
             if !settings.recentFolders.isEmpty {
                 Section("Zuletzt geöffnet") {
+                    let names = settings.recentFolders.map { ($0 as NSString).lastPathComponent }
                     ForEach(settings.recentFolders, id: \.self) { path in
-                        Button { app.openRecent(path) } label: {
-                            Label((path as NSString).lastPathComponent, systemImage: "clock")
-                                .lineLimit(1).truncationMode(.middle)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                        let name = (path as NSString).lastPathComponent
+                        // Several "02_export": the parent folder tells them apart.
+                        let parent = ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent
+                        SidebarRow(title: name, systemImage: "clock",
+                                   detail: names.filter { $0 == name }.count > 1 ? parent : nil) {
+                            app.openRecent(path)
                         }
-                        .buttonStyle(.plain)
                         .help(path)
                     }
                 }
@@ -48,16 +52,26 @@ struct SidebarView: View {
     }
 }
 
-/// A single external volume row with hover feedback and an active highlight,
+/// Shared sidebar geometry: every row (volumes, "Ordner öffnen…", recent folders, folder tree)
+/// puts its icon in the same fixed column, so icons and text line up across sections.
+enum SidebarMetrics {
+    static let iconWidth: CGFloat = 20
+    static let spacing: CGFloat = 6
+    static let verticalPadding: CGFloat = 4
+    static let horizontalPadding: CGFloat = 8
+    static let cornerRadius: CGFloat = 6
+}
+
+/// One clickable sidebar row with hover feedback and an optional active highlight,
 /// matching the folder tree's interaction feel.
-private struct VolumeRow: View {
-    @EnvironmentObject var app: AppState
-    let volume: VolumeInfo
+private struct SidebarRow: View {
+    let title: String
+    let systemImage: String
+    var detail: String? = nil
+    var isActive = false
+    let action: () -> Void
     @State private var hovering = false
 
-    private var isActive: Bool {
-        app.browseRoot?.standardizedFileURL == volume.url.standardizedFileURL
-    }
     private var rowFill: Color {
         if isActive { return .accentColor.opacity(0.15) }
         if hovering { return Color.primary.opacity(0.08) }
@@ -65,12 +79,21 @@ private struct VolumeRow: View {
     }
 
     var body: some View {
-        Button { app.browse(volume.url) } label: {
-            Label(volume.name, systemImage: "sdcard")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 3).padding(.horizontal, 6)
-                .background(RoundedRectangle(cornerRadius: 6).fill(rowFill))
-                .contentShape(Rectangle())
+        Button(action: action) {
+            HStack(spacing: SidebarMetrics.spacing) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: SidebarMetrics.iconWidth)
+                Text(title).lineLimit(1).truncationMode(.middle)
+                if let detail {
+                    Text(detail).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, SidebarMetrics.verticalPadding)
+            .padding(.horizontal, SidebarMetrics.horizontalPadding)
+            .background(RoundedRectangle(cornerRadius: SidebarMetrics.cornerRadius).fill(rowFill))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .animation(.easeOut(duration: 0.12), value: hovering)

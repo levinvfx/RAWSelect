@@ -9,11 +9,15 @@ struct FolderIdentity {
     let id: String
     /// Base used to compute per-photo persist keys (the volume root when known).
     let keyBase: URL
+    /// Identity prefix an older version used for this source; its session is adopted once when
+    /// no session exists under `id` yet (see `SessionStore.adoptLegacy`).
+    var legacyPrefix: String? = nil
 
     init(root: URL) {
         let keys: Set<URLResourceKey> = [.volumeUUIDStringKey, .volumeURLKey,
                                          .volumeNameKey, .volumeTotalCapacityKey,
-                                         .volumeCreationDateKey]
+                                         .volumeCreationDateKey, .volumeIsLocalKey,
+                                         .volumeURLForRemountingKey]
         let values = try? root.resourceValues(forKeys: keys)
         if let volumeURL = values?.volume {
             if let uuid = values?.volumeUUIDString, !uuid.isEmpty {
@@ -34,6 +38,13 @@ struct FolderIdentity {
                 let capacity = values?.volumeTotalCapacity ?? 0
                 if let born = values?.volumeCreationDate.map({ Int($0.timeIntervalSince1970) }) {
                     self.id = "fp-\(name)-\(capacity)-\(born)"
+                } else if values?.volumeIsLocal == false {
+                    // NAS / SMB share: the content sample walked the whole share on the main
+                    // thread and depended on the server's listing order — a new shoot sorting in
+                    // front changed it and the marks seemed gone. The share's address is stable
+                    // and free (credentials stripped).
+                    self.id = "net-" + FolderIdentity.shareAddress(values?.volumeURLForRemounting, fallback: name)
+                    self.legacyPrefix = "fp-\(name)-\(capacity)-c"
                 } else {
                     // No creation date either (some FAT/exFAT cards). Falling back to 0 here
                     // merged two factory-formatted cards into ONE session — exactly the bug the
@@ -57,6 +68,13 @@ struct FolderIdentity {
         let name = groupPairs ? group.baseName
             : group.baseName + "." + (group.files.first?.pathExtension.lowercased() ?? "")
         return persistKey(directory: group.directory, baseName: name)
+    }
+
+    /// "smb://nas.local/Fotos" without user name or password.
+    static func shareAddress(_ url: URL?, fallback: String) -> String {
+        guard let url, var c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return fallback }
+        c.user = nil; c.password = nil
+        return (c.string ?? fallback).lowercased()
     }
 
     /// Hash over a sample of photo files on the volume (path relative to the mount point +

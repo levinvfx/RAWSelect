@@ -195,6 +195,48 @@ enum SelfTest {
             check(out.files == 2 && c == ["CLASH.JPG", "CLASH_1.JPG"], "same-named batch photos both kept as CLASH + CLASH_1 (got \(c.sorted()))")
         } catch { check(false, "clash copy threw: \(error.localizedDescription)") }
 
+        // 13b) One suffix per PHOTO: a clash on the RAW alone must rename its XMP/JPG along with it,
+        //      otherwise Lightroom hangs the XMP on the older photo of that name.
+        let grpSrc = root.appendingPathComponent("grp_src"), grpDst = root.appendingPathComponent("grp_dst")
+        try? fm.createDirectory(at: grpSrc, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: grpDst, withIntermediateDirectories: true)
+        let gRaw = grpSrc.appendingPathComponent("X.ARW"), gXmp = grpSrc.appendingPathComponent("X.xmp")
+        let gXmp2 = grpSrc.appendingPathComponent("X.ARW.xmp")
+        for u in [gRaw, gXmp, gXmp2] { try? Data("x".utf8).write(to: u) }
+        try? Data("old".utf8).write(to: grpDst.appendingPathComponent("X.ARW"))   // last game's photo, no XMP
+        let gX = PhotoGroup(id: "x", directory: grpSrc, baseName: "X", files: [gRaw], previewURL: gRaw, displayName: "X")
+        var gXs = gX; gXs.sidecars = [gXmp, gXmp2]
+        do {
+            let out = try FileOperationService.copy(groups: [gXs], targetRoot: grpDst, includeSidecars: true,
+                                                    progress: { _, _ in }, isCancelled: { false })
+            let c = Set((try? fm.contentsOfDirectory(atPath: grpDst.path)) ?? [])
+            check(out.files == 3 && c == ["X.ARW", "X_1.ARW", "X_1.xmp", "X_1.ARW.xmp"],
+                  "clash renames RAW + both XMP together (got \(c.sorted()))")
+            check(!c.contains { $0.hasSuffix(".part") }, "no hidden temp files left after copying")
+            check((try? String(contentsOf: grpDst.appendingPathComponent("X.ARW"), encoding: .utf8)) == "old",
+                  "existing photo in the target untouched")
+        } catch { check(false, "group copy threw: \(error.localizedDescription)") }
+
+        // 13c) Sorting like the Finder: saved settings keep their meaning, "Ohne" is new.
+        check(SortField(rawValue: "filename") == .filename && SortField(rawValue: "captureDate") == .captureDate,
+              "saved sort settings still decode")
+        check(SortField(rawValue: "none") == .unsorted && SortField.allCases.map(\.label) == ["Ohne", "Name", "Erstellungsdatum", "Typ", "Grösse"],
+              "sort has Ohne/Name/Erstellungsdatum/Typ/Grösse")
+
+        // 13d) NAS: the share address is the identity — without user name or password.
+        check(FolderIdentity.shareAddress(URL(string: "smb://levin:geheim@NAS.local/Fotos"), fallback: "x") == "smb://nas.local/fotos",
+              "share address drops credentials")
+        check(FolderIdentity.shareAddress(nil, fallback: "Fotos") == "Fotos", "no address → volume name")
+        // An older content-hash session is adopted once under the new id, the old file stays.
+        let legacyID = "fp-SELFTESTNAS-\(UUID().uuidString)-cabc"
+        let netID = "net-selftest-" + UUID().uuidString
+        SessionStore.save(identityID: legacyID, states: ["dcim/img_0001": .init(mark: 4)], scope: [])
+        let adopted = SessionStore.adoptLegacy(prefix: String(legacyID.dropLast(3)), to: netID)
+        check(adopted && SessionStore.load(identityID: netID)["dcim/img_0001"]?.mark == 4, "legacy NAS session adopted")
+        check(!SessionStore.adoptLegacy(prefix: String(legacyID.dropLast(3)), to: netID), "adopted only once")
+        check(SessionStore.load(identityID: legacyID)["dcim/img_0001"]?.mark == 4, "old session file left as it was")
+        SessionStore.delete(identityID: legacyID); SessionStore.delete(identityID: netID)
+
         // 13a) Cloud folders: Google Drive accounts are found, a copy target inside a synced
         //      folder names its provider, local folders and look-alike siblings do not.
         let cloudRoot = root.appendingPathComponent("CloudStorage")

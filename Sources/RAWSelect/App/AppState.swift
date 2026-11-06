@@ -32,7 +32,17 @@ final class AppState: ObservableObject {
     }
     private var anchorID: String?
 
-    @Published var viewMode: ViewMode = .grid { didSet { if viewMode != .grid { prefetchAroundCurrent() }; if viewMode != .loupe { focusMode = false } } }
+    @Published var viewMode: ViewMode = .grid {
+        didSet {
+            if viewMode != .loupe { focusMode = false; browseMode = viewMode }
+            if viewMode == .loupe, oldValue != .loupe {
+                // The loupe shows ONE photo, so only it may be marked: a grid multi-selection
+                // stayed active and 1–7 re-coloured photos that were not on screen.
+                if let c = currentID, selectedIDs.count > 1 { selectSingle(c) }
+                prefetchAroundCurrent()
+            }
+        }
+    }
 
     /// Distraction-free viewing: hides filmstrip, filter bar and status bar.
     @Published var focusMode = false
@@ -73,17 +83,9 @@ final class AppState: ObservableObject {
     /// Pan/zoom state for the loupe, shared with `ZoomableImageView`.
     let zoom = ZoomController()
 
-    /// Side-by-side compare (A|B): left = `currentID`, right = `compareRightID`. Each pane has
-    /// its own zoom controller; keyboard/button zoom is mirrored to both for a synced check.
-    let compareZoomL = ZoomController()
-    let compareZoomR = ZoomController()
-    @Published var compareRightID: String?
-    var compareRightGroup: PhotoGroup? { compareRightID.flatMap { groupByID[$0] } }
-    /// Where compare was entered from (grid or loupe) — Esc/C go back there, not always to the loupe.
-    private var compareReturnMode: ViewMode = .loupe
-    private var mirroringCompare = false
-
-    enum ViewMode: String, CaseIterable { case grid, loupe, compare }
+    enum ViewMode: String, CaseIterable { case grid, list, loupe }
+    /// Grid or list — where Esc/Return from the loupe goes back to.
+    private(set) var browseMode: ViewMode = .grid
 
     struct OperationState {
         var title: String
@@ -159,6 +161,21 @@ final class AppState: ObservableObject {
     func filteredIndex(of id: String) -> Int? { filteredIndexByID[id] }
 
     var selectedGroups: [PhotoGroup] { groups.filter { selectedIDs.contains($0.id) } }
+    /// What an action (copy, open, reveal, trash) works on: the selection, or — when it is
+    /// empty — the photo under the cursor, which is also what 1–7 mark. One rule everywhere.
+    var actionGroups: [PhotoGroup] {
+        let sel = selectedGroups
+        return sel.isEmpty ? (currentGroup.map { [$0] } ?? []) : sel
+    }
+
+    /// The browser window (set by ContentView). Culling keys only act while IT is key — the
+    /// Settings window is a normal titled window that becomes key AND main, so the old
+    /// `keyWindow === mainWindow` test let ⌫ trash a photo from inside the settings.
+    weak var browserWindow: NSWindow?
+    private var browserIsKey: Bool {
+        guard let w = browserWindow else { return NSApp.keyWindow === NSApp.mainWindow }
+        return NSApp.keyWindow === w
+    }
     var selectionCount: Int { selectedIDs.count }
 
     /// Move is only allowed from an internal disk, never from an SD card/external.
@@ -188,11 +205,6 @@ final class AppState: ObservableObject {
         volumeScanner.startWatching(onChange: { [weak self] in self?.refreshVolumes() },
                                     onUnmount: { [weak self] vol in self?.sourceUnmounted(vol) })
         installKeyMonitor()
-        // Compare A|B: keep both panes on the same spot and zoom level.
-        compareZoomL.$viewCenter.dropFirst().sink { [weak self] c in guard let self else { return }; self.mirrorComparePan(from: self.compareZoomL, center: c) }.store(in: &cancellables)
-        compareZoomR.$viewCenter.dropFirst().sink { [weak self] c in guard let self else { return }; self.mirrorComparePan(from: self.compareZoomR, center: c) }.store(in: &cancellables)
-        compareZoomL.$fraction.dropFirst().sink { [weak self] f in guard let self else { return }; self.mirrorCompareZoom(from: self.compareZoomL, fraction: f) }.store(in: &cancellables)
-        compareZoomR.$fraction.dropFirst().sink { [weak self] f in guard let self else { return }; self.mirrorCompareZoom(from: self.compareZoomR, fraction: f) }.store(in: &cancellables)
         lastSortSig = sortSignature
         ThumbnailLoader.shared.setMaxConcurrent(Int(settings.maxParallelJobs))
         // React to settings changes that affect already-loaded content.
@@ -203,11 +215,15 @@ final class AppState: ObservableObject {
         #if DEBUG
         // Screenshot/Demo-Haken (nur Entwicklungs-Build): RS_OPEN_FOLDER=<pfad> öffnet beim Start,
         // RS_APPEARANCE=light|dark erzwingt das Erscheinungsbild, RS_DEMO_MARKS=1 verteilt die
-        // Markierungen 1–9 auf die ersten Bilder, RS_VIEW=loupe|compare|settings|shortcuts wählt die
+        // Markierungen 1–9 auf die ersten Bilder, RS_VIEW=loupe|list|settings|shortcuts wählt die
         // Ansicht. Damit lassen sich Design-Screenshots reproduzierbar erzeugen.
         let env = ProcessInfo.processInfo.environment
         if let a = env["RS_APPEARANCE"], let ap = AppAppearance(rawValue: a) { settings.appearance = ap }
         if let p = env["RS_OPEN_FOLDER"] { open(URL(fileURLWithPath: p)) }
+        else if env["RS_SNAPSHOT"] != nil {
+            // No folder → the empty state is the subject; nothing to wait for.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.applyDemoEnvironment() }
+        }
         #endif
     }
 
@@ -225,9 +241,28 @@ final class AppState: ObservableObject {
         if let off = env["RS_FILTER_OFF"] {
             for n in off.split(separator: ",").compactMap({ Int($0) }) { tagFilter.toggle(n) }
         }
+        // RS_WINDOW_WIDTH=1040 → Fensterbreite für Symbolleisten-Screenshots (schmal/breit).
+        if let w = env["RS_WINDOW_WIDTH"].flatMap(Double.init),
+           let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) {
+            var frame = window.frame
+            frame.size = CGSize(width: w, height: 760)
+            window.setFrame(frame, display: true)
+        }
+        // RS_SNAPSHOT=<datei.png> → das Fenster rendert sich selbst (inkl. Symbolleiste) und beendet
+        // die App; braucht keine Bildschirmaufnahme-Berechtigung.
+        if let out = env["RS_SNAPSHOT"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                if let frameView = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain })?.contentView?.superview,
+                   let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) {
+                    frameView.cacheDisplay(in: frameView.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
+                }
+                NSApp.terminate(nil)
+            }
+        }
         switch env["RS_VIEW"] {
         case "loupe": viewMode = .loupe
-        case "compare": enterCompare()
+        case "list": viewMode = .list
         case "shortcuts": showShortcuts = true
         case "settings":
             // ⌘, als echtes Tastaturereignis – der Settings-Scene-Selector ist je nach macOS-Version anders.
@@ -258,25 +293,20 @@ final class AppState: ObservableObject {
 
     /// Show a volume/folder in the sidebar navigator WITHOUT scanning it. Images
     /// are only loaded when the user double-clicks a (sub)folder.
+    /// Only the tree changes — the open folder stays loaded. Clicking the card (even the active
+    /// one) used to unload it and drop filter and position.
     func browse(_ url: URL) {
-        scanCancelToken?.cancel()
-        scanTask?.cancel()
-        folderGeneration += 1
         browseRoot = url
-        rootURL = nil
-        groups = []
-        refreshDerived()
-        selectedIDs = []
-        currentID = nil
-        isScanning = false
-        statusMessage = "Ordner in der Seitenleiste doppelklicken, um die Bilder zu laden."
+        if rootURL == nil { statusMessage = "Ordner in der Seitenleiste anklicken, um die Bilder zu laden." }
     }
 
     /// The volume holding the open folder was ejected/pulled. Until now nothing reacted: the
     /// list stayed, decodes ran into the void and a running copy failed file by file in silence.
     /// Marks are already persisted outside the card, so nothing is lost — say so and let go.
     private func sourceUnmounted(_ volume: URL) {
-        guard let root = rootURL, root.standardizedFileURL.path.hasPrefix(volume.standardizedFileURL.path) else { return }
+        // Component boundary: ejecting "Untitled" must not end a session on "Untitled 1".
+        let v = volume.standardizedFileURL.path, p = rootURL?.standardizedFileURL.path ?? ""
+        guard rootURL != nil, p == v || p.hasPrefix(v.hasSuffix("/") ? v : v + "/") else { return }
         cancelToken?.cancel()
         scanCancelToken?.cancel(); scanTask?.cancel()
         folderGeneration += 1
@@ -287,7 +317,7 @@ final class AppState: ObservableObject {
         groups = []; refreshDerived()
         selectedIDs = []; currentID = nil; anchorID = nil
         isScanning = false; scanCancelled = false
-        viewMode = .grid; compareRightID = nil
+        viewMode = browseMode
         statusMessage = "Datenträger wurde entfernt" + (n > 0 ? " – \(n) Markierungen sind gespeichert." : ".")
         showToast("Datenträger entfernt – laufende Vorgänge abgebrochen.", kind: .error)
     }
@@ -314,8 +344,6 @@ final class AppState: ObservableObject {
         removedPersistKeys = []
         pendingTrash = nil
         scanCancelled = false
-        if viewMode == .compare { viewMode = .grid }   // the old folder's B would dangle forever
-        compareRightID = nil
         rootURL = url
         tagFilter.reset()  // opening a folder always shows all images found in it
         // The undo snapshots belong to the folder we're leaving. Photo ids are relative to the
@@ -341,6 +369,10 @@ final class AppState: ObservableObject {
         if !url.isOnExternalVolume { settings.rememberRecentFolder(url.standardizedFileURL.path) }
         let identity = FolderIdentity(root: url)
         self.identity = identity
+        // A mark set a moment ago may still be on its way to disk; reading before it lands showed
+        // the photo unmarked — and the next key in this folder would have saved that stale state.
+        drainPendingWrites()
+        if let legacy = identity.legacyPrefix { SessionStore.adoptLegacy(prefix: legacy, to: identity.id) }
         let savedMarks = SessionStore.load(identityID: identity.id)
 
         // Capture scan-relevant settings on the main actor.
@@ -395,7 +427,10 @@ final class AppState: ObservableObject {
             // to be exact, keeping any mark the user already set on a batch photo mid-scan.
             var merged = self.groups
             var known = Set(merged.map { $0.id })
-            for g in found where !known.contains(g.id) { merged.append(g); known.insert(g.id) }
+            // Photos trashed while the scan ran must not come back as ghosts with their old mark.
+            for g in found where !known.contains(g.id) && !self.removedPersistKeys.contains(g.persistKey) {
+                merged.append(g); known.insert(g.id)
+            }
             self.groups = merged
             // Re-attach saved non-destructive edits to their photos.
             var loadedEdits: [String: ImageEdit] = [:]
@@ -429,8 +464,14 @@ final class AppState: ObservableObject {
         groups.append(contentsOf: fresh)
         applySort()
         if currentID == nil, let first = filteredGroups.first { selectSingle(first.id) }
-        ThumbnailLoader.shared.warmTiny(fresh.prefix(PreviewConfig.initialWarmCount).map { $0.previewURL },
-                                        maxPixel: PreviewConfig.tinyMaxPixel)
+        // Warm only until the first screenful is covered. Warming 120 per 200-photo batch queued
+        // tiny decodes for ~60 % of the card, keeping the card busy for half a minute exactly when
+        // culling starts — the visible tiles load lazily anyway.
+        let warmed = groups.count - fresh.count
+        if warmed < PreviewConfig.initialWarmCount {
+            ThumbnailLoader.shared.warmTiny(fresh.prefix(PreviewConfig.initialWarmCount - warmed).map { $0.previewURL },
+                                            maxPixel: PreviewConfig.tinyMaxPixel)
+        }
         statusMessage = "Scanne … \(groups.count) Bilder geladen"
     }
 
@@ -465,6 +506,18 @@ final class AppState: ObservableObject {
         if currentID == nil { currentID = list.first?.id }
         anchorID = list.first?.id
         statusMessage = "\(selectedIDs.count) Bilder ausgewählt."
+    }
+
+    /// Selection made by the list (mouse, ⇧/⌘-click handled by the table itself). A single new
+    /// row becomes the current photo; otherwise the cursor stays inside the selection.
+    func selectFromList(_ ids: Set<String>) {
+        guard ids != selectedIDs else { return }
+        let added = ids.subtracting(selectedIDs)
+        if ids.count == 1, let only = ids.first { selectSingle(only); return }
+        selectedIDs = ids
+        if added.count == 1, let a = added.first { currentID = a; anchorID = a }
+        else if let c = currentID, ids.contains(c) { return }
+        else { currentID = filteredGroups.first { ids.contains($0.id) }?.id }
     }
 
     /// Handles a click coming from the grid/filmstrip with modifier keys.
@@ -507,124 +560,13 @@ final class AppState: ObservableObject {
         if extend { selectRange(to: g.id) } else { selectSingle(g.id) }
     }
 
-    // MARK: Compare (A|B)
-    /// Enters side-by-side compare with the current photo on the left and its neighbour on the
-    /// right. ←/→ then cycle the right pane through the series; Return promotes B to A.
-    func enterCompare() {
-        guard viewMode != .compare, filteredGroups.count >= 2, let cur = currentID, let idx = filteredIndexByID[cur] else { return }
-        // Only A and B are visible, so only they may be marked: 1–9 used to hit the whole grid
-        // selection (e.g. 20 photos) while two were on screen.
-        selectSingle(cur)
-        let rightIdx = idx + 1 < filteredGroups.count ? idx + 1 : idx - 1
-        compareRightID = filteredGroups[rightIdx].id
-        compareReturnMode = viewMode == .grid ? .grid : .loupe
-        viewMode = .compare
-        prefetchCompareRight()
-    }
-
-    func exitCompare() {
-        guard viewMode == .compare else { return }
-        viewMode = compareReturnMode
-        compareRightID = nil
-    }
-
-    private func compareCycleRight(_ delta: Int) {
-        let list = filteredGroups
-        guard let rid = compareRightID, let i = filteredIndexByID[rid], !list.isEmpty else { return }
-        var j = i + delta
-        if let cur = currentID, j >= 0, j < list.count, list[j].id == cur { j += delta }   // B must never be A
-        guard j >= 0, j < list.count else { return }
-        compareRightID = list[j].id
-        prefetchCompareRight()
-    }
-
-    /// Warms the sharp preview of B's neighbours so cycling B never shows a spinner.
-    private func prefetchCompareRight() {
-        guard let rid = compareRightID, let i = filteredIndexByID[rid] else { return }
-        let loader = ThumbnailLoader.shared
-        for d in [1, -1, 2, -2, 3, -3] {
-            let j = i + d
-            guard j >= 0, j < filteredGroups.count else { continue }
-            let url = filteredGroups[j].previewURL
-            let plan = loader.previewPlan(for: url, targetLongEdge: settings.perfectPixels)
-            loader.prefetch(for: url, maxPixel: plan.maxPixel, fullQuality: plan.fullQuality)
-        }
-    }
-
-    /// Marks ONE photo (B in compare) without touching the selection or advancing.
-    private func markPhoto(_ id: String, mark requested: Int) {
-        guard (0...MarkDefinition.count).contains(requested),
-              let i = groups.firstIndex(where: { $0.id == id }) else { return }
-        let mark = (requested != 0 && groups[i].mark == requested) ? 0 : requested   // same key again = off
-        pushUndo([id])
-        groups[i].mark = mark
-        refreshDerived()
-        persistState()
-        statusMessage = mark == 0 ? "Markierung von B entfernt." : "B: Markierung „\(settings.markName(mark))“ gesetzt."
-    }
-
-    /// Compare: pan and zoom of one pane follow the other, so both frames are checked at the
-    /// SAME spot — before, only keyboard zoom was mirrored and each pane panned on its own.
-    private func mirrorComparePan(from src: ZoomController, center: CGPoint) {
-        guard viewMode == .compare, !mirroringCompare else { return }
-        let dst = src === compareZoomL ? compareZoomR : compareZoomL
-        guard dst.zoomed, abs(dst.viewCenter.x - center.x) > 0.002 || abs(dst.viewCenter.y - center.y) > 0.002 else { return }
-        mirroringCompare = true; dst.centerOn(center); mirroringCompare = false
-    }
-    private func mirrorCompareZoom(from src: ZoomController, fraction f: Double) {
-        guard viewMode == .compare, !mirroringCompare, abs((src === compareZoomL ? compareZoomR : compareZoomL).fraction - f) > 0.01 else { return }
-        let dst = src === compareZoomL ? compareZoomR : compareZoomL
-        mirroringCompare = true; dst.setFraction(f); mirroringCompare = false
-    }
-
-    /// Promotes the right photo (B) to the left anchor (A) and moves the old A to the right —
-    /// so you can keep the better frame and keep comparing against the rest.
-    private func compareSwap() {
-        guard let rid = compareRightID, let cur = currentID else { return }
-        selectSingle(rid)
-        compareRightID = cur
-    }
-
-    private func compareZoomBoth(_ action: (ZoomController) -> Void) {
-        action(compareZoomL); action(compareZoomR)
-    }
-
-    /// Keyboard handling while in compare mode (kept separate from the loupe/grid keys).
-    private func handleCompare(_ event: NSEvent) -> Bool {
-        switch event.keyCode {
-        case 123: compareCycleRight(-1); return true          // ← cycle B back
-        case 124: compareCycleRight(1);  return true          // → cycle B forward
-        case 36:  compareSwap();         return true          // Return → promote B to A
-        case 53, 8: exitCompare();       return true          // Esc / C → leave compare
-        case 49:  compareZoomBoth { $0.spaceToggle() }; return true   // Space → both 100%/fit
-        default: break
-        }
-        if let chars = event.charactersIgnoringModifiers, chars.count == 1, let s = chars.unicodeScalars.first {
-            // ⇧ + 1–9 / ⇧0 act on B (the right pane); plain digits on A, as everywhere else.
-            let onB = event.modifierFlags.contains(.shift)
-            switch s.value {
-            case 48, 0xA7, 0xB0:
-                if onB, let rid = compareRightID { markPhoto(rid, mark: 0) } else { setMark(0) }
-                return true
-            case 49...(48 + UInt32(MarkDefinition.count)):
-                if onB, let rid = compareRightID { markPhoto(rid, mark: Int(s.value) - 48) } else { setMark(Int(s.value) - 48) }
-                return true
-            case UInt32(UInt8(ascii: "z")), UInt32(UInt8(ascii: "Z")): compareZoomBoth { $0.toggle100() }; return true
-            case UInt32(UInt8(ascii: "+")), UInt32(UInt8(ascii: "=")): compareZoomBoth { $0.zoomIn() }; return true
-            case UInt32(UInt8(ascii: "-")), UInt32(UInt8(ascii: "_")): compareZoomBoth { $0.zoomOut() }; return true
-            default: break
-            }
-        }
-        return true   // swallow everything else so stray keys can't act on the background
-    }
-
     /// Warms the preview cache around the current photo so stepping through has no
     /// load time. Two tiers: a WIDE soft (instant-size) buffer so even fast scrubbing
     /// always finds a ready — if soft — frame, and a narrower sharp (HD) buffer for
     /// the immediate neighbours. Warms closest-first so the very next image is ready
     /// soonest.
     private func prefetchAroundCurrent() {
-        guard viewMode == .loupe || viewMode == .compare, let id = currentID else { return }
+        guard viewMode == .loupe, let id = currentID else { return }
         let list = filteredGroups
         let count = list.count
         guard let idx = filteredIndexByID[id], count > 1 else { return }
@@ -667,14 +609,14 @@ final class AppState: ObservableObject {
         let ids = Set(filteredGroups.map { $0.id })
         selectedIDs.formIntersection(ids)
         if currentID == nil || !ids.contains(currentID!) {
-            currentID = filteredGroups.first?.id
-            if let c = currentID, selectedIDs.isEmpty { selectedIDs = [c]; anchorID = c }
-        }
-        // Compare: B must still exist, be visible and differ from A — otherwise re-pick or leave.
-        if viewMode == .compare {
-            if filteredGroups.count < 2 || currentID == nil { exitCompare(); return }
-            if compareRightID == nil || filteredIndexByID[compareRightID!] == nil || compareRightID == currentID {
-                compareRightID = neighborID(of: currentID!, direction: 1) ?? neighborID(of: currentID!, direction: -1)
+            // Stay inside what is still selected — otherwise the loupe showed photo X while 1–7
+            // and ⌫ hit the remaining (other) selection.
+            if let keep = filteredGroups.first(where: { selectedIDs.contains($0.id) }) {
+                currentID = keep.id; anchorID = keep.id
+            } else if let first = filteredGroups.first {
+                selectSingle(first.id)
+            } else {
+                currentID = nil
             }
         }
     }
@@ -695,9 +637,8 @@ final class AppState: ObservableObject {
                 ? (n == 1 ? "Markierung entfernt." : "Markierung von \(n) Bildern entfernt.")
                 : (n == 1 ? "Markierung „\(self.settings.markName(mark))“ gesetzt." : "Markierung „\(self.settings.markName(mark))“ für \(n) Bilder gesetzt.")
         }
-        // Auto-advance for fast culling (Settings → Markierungen). Never in compare mode —
-        // there the left anchor must stay put while you cycle the right pane.
-        if settings.autoAdvance && newMark != 0 && single && currentID == before && viewMode != .compare {
+        // Auto-advance for fast culling (Settings → Markierungen).
+        if settings.autoAdvance && newMark != 0 && single && currentID == before {
             step(by: 1, extend: false)
         }
     }
@@ -830,6 +771,14 @@ final class AppState: ObservableObject {
         report(box.value)
     }
 
+    /// Waits for queued writes without adding a new snapshot (before reading a session file).
+    private func drainPendingWrites() {
+        guard let pending = writeChain else { return }
+        let sem = DispatchSemaphore(value: 0)
+        Task.detached { _ = await pending.value; sem.signal() }
+        sem.wait()                     // safe for the same reason as persistStateNow
+    }
+
     /// Flushes any pending marks/edits synchronously. Called when the app is about to quit so
     /// the very last mark before ⌘Q is never lost to an in-flight background write.
     func flushPendingWrites() { persistStateNow() }
@@ -838,16 +787,26 @@ final class AppState: ObservableObject {
     func applySort() {
         let field = settings.sortField
         groups.sort { a, b in
+            func byName() -> Bool { a.id.localizedStandardCompare(b.id) == .orderedAscending }
             switch field {
-            case .filename: return a.id.localizedStandardCompare(b.id) == .orderedAscending
-            case .captureDate:
-                if a.fileDate != b.fileDate { return a.fileDate < b.fileDate }
-                return a.id.localizedStandardCompare(b.id) == .orderedAscending
+            case .unsorted, .filename: return byName()
+            case .captureDate: return a.fileDate != b.fileDate ? a.fileDate < b.fileDate : byName()
+            case .type:
+                let ta = a.typeLabel, tb = b.typeLabel
+                return ta != tb ? ta < tb : byName()
+            case .size: return a.fileSize != b.fileSize ? a.fileSize < b.fileSize : byName()
             }
         }
-        if settings.sortReversed { groups.reverse() }
+        if settings.sortReversed && field != .unsorted { groups.reverse() }
         refreshDerived()
         reconcileSelection()
+    }
+
+    /// One click on a list column header, Finder-style: ascending → descending → no sort.
+    func cycleSort(_ field: SortField) {
+        if settings.sortField != field { settings.sortField = field; settings.sortReversed = false }
+        else if !settings.sortReversed { settings.sortReversed = true }
+        else { settings.sortField = .unsorted; settings.sortReversed = false }
     }
 
     func toggleFullscreen() { NSApp.keyWindow?.toggleFullScreen(nil) }
@@ -857,8 +816,7 @@ final class AppState: ObservableObject {
     /// Shows the whole selection in the Finder, all files selected (one window per folder) — the
     /// RAW of each photo, like "Öffnen mit". No selection: the photo under the cursor.
     func revealCurrent() {
-        let sel = selectedGroups
-        let photos = sel.isEmpty ? (currentGroup.map { [$0] } ?? []) : sel
+        let photos = actionGroups
         guard !photos.isEmpty else { statusMessage = "Kein Bild ausgewählt."; return }
         FinderService.reveal(photos.map { rawURL(for: $0) })
     }
@@ -898,12 +856,16 @@ final class AppState: ObservableObject {
     var openWithButtonTitle: String {
         settings.openWithAppPath.isEmpty ? "Öffnen mit…" : "In \(openWithAppName) öffnen"
     }
+    /// Icon for that button: the chosen app, else an installed Lightroom (the likely pick).
+    var openWithIconPath: String {
+        settings.openWithAppPath.isEmpty ? (OpenWithService.installedLightroomApps.first?.path ?? "") : settings.openWithAppPath
+    }
 
     /// Opens the selected photos' original/RAW files in the chosen external app.
     /// On first use (no app configured yet) it asks which app to use and remembers
     /// it; afterwards the choice is fixed but changeable in Settings.
     func openSelectionInExternalApp() {
-        let sel = selectedGroups
+        let sel = actionGroups
         guard !sel.isEmpty else {
             statusMessage = "Keine Bilder ausgewählt."
             showToast("Keine Bilder ausgewählt.", kind: .error); return
@@ -931,31 +893,47 @@ final class AppState: ObservableObject {
         group.files.first { PhotoTypes.isRaw($0) } ?? group.previewURL
     }
 
-    // MARK: Copy (operates on the selection)
-    func copySelection(includeSidecars: Bool) {
-        let sel = selectedGroups
-        guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
-        let what = includeSidecars ? "Bilder + XMP" : "nur Bilder"
-        guard let target = FinderService.chooseDestination(title: "Ziel für \(sel.count) Bilder (\(what))",
+    // MARK: Copy
+    /// Photos with any colour mark, across the filter — the natural end of a culling session.
+    var markedGroups: [PhotoGroup] { groups.filter { $0.mark != 0 } }
+
+    /// Copies the selection (or the photo under the cursor) into a chosen folder.
+    func copySelection(includeSidecars: Bool = true) {
+        copyToChosenFolder(actionGroups, what: "Auswahl")
+    }
+
+    /// Copies every marked photo WITHOUT touching the selection: setting it to all marked photos
+    /// (incl. filtered-out ones) left a hidden selection behind, so the next digit re-coloured them all.
+    func copyMarked() {
+        copyToChosenFolder(markedGroups, what: "markierte")
+    }
+
+    private func copyToChosenFolder(_ photos: [PhotoGroup], what: String) {
+        guard operation == nil else { return }   // one operation at a time (see runCopy)
+        guard !photos.isEmpty else {
+            statusMessage = what == "markierte" ? "Keine markierten Bilder." : "Keine Bilder ausgewählt."; return
+        }
+        guard let target = FinderService.chooseDestination(title: "Ziel für \(photos.count) \(what == "markierte" ? "markierte " : "")Bilder (inkl. XMP)",
                                                            startAt: settings.lastExportTarget) else { return }
         settings.lastExportTarget = target.path   // same target after every game → offered next time
         // The card is the one place we promise never to write to. Copying INTO it is allowed,
         // but only knowingly — a wrong click in the folder picker must not fill the card up.
         if sourceIsExternal, let src = rootURL, isSameVolume(src, target), !confirmCopyOntoCard() { return }
-        runCopy(target: target, groups: sel, includeSidecars: includeSidecars)
+        runCopy(target: target, groups: photos, includeSidecars: true)
     }
 
-    /// Shown in the copy menu: "An Google Drive senden" (+ folder once one is set).
-    var googleDriveMenuTitle: String {
+    /// Folder name for the copy menu ("An Google Drive senden (Spiel 12)").
+    var googleDriveFolderName: String? {
         let path = settings.googleDriveTarget
-        return path.isEmpty ? "An Google Drive senden…" : "An Google Drive senden (\((path as NSString).lastPathComponent))"
+        return path.isEmpty ? nil : (path as NSString).lastPathComponent
     }
 
-    /// Copies the selection (with XMP) into the Google Drive folder from the settings; the Google
-    /// Drive app uploads it. First use, or the folder is gone: pick one, then remember it.
-    func sendSelectionToGoogleDrive() {
-        let sel = selectedGroups
-        guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
+    /// Copies photos (with XMP) into the Google Drive folder from the settings; the Google Drive
+    /// app uploads them. First use, or the folder is gone: pick one, then remember it.
+    func sendToGoogleDrive(marked: Bool) {
+        guard operation == nil else { return }
+        let photos = marked ? markedGroups : actionGroups
+        guard !photos.isEmpty else { statusMessage = marked ? "Keine markierten Bilder." : "Keine Bilder ausgewählt."; return }
         guard !CloudFolderService.googleDriveAccounts().isEmpty else {
             statusMessage = "Google Drive ist nicht eingerichtet."
             showToast("Google Drive fehlt – Einstellungen → Erweitert.", kind: .error)
@@ -967,17 +945,7 @@ final class AppState: ObservableObject {
             target = chosen.path
             settings.googleDriveTarget = target
         }
-        runCopy(target: URL(fileURLWithPath: target, isDirectory: true), groups: sel, includeSidecars: true)
-    }
-
-    /// Copies every marked photo of the folder (across the current filter) — the natural end of a
-    /// session, without ⌥-solo + ⌘A first.
-    func copyAllMarked() {
-        let marked = groups.filter { $0.mark != 0 }.map { $0.id }
-        guard !marked.isEmpty else { statusMessage = "Keine markierten Bilder."; return }
-        selectedIDs = Set(marked)
-        if let c = currentID, !selectedIDs.contains(c) { currentID = marked.first }
-        copySelection(includeSidecars: true)
+        runCopy(target: URL(fileURLWithPath: target, isDirectory: true), groups: photos, includeSidecars: true)
     }
 
     /// Sidebar "Zuletzt geöffnet": reopen, or forget the entry if the folder is gone.
@@ -1013,7 +981,8 @@ final class AppState: ObservableObject {
     /// to the neighbour so culling keeps flowing. Disabled from SD cards/external volumes —
     /// the source there must never be modified (same rule as Move).
     func trashSelection() {
-        let sel = selectedGroups
+        guard operation == nil else { return }
+        let sel = actionGroups
         guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
         guard !sourceIsExternal else {
             statusMessage = "Löschen ist von SD-Karten/externen Datenträgern deaktiviert – bitte erst kopieren."
@@ -1034,6 +1003,7 @@ final class AppState: ObservableObject {
     func cancelTrash() { pendingTrash = nil }
 
     private func performTrash(_ sel: [PhotoGroup]) {
+        guard operation == nil else { return }
         let anchorPos = currentID.flatMap { filteredIndexByID[$0] }
         let gen = folderGeneration
         let token = CancellationToken()
@@ -1084,8 +1054,11 @@ final class AppState: ObservableObject {
 
     /// Flat copy into the chosen target. Never overwrites: a name clash becomes _1, _2, …
     private func runCopy(target: URL, groups selection: [PhotoGroup], includeSidecars: Bool) {
+        // Two operations at once shared one cancel token and one overlay: "Abbrechen" stopped
+        // only the second, and the first one finishing lifted the key lock under the second.
+        guard operation == nil else { return }
         let snapshot = selection
-        guard !snapshot.isEmpty else { statusMessage = "Keine passenden Bilder für den Export."; return }
+        guard !snapshot.isEmpty else { statusMessage = "Keine Bilder zum Kopieren."; return }
 
         let title = "Kopiere Bilder …"
         let token = CancellationToken()
@@ -1147,7 +1120,7 @@ final class AppState: ObservableObject {
         // ⌘Z undoes the last marking — only in the browser (not Settings/sheets/text fields).
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
            event.charactersIgnoringModifiers == "z",
-           !showExportWizard, !showEditor, operation == nil, NSApp.keyWindow === NSApp.mainWindow,
+           !showExportWizard, !showEditor, operation == nil, browserIsKey,
            !(NSApp.keyWindow?.firstResponder is NSText) {
             undoMark(); return true
         }
@@ -1156,7 +1129,7 @@ final class AppState: ObservableObject {
         // so it never fights a text field or a modal.
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
            event.charactersIgnoringModifiers == "a",
-           !showExportWizard, !showEditor, operation == nil, NSApp.keyWindow === NSApp.mainWindow,
+           !showExportWizard, !showEditor, operation == nil, browserIsKey,
            !(NSApp.keyWindow?.firstResponder is NSText) {
             selectAllFiltered(); return true
         }
@@ -1165,7 +1138,7 @@ final class AppState: ObservableObject {
 
         // While the shortcut cheat sheet is up, only Esc (close) is handled here.
         if showShortcuts {
-            if event.keyCode == 53 { showShortcuts = false; return true }
+            if event.keyCode == 53 || event.characters == "?" { showShortcuts = false; return true }
             return false
         }
 
@@ -1175,7 +1148,7 @@ final class AppState: ObservableObject {
         // `operation`: the progress overlay is an .overlay in the SAME window, not a sheet — so
         // without this, ⌘A + ⌫ during a copy trashed the originals while they were being read.
         guard !showExportWizard, !showEditor, operation == nil, pendingTrash == nil,
-              NSApp.keyWindow === NSApp.mainWindow else { return false }
+              browserIsKey else { return false }
 
         // ⌥1–7 = only this mark, ⌥0 = show all. The filter chips had no keyboard access at all.
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .option,
@@ -1185,8 +1158,6 @@ final class AppState: ObservableObject {
             if n == 0 { tagFilter.setAll(shown: true) } else { tagFilter.solo(n) }
             return true
         }
-
-        if viewMode == .compare { return handleCompare(event) }
 
         let extend = event.modifierFlags.contains(.shift)
 
@@ -1213,7 +1184,7 @@ final class AppState: ObservableObject {
             if viewMode == .loupe && zoom.sliderActive { zoom.setZoomMode(false); return true }
             if viewMode == .loupe && zoom.zoomed { zoom.fit(); return true }
             if focusMode { focusMode = false; return true }
-            if viewMode == .loupe { viewMode = .grid; return true }
+            if viewMode == .loupe { viewMode = browseMode; return true }
         default: break
         }
 
@@ -1226,8 +1197,6 @@ final class AppState: ObservableObject {
                 setMark(0); return true
             case 49...(48 + UInt32(MarkDefinition.count)):  // 1–7 → colour mark
                 setMark(Int(scalar.value) - 48); return true
-            case UInt32(UInt8(ascii: "c")), UInt32(UInt8(ascii: "C")):
-                enterCompare(); return true
             #if DEBUG
             case UInt32(UInt8(ascii: "e")), UInt32(UInt8(ascii: "E")):
                 openEditor(); return true

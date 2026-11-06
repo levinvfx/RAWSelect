@@ -65,12 +65,12 @@ Einstecken wiedererkannt, ohne dass je etwas auf sie geschrieben wird.
 | **Leertaste** | Zoom-Modus mit Slider (Einzelansicht) |
 | **Z** | 100 % / Einpassen |
 | **+ / −** | rein- / rauszoomen |
-| **C** | Vergleich A\|B · ←/→ blättert B · Return macht B zu A · Esc oder C beendet |
+| **⌘⇧C** | alle markierten Bilder kopieren |
 | **I** | EXIF-Infos ein/aus |
 | **F** | Vollbild |
 | **?** | Kürzel-Übersicht in der App |
 | **⌘O** | Ordner öffnen |
-| **⌘R** | aktuelles Bild im Finder zeigen |
+| **⌘R** | Auswahl im Finder zeigen |
 | **⌘,** | Einstellungen |
 
 **Maus:** Klick wählt · ⌘-Klick fügt hinzu/entfernt · ⇧-Klick wählt eine Reihe · Doppelklick
@@ -88,11 +88,17 @@ Pinch zoomt) · ⌥-Klick auf einen Filterchip = nur diese Gruppe · Ordner aufs
   `IMG_0001.ARW.xmp`) hängen automatisch dran und werden mitkopiert.
 - Grosse Ansicht mit Filmstreifen, flackerfreie Vorschau in drei Stufen, Full-Res-Zoom mit
   vorentwickeltem Nachbarbild für Serien.
-- Vergleich A|B mit synchronem Zoom.
-- Sortierung nach Dateiname oder Dateidatum (Symbolleiste), Kachelgrösse per Slider (Statusleiste).
+- Ansichten Raster, Liste und gross (Symbolleiste Mitte). Die Liste sortiert per Klick auf den Spaltenkopf
+  (auf → ab → ohne) nach Name, Erstellungsdatum, Typ oder Grösse; das Sortiermenü daneben macht dasselbe.
+  Kachelgrösse per Slider (Statusleiste).
+- **Teilen:** in der App aus *Bilder öffnen mit* (Standard Lightroom), an Google Drive senden (kopiert in den
+  Ordner von Google Drive für Desktop, RAW Select selbst verbindet sich nicht mit Google), im Finder anzeigen.
+- Der Vergleich A|B ist seit 2.1 entfernt.
 - Statusleiste: Auswahl-/Gesamtzähler, Position, Dateigrösse, Pfad.
 - Kopieren mit Fortschritt und Abbrechen; Fehler (z. B. eine inzwischen fehlende Datei) werden
-  gemeldet, nie verschwiegen. Kopieren **auf** die Quell-Karte fragt nach.
+  gemeldet, nie verschwiegen. Kopieren **auf** die Quell-Karte fragt nach. RAW, JPG und XMP eines Bildes
+  bekommen bei Namenskonflikten dasselbe Suffix; geschrieben wird über eine versteckte Temp-Datei, die erst
+  am Schluss umbenannt wird (nie eine halbe Datei unter echtem Namen).
 - Papierkorb-Ausschuss: nie ein hartes Löschen, immer der macOS-Papierkorb – und nie von SD-Karten.
 - Beschädigte Session-Dateien werden beiseitegelegt statt überschrieben; Speicherfehler (Platte voll)
   werden sichtbar gemeldet; beim Beenden wird die letzte Markierung synchron gesichert.
@@ -158,7 +164,7 @@ Plugin lokal nach `~/Library/Application Support/RAW Select/`.
 - `Models/` – `PhotoGroup`, `AppSettings`, `VolumeInfo`, `ExportModels`
 - `Services/` – `PhotoScanner`, `VolumeScanner`, `ThumbnailLoader`, `SessionStore`,
   `FileOperationService`, `MetadataService`, `UpdateService`
-- `Views/` – Raster, Loupe, Vergleich, Filterleiste, Statusleiste, Sidebar, Settings
+- `Views/` – Raster, Liste, Loupe, Filterleiste, Statusleiste, Sidebar, Settings
 - `Utilities/` – `Constants`, `FolderIdentity`, `CancellationToken`
 - `server/` – Download-Seite (`site/`), Download-Weiche `download.php`, stillgelegter Ping `ping.php` (antwortet 204, speichert nichts), Auswertung der Downloads im Portfolio-Admin unter Insights,
   nginx-Snippet (Aufbau + Deploy-Regeln in `server/README.md`)

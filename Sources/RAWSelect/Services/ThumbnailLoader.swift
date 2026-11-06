@@ -179,6 +179,10 @@ final class ThumbnailLoader {
         if let developed = await decodeOnce(url: url, maxPixel: maxPixel, fullQuality: true) {
             return developed
         }
+        // decodeOnce also returns nil when CANCELLED (photo changed while zoomed). Falling through
+        // then read the whole RAW from the card and decoded its embedded JPEG for nothing — on
+        // every skipped photo — and a late fallback image could be stored as the "sharp" one.
+        if Task.isCancelled { return nil }
         // 2) The OS has no codec for this RAW (e.g. Sony A7 V). ImageIO only surfaces a
         //    tiny embedded thumbnail, but the file usually still contains a full-res
         //    embedded JPEG — extract the largest one ourselves.
@@ -187,6 +191,7 @@ final class ThumbnailLoader {
         }).value {
             return embedded
         }
+        if Task.isCancelled { return nil }
         // 3) Last resort: whatever ImageIO offers as embedded preview.
         return await decodeOnce(url: url, maxPixel: maxPixel, fullQuality: false)
     }

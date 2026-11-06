@@ -13,16 +13,22 @@ struct ThumbnailCell: View {
     @State private var image: NSImage?
     @State private var isSharp = false
 
-    private var borderColor: Color { isSelected ? .accentColor : .clear }
+    /// The photo under the cursor is what 1–7 hit — it keeps its frame even when nothing is selected.
+    private var borderColor: Color { isSelected || isCurrent ? .accentColor : .clear }
 
-    private var typeText: String? {
-        let raw = group.files.contains { PhotoTypes.isRaw($0) }
-        let jpg = group.files.contains { ["jpg", "jpeg"].contains($0.pathExtension.lowercased()) }
-        if raw && jpg { return "RAW+JPG" }
-        if raw { return "RAW" }
-        if jpg { return "JPG" }
-        return group.previewURL.pathExtension.uppercased()
+    private var sharpPx: Int { Int(side * PreviewConfig.gridSharpFactor) }
+
+    /// Whatever the cache holds right now, read synchronously: a cell that is rebuilt (back from
+    /// the loupe, scrolling, filter change) shows its picture in the very first frame instead of
+    /// one empty frame, then a soft one — the grid used to blink on every Esc.
+    private var shownImage: NSImage? {
+        if let image { return image }
+        let loader = ThumbnailLoader.shared
+        return loader.cached(for: group.previewURL, maxPixel: sharpPx)
+            ?? loader.cached(for: group.previewURL, maxPixel: PreviewConfig.tinyMaxPixel)
     }
+
+    private var typeText: String? { group.typeLabel }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -30,7 +36,7 @@ struct ThumbnailCell: View {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(nsColor: .quaternaryLabelColor).opacity(0.35))
 
-                if let image {
+                if let image = shownImage {
                     // Always show whatever we have (tiny fallback or sharp) – no
                     // spinner, so fast scrolling never flashes a loading state.
                     Image(nsImage: image)
@@ -61,9 +67,13 @@ struct ThumbnailCell: View {
                     .frame(maxWidth: side)
             }
         }
-        .task(id: group.id) {
+        // The size is part of the id: after changing the tile size the sharp tier is re-fetched.
+        .task(id: "\(group.id)|\(sharpPx)") {
             let loader = ThumbnailLoader.shared
-            let sharpPx = Int(side * PreviewConfig.gridSharpFactor)
+            let sharpPx = self.sharpPx
+            if let ready = loader.cached(for: group.previewURL, maxPixel: sharpPx), sharpPx > PreviewConfig.tinyMaxPixel {
+                image = ready; isSharp = true; return
+            }
             if let tiny = await loader.thumbnail(for: group.previewURL, maxPixel: PreviewConfig.tinyMaxPixel) {
                 if !isSharp { image = tiny }
             }

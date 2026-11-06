@@ -36,6 +36,16 @@ struct PhotoGroup: Identifiable, Hashable {
     var fileDate: Date = .distantPast
     var fileSize: Int = 0
 
+    /// "RAW+JPG", "RAW", "JPG" … — badge in the grid, column "Typ" in the list.
+    var typeLabel: String {
+        let raw = files.contains { PhotoTypes.isRaw($0) }
+        let jpg = files.contains { ["jpg", "jpeg"].contains($0.pathExtension.lowercased()) }
+        if raw && jpg { return "RAW+JPG" }
+        if raw { return "RAW" }
+        if jpg { return "JPG" }
+        return previewURL.pathExtension.uppercased()
+    }
+
     var isRaw: Bool { files.contains(where: { PhotoTypes.isRaw($0) }) }
     var hasState: Bool { mark != 0 }
 

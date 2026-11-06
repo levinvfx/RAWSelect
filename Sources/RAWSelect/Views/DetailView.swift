@@ -45,21 +45,64 @@ struct DetailView: View {
         if app.isScanning && app.groups.isEmpty {
             ScanningView(name: app.rootURL?.lastPathComponent ?? "")
         } else if app.filteredGroups.isEmpty {
-            ContentUnavailableView(
-                app.groups.isEmpty ? (app.scanCancelled ? "Scan abgebrochen" : "Keine Bilder gefunden") : "Nichts in diesem Filter",
-                systemImage: app.scanCancelled && app.groups.isEmpty ? "stop.circle" : "photo",
-                description: Text(app.groups.isEmpty
+            ContentUnavailableView {
+                Label(app.groups.isEmpty ? (app.scanCancelled ? "Scan abgebrochen" : "Keine Bilder gefunden") : "Nichts in diesem Filter",
+                      systemImage: app.scanCancelled && app.groups.isEmpty ? "stop.circle" : "photo")
+            } description: {
+                Text(app.groups.isEmpty
                     ? (app.scanCancelled ? "Der Scan wurde abgebrochen, bevor Bilder geladen waren. Ordner erneut öffnen, um fortzufahren."
                                          : "In diesem Ordner wurden keine unterstützten Bilder gefunden.")
                     : "Für diesen Filter gibt es keine Bilder.")
-            )
+            } actions: {
+                if !app.groups.isEmpty {
+                    Button("Alle zeigen (⌥0)") { app.tagFilter.setAll(shown: true) }
+                }
+            }
         } else {
             switch app.viewMode {
             case .grid: ThumbnailGridView()
+            case .list: PhotoListView()
             case .loupe: LoupeView()
-            case .compare: CompareView()
             }
         }
+    }
+
+    /// Raster · Liste · grosse Ansicht — the same three ways of looking as in the Finder.
+    private var viewPicker: some View {
+        Picker("Ansicht", selection: $app.viewMode) {
+            Label("Raster", systemImage: "square.grid.2x2").tag(AppState.ViewMode.grid)
+            Label("Liste", systemImage: "list.bullet").tag(AppState.ViewMode.list)
+            Label("Grosse Ansicht", systemImage: "photo").tag(AppState.ViewMode.loupe)
+        }
+        .labelStyle(.iconOnly)
+        .pickerStyle(.segmented)
+        .fixedSize()
+        .help("Raster · Liste · grosse Ansicht (Return)")
+    }
+
+    /// Finder-style sort menu next to the view switch. The list's column headers set the same
+    /// order (click: ascending → descending → none).
+    private var sortMenu: some View {
+        Menu {
+            Picker("Sortieren nach", selection: $settings.sortField) {
+                ForEach(SortField.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.inline)
+            Divider()
+            Picker("Reihenfolge", selection: $settings.sortReversed) {
+                Text("Aufsteigend").tag(false)
+                Text("Absteigend").tag(true)
+            }
+            .pickerStyle(.inline)
+            .disabled(settings.sortField == .unsorted)
+        } label: {
+            Label("Sortieren", systemImage: "arrow.up.arrow.down")
+        }
+        .menuStyle(.button)
+        .fixedSize()
+        .help(settings.sortField == .unsorted
+              ? "Sortieren: ohne (Reihenfolge der Karte)"
+              : "Sortieren: \(settings.sortField.label), \(settings.sortReversed ? "absteigend" : "aufsteigend")")
     }
 
     @ToolbarContentBuilder
@@ -73,93 +116,57 @@ struct DetailView: View {
             .help("Ordner öffnen (⌘O)")
         }
 
+        // Centred over the photos: how to look at them, and in which order.
         ToolbarItem(placement: .principal) {
-            // Third segment = compare, so the control always reflects the real mode.
-            Picker("Ansicht", selection: Binding(
-                get: { app.viewMode },
-                set: { mode in
-                    if mode == .compare { app.enterCompare() }
-                    else { if app.viewMode == .compare { app.exitCompare() }; app.viewMode = mode }
-                }
-            )) {
-                Image(systemName: "square.grid.2x2").tag(AppState.ViewMode.grid)
-                Image(systemName: "photo").tag(AppState.ViewMode.loupe)
-                Image(systemName: "rectangle.split.2x1").tag(AppState.ViewMode.compare)
+            HStack(spacing: 14) {
+                viewPicker
+                sortMenu
             }
-            .pickerStyle(.segmented)
-            .help("Raster · grosse Vorschau · Vergleich A|B (C)")
         }
 
-        ToolbarItemGroup(placement: .automatic) {
-            Menu {
-                Picker("Sortieren nach", selection: $settings.sortField) {
-                    ForEach(SortField.allCases) { Text($0.label).tag($0) }
-                }
-                Toggle("Umgekehrt", isOn: $settings.sortReversed)
-            } label: {
-                Label("Sortieren", systemImage: "arrow.up.arrow.down")
-            }
-            .help("Sortierreihenfolge")
-
-            Button {
-                app.toggleInfo()
-            } label: {
-                Label("Info", systemImage: app.showInfo ? "info.circle.fill" : "info.circle")
-            }
-            .help("EXIF-Infos ein/aus (I)")
-
+        // Right-aligned: where the photos go next. Since macOS 26 trailing items follow the centre
+        // group directly; the flexible spacer pushes them to the window edge again.
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.flexible, placement: .primaryAction)
         }
-
-        // The one action that ends a culling session: copy the selection (always with XMP).
-        // A click copies as before; the arrow also offers sending it to Google Drive.
-        ToolbarItem(placement: .primaryAction) {
-            Menu {
-                Button {
-                    app.copySelection(includeSidecars: true)
-                } label: {
-                    Label("In Zielordner kopieren…", systemImage: "folder")
-                }
-                Button {
-                    app.sendSelectionToGoogleDrive()
-                } label: {
-                    Label(app.googleDriveMenuTitle, systemImage: "icloud.and.arrow.up")
-                }
-            } label: {
-                Label("Auswahl kopieren…", systemImage: "doc.on.doc")
-            } primaryAction: {
-                app.copySelection(includeSidecars: true)
-            }
-            .menuStyle(.button)
-            .buttonStyle(.borderedProminent)
-            .tint(.accentColor)
-            .disabled(app.selectionCount == 0)
-            .help("Ausgewählte Originale (inkl. XMP) kopieren – Pfeil: an Google Drive senden")
-        }
-
-        // Combined "Öffnen" menu: open the selection in the external app
-        // (Lightroom / chosen app) or reveal it in the Finder. Merges the two former
-        // separate toolbar buttons into one dropdown.
-        ToolbarItem(placement: .primaryAction) {
+        ToolbarItemGroup(placement: .primaryAction) {
+            // Teilen: the app from Settings → "Bilder öffnen mit" (Lightroom by default), Google
+            // Drive, the Finder — the three places the selection goes next. Nothing else.
             Menu {
                 Button {
                     app.openSelectionInExternalApp()
                 } label: {
-                    Label(app.openWithButtonTitle, systemImage: "arrow.up.right.square")
+                    Label { Text(app.openWithButtonTitle) } icon: {
+                        AppIcon(path: app.openWithIconPath, fallback: "arrow.up.right.square")
+                    }
                 }
-                .disabled(app.selectionCount == 0)
-
+                Button {
+                    app.sendToGoogleDrive(marked: false)
+                } label: {
+                    Label { Text(driveTitle) } icon: {
+                        AppIcon(path: AppIcon.googleDrivePath, fallback: "icloud.and.arrow.up")
+                    }
+                }
                 Button {
                     app.revealCurrent()
                 } label: {
-                    Label("Im Finder anzeigen", systemImage: "arrow.up.forward.app")
+                    Label { Text("Im Finder anzeigen") } icon: { AppIcon(path: AppIcon.finderPath, fallback: "folder") }
                 }
-                .disabled(app.currentGroup == nil)
             } label: {
-                Label("Öffnen", systemImage: "arrow.up.right.square")
+                Label("Teilen", systemImage: "square.and.arrow.up")
             }
             .menuStyle(.button)
-            .disabled(app.currentGroup == nil)
-            .help("In App öffnen oder im Finder anzeigen")
+            .disabled(app.currentGroup == nil || app.operation != nil)
+            .help("In Lightroom öffnen, an Google Drive senden oder im Finder anzeigen")
+
+            // Copy: pick a folder, copy (with XMP) — no menu, the one plain action.
+            Button {
+                app.copySelection()
+            } label: {
+                Label("Kopieren", systemImage: "doc.on.doc")
+            }
+            .disabled(app.currentGroup == nil || app.operation != nil)
+            .help("Auswahl (inkl. XMP) in einen Ordner kopieren · alle markierten: ⌘⇧C. Die Farbmarkierungen bleiben in RAW Select.")
         }
 
         #if DEBUG
@@ -181,8 +188,39 @@ struct DetailView: View {
                 .help("Export JPEG mit Lightroom Classic")
             }
         #endif
+
+        // A little air between the last button and the window edge.
+        if #available(macOS 26.0, *) {
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+        }
     }
 
+    private var driveTitle: String {
+        app.googleDriveFolderName.map { "An Google Drive senden (\($0))" } ?? "An Google Drive senden…"
+    }
+
+}
+
+/// A real app icon (Lightroom, Google Drive, Finder) for the Teilen menu, so each target is
+/// recognisable at a glance. Sized like the icons in Finder's own "Öffnen mit" menu (16 pt): the
+/// NSImage itself carries the size, because a menu row takes the image size as-is — a full-size
+/// icon made every row twice as tall. Falls back to an SF Symbol when the app is not installed.
+private struct AppIcon: View {
+    static let finderPath = "/System/Library/CoreServices/Finder.app"
+    static let googleDrivePath = "/Applications/Google Drive.app"
+    let path: String
+    let fallback: String
+    var size: CGFloat = 16
+
+    var body: some View {
+        if !path.isEmpty, FileManager.default.fileExists(atPath: path),
+           let icon = NSWorkspace.shared.icon(forFile: path).copy() as? NSImage {
+            let _ = icon.size = NSSize(width: size, height: size)
+            Image(nsImage: icon)
+        } else {
+            Image(systemName: fallback)
+        }
+    }
 }
 
 private struct EmptyStateView: View {
@@ -193,9 +231,10 @@ private struct EmptyStateView: View {
             Image(systemName: "photo.stack")
                 .font(.system(size: 52, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("Kein Ordner geladen")
+            Text("Ordner auswählen")
                 .font(.title2.weight(.semibold))
-            Text("Wähle links einen Datenträger, navigiere durch die Ordner und **doppelklicke** einen Ordner, um seine Bilder zu laden.")
+            // No volume suggested: a card or a 2-TB disk opened as a whole can be far too much.
+            Text("Wähle links auf einer Karte den Ordner mit den Bildern oder öffne einen Ordner.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 380)

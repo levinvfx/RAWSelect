@@ -13,6 +13,7 @@ struct ContentView: View {
         }
         .preferredColorScheme(settings.systemColorScheme)
         .onAppear { app.start() }
+        .background(WindowReader { app.browserWindow = $0 })
         // Drag a folder onto the window to load it.
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
@@ -49,6 +50,25 @@ struct ContentView: View {
             Button("Abbrechen", role: .cancel) { app.cancelTrash() }
         } message: {
             Text("Die Dateien (inkl. XMP) landen im macOS-Papierkorb und können dort wiederhergestellt werden.")
+        }
+    }
+}
+
+/// Hands the hosting NSWindow to AppState, so culling keys can tell the browser window apart
+/// from the Settings window (both are titled windows that become key and main).
+private struct WindowReader: NSViewRepresentable {
+    let onWindow: (NSWindow?) -> Void
+    func makeNSView(context: Context) -> NSView { ReaderView(onWindow: onWindow) }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class ReaderView: NSView {
+        let onWindow: (NSWindow?) -> Void
+        init(onWindow: @escaping (NSWindow?) -> Void) { self.onWindow = onWindow; super.init(frame: .zero) }
+        required init?(coder: NSCoder) { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            let w = window
+            DispatchQueue.main.async { self.onWindow(w) }
         }
     }
 }

@@ -32,8 +32,10 @@ struct FilterBar: View {
 
     private var toggleAllButton: some View {
         let allShown = app.tagFilter.allShown
+        // "Alle" only ever brings everything back. Toggling it hid EVERY photo, leaving an empty
+        // view with no way out but the same button.
         return Button {
-            app.tagFilter.setAll(shown: !allShown)
+            app.tagFilter.setAll(shown: true)
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: allShown ? "checkmark.circle.fill" : "circle")
@@ -49,7 +51,8 @@ struct FilterBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(allShown ? "Alle abwählen" : "Alle anwählen")
+        .disabled(allShown)
+        .help(allShown ? "Alle Bilder werden gezeigt" : "Alle zeigen (⌥0)")
     }
 
     private func chip(bucket: Int) -> some View {

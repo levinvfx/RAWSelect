@@ -8,25 +8,26 @@ struct ShortcutsSheet: View {
     private let rows: [(String, String)] = [
         ("1 – 7",      "Farbmarkierung setzen · nochmals: entfernen"),
         ("0  /  §",    "Markierung entfernen"),
-        ("⌫",          "In den Papierkorb (Ausschuss)"),
         ("⌘Z",         "Markierung rückgängig"),
+        ("⌫",          "In den Papierkorb (nur interne Platte, nicht von der Karte)"),
         ("← / →",      "Vorheriges / nächstes Bild"),
-        ("↑ / ↓",      "Eine Rasterzeile hoch / runter"),
-        ("⇧ ← / →",    "Auswahl erweitern"),
-        ("Home / End", "Erstes / letztes Bild"),
+        ("↑ / ↓",      "Rasterzeile bzw. Listenzeile hoch / runter"),
+        ("⇧ ← / →",    "Auswahl erweitern · ⇧-Klick / ⌘-Klick mit der Maus"),
+        ("⌘A",         "Alle Bilder im Filter auswählen"),
+        ("fn ← / fn →","Erstes / letztes Bild"),
         ("⇥ / ⇧⇥",     "Nächstes / vorheriges unmarkiertes Bild"),
         ("Return",     "Grosse Ansicht · dann Fokusmodus"),
-        ("Esc",        "Zoom zurück · Ansicht verlassen"),
-        ("Leertaste",  "Zoom-Modus + Slider ein/aus (Loupe)"),
-        ("Z",          "100% / Einpassen (in der Loupe)"),
-        ("+ / −",      "Rein- / rauszoomen (in der Loupe)"),
-        ("C",          "Vergleichen (A|B) · ←/→ rechtes Bild · ↩ B→A"),
-        ("⇧1 – 7",     "Im Vergleich: B markieren"),
+        ("Esc",        "Zoom zurück · grosse Ansicht verlassen"),
+        ("Leertaste",  "Zoom-Modus + Slider ein/aus (grosse Ansicht)"),
+        ("Z",          "100 % / Einpassen (grosse Ansicht)"),
+        ("+ / −",      "Rein- / rauszoomen (grosse Ansicht)"),
         ("⌥1 – 7 / ⌥0","Nur diese Markierung zeigen / alle zeigen"),
-        ("⌘⇧C",        "Alle markierten Bilder kopieren…"),
+        ("⌘⇧C",        "Markierte Bilder kopieren…"),
+        ("⌘R",         "Im Finder anzeigen"),
+        ("⌘O",         "Ordner öffnen…"),
         ("I",          "EXIF-Infos ein/aus"),
         ("F",          "Vollbild"),
-        ("?",          "Diese Übersicht ein/aus")
+        ("? / Esc",    "Diese Übersicht öffnen / schliessen")
     ]
     #if DEBUG
     private let devRows: [(String, String)] = [("E", "Bild bearbeiten (nur Entwicklungs-Build)")]

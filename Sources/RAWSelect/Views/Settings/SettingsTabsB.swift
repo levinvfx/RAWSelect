@@ -12,10 +12,15 @@ struct MarkSettingsTab: View {
                               help: "Perfekt fürs schnelle Sichten.",
                               isOn: $settings.autoAdvance)
             }
-            Section("Markierungen · Tasten 1–7") {
+            Section {
                 ForEach($settings.marks) { $mark in
                     MarkEditorRow(mark: $mark)
                 }
+            } header: {
+                Text("Markierungen · Tasten 1–7")
+            } footer: {
+                Text("Die Farben bleiben in RAW Select gespeichert, nie auf der Karte. Beim Kopieren kommen XMP-Dateien mit, die Farben nicht.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

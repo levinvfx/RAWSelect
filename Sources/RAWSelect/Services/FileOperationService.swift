@@ -44,20 +44,25 @@ struct FileOperationService {
             if isCancelled() { cancelled = true; break }
             var didProcessAny = false
 
+            // ONE suffix for the whole photo: RAW, JPG and XMP must keep matching names. Picked
+            // per file, a clash on the RAW alone made it DSC01234_1.ARW while its XMP stayed
+            // DSC01234.xmp — and Lightroom hung the settings on the OLD photo of that name.
+            let present = filesToProcess(group).filter { fm.fileExists(atPath: $0.path) }
+            let names = groupDestinationNames(present.map { $0.lastPathComponent }, base: group.baseName,
+                                              in: targetRoot, avoiding: used)
+
             for file in filesToProcess(group) {
                 if isCancelled() { cancelled = true; break }
-                guard fm.fileExists(atPath: file.path) else {
+                guard let name = names[file.lastPathComponent], fm.fileExists(atPath: file.path) else {
                     // A vanished source is a FAILURE, not a silent skip — otherwise the report
                     // says "done" while photos are missing at the destination.
                     failures.append("\(file.lastPathComponent): Quelldatei nicht gefunden")
                     completed += 1; progress(completed, totalFiles)
                     continue
                 }
-
-                // Name clash on disk OR with a file written earlier in this batch → _1, _2, …
-                let destination = uniqueDestination(for: file.lastPathComponent, in: targetRoot, avoiding: used)
+                let destination = targetRoot.appendingPathComponent(name)
                 do {
-                    try fm.copyItem(at: file, to: destination)
+                    try copyAtomically(file, to: destination)
                     used.insert(destination.path)
                     fileCount += 1
                     completed += 1
@@ -125,6 +130,50 @@ struct FileOperationService {
         }
         return TrashOutcome(photos: photoCount, files: fileCount, failures: failures,
                             trashedGroupIDs: trashedGroupIDs, trashedURLs: trashedURLs, cancelled: cancelled)
+    }
+
+    /// Copies into a hidden temp file next to the target and only then renames it into place
+    /// (never replacing an existing file). A copy cut off by ⌘Q, a full disk or a pulled card
+    /// leaves at most a hidden ".part" — never a truncated photo under its real name, which a
+    /// later import would take for the original.
+    static func copyAtomically(_ source: URL, to destination: URL) throws {
+        let fm = FileManager.default
+        let temp = destination.deletingLastPathComponent()
+            .appendingPathComponent(".rawselect-\(UUID().uuidString).part")
+        do {
+            try fm.copyItem(at: source, to: temp)
+            guard renamex_np(temp.path, destination.path, UInt32(RENAME_EXCL)) == 0 else {
+                throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+            }
+        } catch {
+            try? fm.removeItem(at: temp)
+            throw error
+        }
+    }
+
+    /// Destination names for one photo's files with a SHARED suffix: the first n (0 = original
+    /// names, then _1, _2 …) where every name is free on disk and unused in this run.
+    /// "DSC01234.ARW" + "DSC01234.ARW.xmp" → "DSC01234_1.ARW" + "DSC01234_1.ARW.xmp".
+    static func groupDestinationNames(_ filenames: [String], base: String, in directory: URL,
+                                      avoiding used: Set<String> = []) -> [String: String] {
+        func suffixed(_ name: String, _ n: Int) -> String {
+            guard n > 0 else { return name }
+            // Insert after the photo's base name; files not starting with it get it before the first dot.
+            let cut = (!base.isEmpty && name.lowercased().hasPrefix(base.lowercased()))
+                ? name.index(name.startIndex, offsetBy: base.count)
+                : (name.firstIndex(of: ".") ?? name.endIndex)
+            return String(name[..<cut]) + "_\(n)" + String(name[cut...])
+        }
+        var n = 0
+        while true {
+            let names = Dictionary(filenames.map { ($0, suffixed($0, n)) }, uniquingKeysWith: { a, _ in a })
+            let allFree = names.values.allSatisfy { name in
+                let path = directory.appendingPathComponent(name).path
+                return !FileManager.default.fileExists(atPath: path) && !used.contains(path)
+            }
+            if allFree { return names }
+            n += 1
+        }
     }
 
     /// Returns a non-colliding destination URL, appending _1, _2, … if needed.

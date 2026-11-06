@@ -4,7 +4,11 @@
 **V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
 Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
 
-## 2.1 in Arbeit, nur lokal (06.11.2026)
+## 2.1 veröffentlicht (06.11.2026)
+Levin: «ist alles gut? prüfe kurz, dann 2.1 auf GitHub pushen, veröffentlichen, Webseite anpassen». Website-Texte
+(Vergleich raus, Liste + Teilen rein, ⌘⇧C statt C), Datenschutz Abschnitt 2 (Google Drive über die Google-App), README.
+
+## 2.1 Entwicklung (06.11.2026)
 Levin: «2.1 nur lokal auf meiner App, noch nicht auf GitHub». Version 2.1 in `Constants.swift` + `build_app.sh`,
 App liegt in `/Applications` (ad-hoc signiert). Nichts gepusht, kein Release, Website unverändert.
 - **Google Drive als Kopierziel (ohne Login in RAW Select):** Google-Drive-API kann nicht anonym hochladen, auch nicht
@@ -22,6 +26,36 @@ App liegt in `/Applications` (ad-hoc signiert). Nichts gepusht, kein Release, We
   «2.1» war 2.0-Code mit 2.1-Info.plist). Jetzt eigener `--scratch-path` pro Architektur, Pfad per `--show-bin-path`,
   Abbruch wenn ein Slice nicht die erwartete Architektur hat. Release 2.0 ist nicht betroffen (gebaut 21.10.).
 - Offen: Mit installierter Drive-App und einem echten geteilten Ordner testen (Levin hat sie noch nicht).
+
+## 2.1 Sprint nach Audit (06.11.2026)
+Drei Prüfer (Performance, Fehler, Bedienung), Funde am Code nachgeprüft, alles umgesetzt ausser XMP-Farblabels.
+- **Kopieren sicher:** ein Suffix pro Bild (RAW/JPG/XMP bleiben zusammen, vorher hing das XMP am alten Bild),
+  Kopie über versteckte `.rawselect-…part` + exklusives Umbenennen (nie halbe Datei unter echtem Namen),
+  ⌘Q während Kopie fragt nach, nur eine Operation gleichzeitig, «Markierte kopieren» ändert die Auswahl nicht mehr.
+- **Robust:** Auswerfen von «Untitled» beendet nicht mehr «Untitled 1», Culling-Tasten nur im Browserfenster
+  (vorher wirkte ⌫ aus den Einstellungen), im Scan gelöschte Bilder kehren nicht zurück, Ordnerwechsel wartet
+  auf offene Speichervorgänge, Filterwechsel bleibt in der Auswahl, unlesbare Session wird nie überschrieben.
+  Leere Auswahl = aktuelles Bild für alle Aktionen (`actionGroups`).
+- **Tempo/Speicher:** abgebrochene Zoom-Decodes lesen das RAW nicht mehr fertig, Zoom-Entwicklungen werden ohne
+  Zoom freigegeben, Raster ohne Flackern (synchroner Cache-Read), Vorwärmen nur erster Bildschirm, Scanner holt
+  Grösse/Datum gebündelt.
+- **Oberfläche:** Vergleich A|B entfernt (Levin). Neu Listenansicht (Table, Spalten Name/Erstellt/Geändert/Typ/
+  Grösse; Spaltenkopf: auf → ab → ohne). Symbolleiste: Mitte Raster|Liste|Gross + Sortiermenü wie Finder
+  (Ohne/Name/Erstellt/Geändert), rechts «Öffnen in» (Lightroom/Finder) und «Kopieren» (Markierte/Auswahl,
+  Ordner/Google Drive). Ab macOS 26 braucht die rechte Gruppe einen `ToolbarSpacer(.flexible)`.
+  Leere Ansicht schlägt keine Karte vor (Levin: 2-TB-Platte wäre zu viel), Ordner ohne Unterordner lädt mit einem Klick, Klick auf die Karte
+  entlädt den offenen Ordner nicht mehr, «Alle»-Filter blendet nie alles aus, Kürzel-Übersicht korrigiert.
+- **Nachjustiert (Levin):** «Teilen» (square.and.arrow.up) = 1. App aus «Bilder öffnen mit», 2. An Google Drive
+  senden, 3. Im Finder anzeigen – sonst nichts; App-Symbole 16 pt wie Finders «Öffnen mit» (NSImage.size setzen,
+  sonst werden Menüzeilen hoch). «Kopieren» = einfacher Knopf ohne Dropdown (Auswahl → Ordner wählen → kopieren),
+  Markierte weiter mit ⌘⇧C. Liste/Sortierung: Name, Erstellungsdatum, Typ, Grösse (Geändert entfernt).
+- **NAS:** Kennung bei Netzlaufwerken ohne UUID/Datum = Freigabe-Adresse (`net-smb://…`), alte Session wird
+  einmal übernommen (`SessionStore.adoptLegacy`). Nicht an einem echten NAS geprüft.
+- Lightroom wird jetzt gefunden (Adobe installiert in Unterordner; Suche per Bundle-ID).
+- Bewusst nicht: Farbmarkierungen ins XMP (Levin: nur Hinweistext), die übrigen Streich-Kandidaten
+  (Cache leeren, Vorschau-Modus, Tabs zusammenlegen, Pfad in Statusleiste) – nicht entschieden.
+- Screenshot-Haken (DEBUG): `RS_WINDOW_WIDTH`, `RS_SNAPSHOT=<png>` (Fenster rendert sich selbst, keine
+  Bildschirmaufnahme-Berechtigung nötig), `RS_VIEW=list`.
   Datenschutz unverändert richtig: RAW Select selbst verbindet sich weiterhin nur zur Update-Prüfung.
 
 ## Nur noch Downloads zählen, Nutzungszählung entfernt (21.10.2026)

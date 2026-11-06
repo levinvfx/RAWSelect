@@ -3,9 +3,19 @@ import Combine
 
 // MARK: - Enums shown in the (reduced) settings UI
 
-enum SortField: String, CaseIterable, Identifiable { case filename, captureDate
+/// Sort order of the photo list, as in the Finder: "Ohne" keeps the card's own order (folder, then
+/// file name), the others sort by that list column. Raw values stay stable for saved settings.
+enum SortField: String, CaseIterable, Identifiable { case unsorted = "none", filename, captureDate, type, size
     var id: String { rawValue }
-    var label: String { switch self { case .filename: return "Dateiname"; case .captureDate: return "Dateidatum" } }
+    var label: String {
+        switch self {
+        case .unsorted: return "Ohne"
+        case .filename: return "Name"
+        case .captureDate: return "Erstellungsdatum"
+        case .type: return "Typ"
+        case .size: return "Grösse"
+        }
+    }
 }
 enum PreviewMode: String, CaseIterable, Identifiable { case fast, balanced, quality
     var id: String { rawValue }

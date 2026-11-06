@@ -5,20 +5,39 @@ import UniformTypeIdentifiers
 /// The chosen app is stored as a path in AppSettings and can be changed anytime.
 enum OpenWithService {
 
-    /// Installed apps whose name contains "Lightroom" (Classic + cloud), offered as
-    /// quick picks in Settings. Scans the standard Applications folders.
+    /// Installed Lightroom apps (Classic first, then the cloud version), offered as quick picks.
+    /// Adobe installs them one folder deep ("/Applications/Adobe Lightroom Classic/…app"), so the
+    /// bundle IDs are asked first and the Applications folders (incl. their Lightroom subfolders)
+    /// are scanned as a fallback.
     static func lightroomApps() -> [URL] {
-        let dirs = ["/Applications", (NSHomeDirectory() as NSString).appendingPathComponent("Applications")]
-        let fm = FileManager.default
         var found: [URL] = []
-        for dir in dirs {
+        for id in ["com.adobe.LightroomClassicCC7", "com.adobe.lightroomCC"] {
+            found += NSWorkspace.shared.urlsForApplications(withBundleIdentifier: id)
+        }
+        let fm = FileManager.default
+        for dir in ["/Applications", (NSHomeDirectory() as NSString).appendingPathComponent("Applications")] {
             guard let items = try? fm.contentsOfDirectory(atPath: dir) else { continue }
-            for name in items where name.hasSuffix(".app") && name.localizedCaseInsensitiveContains("lightroom") {
-                found.append(URL(fileURLWithPath: dir).appendingPathComponent(name))
+            for name in items where name.localizedCaseInsensitiveContains("lightroom") {
+                let url = URL(fileURLWithPath: dir).appendingPathComponent(name)
+                if name.hasSuffix(".app") { found.append(url); continue }
+                for inner in (try? fm.contentsOfDirectory(atPath: url.path)) ?? []
+                where inner.hasSuffix(".app") && inner.localizedCaseInsensitiveContains("lightroom") {
+                    found.append(url.appendingPathComponent(inner))
+                }
             }
         }
-        return found.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+        var seen = Set<String>()
+        let unique = found.map(\.standardizedFileURL).filter { seen.insert($0.path).inserted }
+        // Classic first: it is the culling photographer's usual next step.
+        return unique.sorted { a, b in
+            let ca = a.lastPathComponent.contains("Classic"), cb = b.lastPathComponent.contains("Classic")
+            return ca != cb ? ca : a.lastPathComponent.localizedStandardCompare(b.lastPathComponent) == .orderedAscending
+        }
     }
+
+    /// Scanned once per launch: the toolbar redraws on every selection change and must not list
+    /// /Applications each time.
+    static let installedLightroomApps: [URL] = lightroomApps()
 
     /// Opens the given files with the app at `appPath`. Returns false if the app is
     /// missing (so the caller can clear the stale setting and ask again).

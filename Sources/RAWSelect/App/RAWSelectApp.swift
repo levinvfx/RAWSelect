@@ -63,9 +63,9 @@ struct RAWSelectApp: App {
                     .keyboardShortcut("o", modifiers: .command)
             }
             CommandGroup(after: .newItem) {
-                Button("Alle markierten Bilder kopieren…") { app.copyAllMarked() }
+                Button("Markierte Bilder kopieren…") { app.copyMarked() }
                     .keyboardShortcut("c", modifiers: [.command, .shift])
-                    .disabled(app.markedCount == 0)
+                    .disabled(app.markedCount == 0 || app.operation != nil)
             }
             CommandGroup(replacing: .help) {
                 Button("Tastaturkürzel…") { app.showShortcuts = true }
@@ -73,6 +73,9 @@ struct RAWSelectApp: App {
                 Button("Feedback senden…") { NSWorkspace.shared.open(AppInfo.feedbackURL) }
             }
             CommandGroup(after: .toolbar) {
+                // The key monitor handles I first; the menu item makes it findable.
+                Button(app.showInfo ? "EXIF-Infos ausblenden" : "EXIF-Infos einblenden") { app.toggleInfo() }
+                    .keyboardShortcut("i", modifiers: [])
                 Button("Im Finder anzeigen") { app.revealCurrent() }
                     .keyboardShortcut("r", modifiers: .command)
             }
@@ -101,6 +104,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    /// ⌘Q while copying would stop the copy mid-file. Ask first; quitting cancels the copy cleanly
+    /// (only the current file's hidden temp copy is dropped, finished photos stay).
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        MainActor.assumeIsolated {
+            guard let app = AppState.shared, let op = app.operation else { return .terminateNow }
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "„\(op.title.replacingOccurrences(of: " …", with: ""))“ läuft noch"
+            alert.informativeText = "Beim Beenden wird der Vorgang abgebrochen. Bereits fertige Bilder bleiben erhalten."
+            alert.addButton(withTitle: "Weiterlaufen lassen")
+            alert.addButton(withTitle: "Abbrechen und beenden")
+            guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
+            app.cancelOperation()
+            return .terminateNow
+        }
     }
 
     /// Flush unsaved marks before the process dies. Marks are written asynchronously, so

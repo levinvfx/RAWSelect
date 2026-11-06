@@ -18,7 +18,10 @@ struct PhotoScanner {
                      onBatch: (([PhotoGroup]) -> Void)? = nil) -> [PhotoGroup] {
 
         let fm = FileManager.default
-        let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey]
+        // Size and dates come with the directory listing (bulk) instead of one stat per file
+        // later — thousands of single lookups were the slow part on cards and SMB shares.
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .fileSizeKey,
+                                      .creationDateKey, .contentModificationDateKey]
         var options: FileManager.DirectoryEnumerationOptions = [.skipsPackageDescendants]
         if ignoreHidden { options.insert(.skipsHiddenFiles) }
         guard let enumerator = fm.enumerator(

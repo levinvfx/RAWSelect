@@ -146,6 +146,12 @@ private struct LargePreview: View {
         .onChange(of: group.id) { _, _ in
             releaseHiRes()
             if app.zoom.zoomed { loadHiRes() }
+            else {
+                // Culling without zoom: the kept developments (up to ~1 GB for two 61-MP RAWs)
+                // have no use any more — free them instead of holding them for the whole session.
+                neighborTask?.cancel(); neighborTask = nil; neighborID = nil
+                hiResStore.removeAll()
+            }
         }
     }
 
@@ -157,7 +163,8 @@ private struct LargePreview: View {
     private func loadHiRes() {
         if hiResID == group.id, hiRes != nil { return }   // already sharp for this photo
         // Pre-developed while we were on the previous photo → instant, no "RAW lädt…".
-        if let hit = hiResStore.first(where: { $0.id == group.id }) {
+        if let hit = hiResStore.first(where: { $0.id == group.id }),
+           pixelCount(hit.image) > (bestCached().map { pixelCount($0.image) } ?? 0) {
             hiRes = hit.image; hiResID = group.id
             prefetchNeighborHiRes()
             return
@@ -216,7 +223,8 @@ private struct LargePreview: View {
         neighborTask = Task {
             let img = await ThumbnailLoader.shared.fullDecode(for: url, maxPixel: PreviewConfig.zoomMaxPixel)
             await MainActor.run {
-                if let img { remember(nid, img) }
+                // A cancelled neighbour (direction changed) must not land in the store.
+                if let img, !Task.isCancelled { remember(nid, img) }
                 if neighborID == nid { neighborID = nil; neighborTask = nil }
             }
             return img
