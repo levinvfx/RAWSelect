@@ -111,16 +111,29 @@ struct DetailView: View {
         }
 
         // The one action that ends a culling session: copy the selection (always with XMP).
+        // A click copies as before; the arrow also offers sending it to Google Drive.
         ToolbarItem(placement: .primaryAction) {
-            Button {
-                app.copySelection(includeSidecars: true)
+            Menu {
+                Button {
+                    app.copySelection(includeSidecars: true)
+                } label: {
+                    Label("In Zielordner kopieren…", systemImage: "folder")
+                }
+                Button {
+                    app.sendSelectionToGoogleDrive()
+                } label: {
+                    Label(app.googleDriveMenuTitle, systemImage: "icloud.and.arrow.up")
+                }
             } label: {
                 Label("Auswahl kopieren…", systemImage: "doc.on.doc")
+            } primaryAction: {
+                app.copySelection(includeSidecars: true)
             }
+            .menuStyle(.button)
             .buttonStyle(.borderedProminent)
             .tint(.accentColor)
             .disabled(app.selectionCount == 0)
-            .help("Ausgewählte Originale (inkl. XMP) flach in einen Zielordner kopieren")
+            .help("Ausgewählte Originale (inkl. XMP) kopieren – Pfeil: an Google Drive senden")
         }
 
         // Combined "Öffnen" menu: open the selection in the external app

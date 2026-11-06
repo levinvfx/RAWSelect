@@ -941,6 +941,31 @@ final class AppState: ObservableObject {
         runCopy(target: target, groups: sel, includeSidecars: includeSidecars)
     }
 
+    /// Shown in the copy menu: "An Google Drive senden" (+ folder once one is set).
+    var googleDriveMenuTitle: String {
+        let path = settings.googleDriveTarget
+        return path.isEmpty ? "An Google Drive senden…" : "An Google Drive senden (\((path as NSString).lastPathComponent))"
+    }
+
+    /// Copies the selection (with XMP) into the Google Drive folder from the settings; the Google
+    /// Drive app uploads it. First use, or the folder is gone: pick one, then remember it.
+    func sendSelectionToGoogleDrive() {
+        let sel = selectedGroups
+        guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
+        guard !CloudFolderService.googleDriveAccounts().isEmpty else {
+            statusMessage = "Google Drive ist nicht eingerichtet."
+            showToast("Google Drive fehlt – Einstellungen → Erweitert.", kind: .error)
+            return
+        }
+        var target = settings.googleDriveTarget
+        if target.isEmpty || !FileManager.default.fileExists(atPath: target) {
+            guard let chosen = FinderService.chooseGoogleDriveFolder(current: "") else { return }
+            target = chosen.path
+            settings.googleDriveTarget = target
+        }
+        runCopy(target: URL(fileURLWithPath: target, isDirectory: true), groups: sel, includeSidecars: true)
+    }
+
     /// Copies every marked photo of the folder (across the current filter) — the natural end of a
     /// session, without ⌥-solo + ⌘A first.
     func copyAllMarked() {
@@ -1085,7 +1110,14 @@ final class AppState: ObservableObject {
                     self.statusMessage = "Abgebrochen – \(outcome.files) Dateien \(verb)."
                     self.showToast("Abgebrochen – \(outcome.files) Dateien \(verb).", kind: .info)
                 } else if outcome.failures.isEmpty {
-                    self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) \(verb)."
+                    // In a cloud folder the copy is on disk, not yet online: the provider's app
+                    // uploads it — say so, the Finder shows the upload state per file.
+                    if let cloud = CloudFolderService.provider(for: target) {
+                        self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) in \(cloud) \(verb) – \(cloud) lädt sie hoch."
+                        self.showToast("In \(cloud) \(verb) – Upload läuft im Hintergrund.")
+                    } else {
+                        self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) \(verb)."
+                    }
                     if self.settings.revealAfterExport { FinderService.revealFolder(target) }
                 } else {
                     self.statusMessage = "\(outcome.files) Dateien \(verb) – \(outcome.failures.count) fehlgeschlagen."

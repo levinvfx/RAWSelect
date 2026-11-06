@@ -37,4 +37,19 @@ enum FinderService {
         panel.prompt = "Zielordner wählen"
         return panel.runModal() == .OK ? panel.url : nil
     }
+
+    /// Prompts for a folder inside Google Drive (starts there). A folder outside Drive is refused:
+    /// "An Google Drive senden" must never quietly land on the local disk.
+    static func chooseGoogleDriveFolder(current: String) -> URL? {
+        let start = !current.isEmpty ? current : (CloudFolderService.googleDriveAccounts().first?.url.path ?? "")
+        guard let url = chooseDestination(title: "Ordner in Google Drive wählen", startAt: start) else { return nil }
+        guard CloudFolderService.provider(for: url) == "Google Drive" else {
+            let alert = NSAlert()
+            alert.messageText = "Dieser Ordner liegt nicht in Google Drive."
+            alert.informativeText = "Wähle links unter „Orte“ Google Drive und darin den Ordner, in den die Bilder sollen."
+            alert.runModal()
+            return nil
+        }
+        return url
+    }
 }

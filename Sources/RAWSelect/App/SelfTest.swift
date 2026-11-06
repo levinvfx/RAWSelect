@@ -195,6 +195,23 @@ enum SelfTest {
             check(out.files == 2 && c == ["CLASH.JPG", "CLASH_1.JPG"], "same-named batch photos both kept as CLASH + CLASH_1 (got \(c.sorted()))")
         } catch { check(false, "clash copy threw: \(error.localizedDescription)") }
 
+        // 13a) Cloud folders: Google Drive accounts are found, a copy target inside a synced
+        //      folder names its provider, local folders and look-alike siblings do not.
+        let cloudRoot = root.appendingPathComponent("CloudStorage")
+        let iCloudRoot = root.appendingPathComponent("CloudDocs")
+        let driveShared = cloudRoot.appendingPathComponent("GoogleDrive-test@example.com/My Drive/Geteilt")
+        let oneDrive = cloudRoot.appendingPathComponent("OneDrive-Persönlich/Bilder")
+        let lookAlike = root.appendingPathComponent("CloudStorageAlt/GoogleDrive-x")
+        for d in [driveShared, oneDrive, lookAlike, iCloudRoot] { try? fm.createDirectory(at: d, withIntermediateDirectories: true) }
+        let accounts = CloudFolderService.googleDriveAccounts(in: cloudRoot)
+        check(accounts.map(\.account) == ["test@example.com"], "Google Drive account found (got \(accounts.map(\.account)))")
+        func cloud(_ u: URL) -> String? { CloudFolderService.provider(for: u, cloudRoot: cloudRoot, iCloudRoot: iCloudRoot) }
+        check(cloud(driveShared) == "Google Drive", "folder in Google Drive → provider Google Drive")
+        check(cloud(oneDrive) == "OneDrive", "folder in OneDrive → provider OneDrive")
+        check(cloud(iCloudRoot.appendingPathComponent("x")) == "iCloud Drive", "folder in iCloud Drive → provider iCloud Drive")
+        check(cloud(lookAlike) == nil && cloud(clashTarget) == nil, "local and look-alike folders → no provider")
+        check(CloudFolderService.googleDriveAccounts(in: root.appendingPathComponent("missing")).isEmpty, "no CloudStorage → no accounts")
+
         // 14) Develop adjustments map to Camera-Raw sidecar attributes (non-zero only).
         var dev = ImageEdit()
         dev.contrast = 40; dev.temp = -25; dev.whites = 60; dev.highlights = -100

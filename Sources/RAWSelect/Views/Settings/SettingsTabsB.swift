@@ -83,6 +83,57 @@ struct ExportSettingsTab: View {
 
 #endif
 
+/// Target of "An Google Drive senden" (copy menu in the toolbar). No login in RAW Select: the app
+/// "Google Drive für Desktop" signs in and uploads; RAW Select only copies into its folder.
+private struct GoogleDriveRow: View {
+    @EnvironmentObject var settings: AppSettings
+    @State private var accounts: [CloudFolderService.Account] = []
+
+    private var targetLabel: String {
+        if accounts.isEmpty { return "Nicht eingerichtet" }
+        let path = settings.googleDriveTarget
+        let account = accounts.map(\.account).joined(separator: ", ")
+        return path.isEmpty ? "\(account) · Ordner beim ersten Senden wählen"
+                            : "\(account) · \((path as NSString).lastPathComponent)"
+    }
+
+    var body: some View {
+        Group {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Ziel für „An Google Drive senden“")
+                    Text(targetLabel).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if accounts.isEmpty {
+                    Button("Google Drive laden…") { NSWorkspace.shared.open(CloudFolderService.googleDriveDownloadURL) }
+                } else {
+                    Menu("Ändern…") {
+                        Button("Ordner wählen…") {
+                            if let u = FinderService.chooseGoogleDriveFolder(current: settings.googleDriveTarget) {
+                                settings.googleDriveTarget = u.path
+                            }
+                        }
+                        if !settings.googleDriveTarget.isEmpty {
+                            Button("Im Finder zeigen") {
+                                FinderService.revealFolder(URL(fileURLWithPath: settings.googleDriveTarget, isDirectory: true))
+                            }
+                            Divider()
+                            Button("Zurücksetzen") { settings.googleDriveTarget = "" }
+                        }
+                    }
+                    .frame(width: 130)
+                }
+            }
+            Text(accounts.isEmpty
+                 ? "Mit der App „Google Drive für Desktop“ meldest du dich bei Google an, danach erscheint Google Drive im Finder. RAW Select legt die Bilder in den Drive-Ordner, die Google-App lädt sie hoch."
+                 : "Einen geteilten Ordner bindest du in Google Drive mit „Verknüpfung zu Meine Ablage hinzufügen“ ein. Gesendet wird über den Pfeil am Kopieren-Button; die Google-App lädt die Bilder im Hintergrund hoch.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .onAppear { accounts = CloudFolderService.googleDriveAccounts() }
+    }
+}
+
 struct AdvancedSettingsTab: View {
     @EnvironmentObject var settings: AppSettings
     @State private var confirmReset = false
@@ -137,6 +188,9 @@ struct AdvancedSettingsTab: View {
                 }
                 Text("Der Button in der Symbolleiste öffnet die ausgewählten Bilder in dieser App (z. B. Lightroom oder Lightroom Classic).")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Google Drive") {
+                GoogleDriveRow()
             }
             #if DEBUG
             Section("Lightroom Classic (Entwicklungs-Build)") {

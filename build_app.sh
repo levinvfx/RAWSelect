@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="RAW Select"
 BUNDLE_ID="ch.anneler.rawselect"
-VERSION="2.0"
+VERSION="2.1"
 # Bundle keys must stay numeric ("2.0"); the full string with the beta suffix lives in the app.
 SHORT_VERSION="${VERSION%%-*}"
 EXECUTABLE="RAWSelect"
@@ -20,15 +20,18 @@ swift build
 
 # Universal binary (Apple Silicon + Intel). `swift build --arch a --arch b` needs Xcode's xcbuild,
 # which the Command Line Tools lack – so each slice is built on its own and joined with lipo.
-echo "▶︎ Building (release, arm64)…"
-swift build -c release --triple arm64-apple-macosx14.0
-echo "▶︎ Building (release, x86_64)…"
-swift build -c release --triple x86_64-apple-macosx14.0
-
-BIN_ARM=".build/arm64-apple-macosx/release/${EXECUTABLE}"
-BIN_X86=".build/x86_64-apple-macosx/release/${EXECUTABLE}"
-for b in "$BIN_ARM" "$BIN_X86"; do
+# Each slice gets its own scratch path and asks SwiftPM where the binary went: since Swift 6.4 both
+# triples share .build/out/Products/Release, and fixed paths silently packaged stale binaries.
+for arch in arm64 x86_64; do
+    echo "▶︎ Building (release, ${arch})…"
+    swift build -c release --triple "${arch}-apple-macosx14.0" --scratch-path ".build/release-${arch}"
+done
+BIN_ARM="$(swift build -c release --triple arm64-apple-macosx14.0 --scratch-path .build/release-arm64 --show-bin-path)/${EXECUTABLE}"
+BIN_X86="$(swift build -c release --triple x86_64-apple-macosx14.0 --scratch-path .build/release-x86_64 --show-bin-path)/${EXECUTABLE}"
+for pair in "arm64:$BIN_ARM" "x86_64:$BIN_X86"; do
+    arch="${pair%%:*}"; b="${pair#*:}"
     [[ -f "$b" ]] || { echo "✗ Build produced no binary at $b" >&2; exit 1; }
+    [[ "$(lipo -archs "$b")" == "$arch" ]] || { echo "✗ $b is not a ${arch} binary" >&2; exit 1; }
 done
 BIN=".build/${EXECUTABLE}-universal"
 lipo -create -output "$BIN" "$BIN_ARM" "$BIN_X86"

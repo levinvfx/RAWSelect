@@ -162,6 +162,8 @@ final class AppSettings: ObservableObject {
     /// App used by the toolbar "In … öffnen" button (Lightroom / Lightroom Classic /
     /// any app). Empty = not yet chosen → picked on first use, then editable here.
     var openWithAppPath: String { get { str("rs.openWithAppPath", "") } set { set("rs.openWithAppPath", newValue) } }
+    /// Folder inside Google Drive for "An Google Drive senden". Empty = picked on first send.
+    var googleDriveTarget: String { get { str("rs.googleDriveTarget", "") } set { set("rs.googleDriveTarget", newValue) } }
 
     #if DEBUG
     // ───────── Lightroom export (development builds only) ─────────

@@ -5,7 +5,7 @@ enum AppInfo {
     static let name = "RAW Select"
     /// Release version. A pre-release carries a suffix ("2.0-beta1"); `UpdateService.isNewer` ranks
     /// it below the final "2.0". Must match `VERSION=` in build_app.sh.
-    static let version = "2.0"
+    static let version = "2.1"
     /// "2.0 Beta 1" — the same version as people read it.
     static var displayVersion: String { version.replacingOccurrences(of: "-beta", with: " Beta ") }
     static var isBeta: Bool { version.contains("-") }

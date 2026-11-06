@@ -4,6 +4,26 @@
 **V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
 Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
 
+## 2.1 in Arbeit, nur lokal (06.11.2026)
+Levin: «2.1 nur lokal auf meiner App, noch nicht auf GitHub». Version 2.1 in `Constants.swift` + `build_app.sh`,
+App liegt in `/Applications` (ad-hoc signiert). Nichts gepusht, kein Release, Website unverändert.
+- **Google Drive als Kopierziel (ohne Login in RAW Select):** Google-Drive-API kann nicht anonym hochladen, auch nicht
+  in «Jeder mit dem Link»-Ordner; ein Login in der App hiesse OAuth + Google-Verifizierung (`drive.file` nur mit
+  Picker/eigenem Ordner, `drive` = restricted mit jährlichem Sicherheitsaudit). Darum: «Google Drive für Desktop»
+  bindet Drive im Finder ein, RAW Select kopiert wie bisher, die Google-App lädt hoch.
+- Neu: `CloudFolderService` (findet `~/Library/CloudStorage/GoogleDrive-…`, erkennt Cloud-Ziele), Einstellungen →
+  Erweitert → Kopieren: Zeile «Google Drive» (Konto + «Im Finder zeigen» bzw. «Google Drive laden…»), nach dem
+  Kopieren in einen Cloud-Ordner Meldung «Upload läuft im Hintergrund». Selftest 13a.
+- Kopieren-Button mit Pfeil-Menü: «In Zielordner kopieren…» und «An Google Drive senden» (Bilder + XMP) in den
+  Drive-Ordner aus Einstellungen → Erweitert → Google Drive (`rs.googleDriveTarget`, beim ersten Senden gewählt;
+  Ordner ausserhalb von Drive werden abgelehnt).
+- **Build-Falle behoben (06.11.):** Seit Swift 6.4 landen `--triple arm64` und `--triple x86_64` beide in
+  `.build/out/Products/Release`; `build_app.sh` packte darum still die alten Binaries vom 21.10. (die erste lokale
+  «2.1» war 2.0-Code mit 2.1-Info.plist). Jetzt eigener `--scratch-path` pro Architektur, Pfad per `--show-bin-path`,
+  Abbruch wenn ein Slice nicht die erwartete Architektur hat. Release 2.0 ist nicht betroffen (gebaut 21.10.).
+- Offen: Mit installierter Drive-App und einem echten geteilten Ordner testen (Levin hat sie noch nicht).
+  Datenschutz unverändert richtig: RAW Select selbst verbindet sich weiterhin nur zur Update-Prüfung.
+
 ## Nur noch Downloads zählen, Nutzungszählung entfernt (21.10.2026)
 Levins Entscheid: «ich will wirklich nichts von den Leuten, nur Downloads». Hintergrund: Mit dem YouTube-Tutorial
 erreicht die App viele Leute aus Deutschland; eine feste Zählung mit gespeicherter Kennung bräuchte dort eine
