@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 // Renders the source logo into a macOS-style rounded icon tile (Apple icon grid:
 // 100px margin on a 1024 canvas → 824 live area, corner radius ≈ 22.37%).
@@ -31,33 +32,73 @@ func alphaAt(_ x: Int, _ y: Int) -> Int { Int(buf[(y * sw + x) * 4 + 3]) }
 let cornersClear = [(2, 2), (sw - 3, 2), (2, sh - 3), (sw - 3, sh - 3)]
     .allSatisfy { alphaAt($0.0, $0.1) < 16 }
 if cornersClear {
+    // A ready-made tile: dark face with a gradient rim (violet → lavender → light blue).
+    // Placing it as-is broke on macOS 26+: the system masks legacy icons with ITS squircle, the
+    // tile's own corners don't match, so the rim got cut unevenly (dark edge right, blue left) and
+    // a light frame appeared. So: the face fills Apple's continuous-corner squircle exactly, and
+    // the rim is redrawn on that very shape — even on every side, on every macOS version.
     var aX0 = sw, aY0 = sh, aX1 = 0, aY1 = 0
     for y in 0..<sh { for x in 0..<sw where alphaAt(x, y) > 24 {
         if x < aX0 { aX0 = x }; if x > aX1 { aX1 = x }
         if y < aY0 { aY0 = y }; if y > aY1 { aY1 = y }
     } }
-    let cx = Double(aX0 + aX1) / 2, cy = Double(aY0 + aY1) / 2
-    var half = Double(max(aX1 - aX0, aY1 - aY0)) / 2
-    half = min(half, min(cx, Double(sw) - cx)); half = min(half, min(cy, Double(sh) - cy))
-    let crop = CGRect(x: cx - half, y: cy - half, width: half * 2, height: half * 2)
-    let tile = srcCG.cropping(to: crop) ?? srcCG
-    let tileImg = NSImage(cgImage: tile, size: NSSize(width: tile.width, height: tile.height))
-
-    let px = 1024, live: CGFloat = 824, margin = (CGFloat(px) - 824) / 2
-    guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px,
-                                     bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
-                                     isPlanar: false, colorSpaceName: .deviceRGB,
-                                     bytesPerRow: 0, bitsPerPixel: 0),
-          let ctx = NSGraphicsContext(bitmapImageRep: rep) else { exit(1) }
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = ctx
-    ctx.imageInterpolation = .high
-    tileImg.draw(in: NSRect(x: margin, y: margin, width: live, height: live),
-                 from: .zero, operation: .sourceOver, fraction: 1.0)
-    NSGraphicsContext.restoreGraphicsState()
-    if let png = rep.representation(using: .png, properties: [:]) {
-        try? png.write(to: URL(fileURLWithPath: outPath))
+    let tileW = Double(aX1 - aX0)
+    // Rim width: from the left edge inwards until the pixels turn dark (the face).
+    var rim = 0
+    while rim < Int(tileW / 10) {
+        let i = ((aY0 + aY1) / 2 * sw + aX0 + rim) * 4
+        if max(Int(buf[i]), Int(buf[i + 1]), Int(buf[i + 2])) < 90 { break }
+        rim += 1
     }
+    func color(_ x: Int, _ y: Int) -> NSColor {
+        let i = (y * sw + x) * 4
+        return NSColor(deviceRed: CGFloat(buf[i]) / 255, green: CGFloat(buf[i + 1]) / 255, blue: CGFloat(buf[i + 2]) / 255, alpha: 1)
+    }
+    let midY = (aY0 + aY1) / 2, midX = (aX0 + aX1) / 2, inRim = rim / 2
+    let rimLeft = color(aX0 + inRim, midY), rimMid = color(midX, aY0 + inRim), rimRight = color(aX1 - inRim, midY)
+    let faceEdge = color(aX0 + rim + 8, midY)
+
+    // Face = the tile without its rim (a few px more, so no rim colour bleeds in).
+    let cut = Double(rim + 6)
+    let face = CGRect(x: Double(aX0) + cut, y: Double(aY0) + cut,
+                      width: tileW - 2 * cut, height: Double(aY1 - aY0) - 2 * cut)
+    let faceCG = srcCG.cropping(to: face) ?? srcCG
+
+    let px = 1024, live: CGFloat = 824, margin = (CGFloat(px) - live) / 2
+    let rect = CGRect(x: margin, y: margin, width: live, height: live)
+    let shape = RoundedRectangle(cornerRadius: live * 0.2237, style: .continuous).path(in: rect).cgPath
+    let rimWidth = live * CGFloat(rim) / CGFloat(tileW)
+
+    guard let ctx = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0,
+                              space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { exit(1) }
+    ctx.interpolationQuality = .high
+    ctx.saveGState()
+    ctx.addPath(shape); ctx.clip()
+    ctx.setFillColor(faceEdge.cgColor); ctx.fill(rect)
+    // The face keeps its original size and place (the motif must not grow); the corner gaps of
+    // its own rounding are covered by the face colour filled above.
+    let scale = live / CGFloat(tileW)
+    ctx.draw(faceCG, in: rect.insetBy(dx: CGFloat(cut) * scale, dy: CGFloat(cut) * scale))
+    ctx.restoreGState()
+
+    // Rim: a stroke of the same shape, inside the edge, with the tile's horizontal gradient.
+    ctx.saveGState()
+    let inner = RoundedRectangle(cornerRadius: live * 0.2237 - rimWidth / 2, style: .continuous)
+        .path(in: rect.insetBy(dx: rimWidth / 2, dy: rimWidth / 2)).cgPath
+    ctx.addPath(inner)
+    ctx.setLineWidth(rimWidth)
+    ctx.replacePathWithStrokedPath()
+    ctx.clip()
+    let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
+                              colors: [rimLeft.cgColor, rimMid.cgColor, rimRight.cgColor] as CFArray,
+                              locations: [0, 0.5, 1])!
+    ctx.drawLinearGradient(gradient, start: CGPoint(x: rect.minX, y: rect.midY), end: CGPoint(x: rect.maxX, y: rect.midY), options: [])
+    ctx.restoreGState()
+
+    guard let out = ctx.makeImage(),
+          let png = NSBitmapImageRep(cgImage: out).representation(using: .png, properties: [:]) else { exit(1) }
+    try? png.write(to: URL(fileURLWithPath: outPath))
     exit(0)
 }
 

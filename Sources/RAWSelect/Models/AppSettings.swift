@@ -151,7 +151,8 @@ final class AppSettings: ObservableObject {
     var previewMode: PreviewMode { get { en("rs.previewMode", .balanced) } set { setEnum("rs.previewMode", newValue) } }
 
     // Markierungen
-    var autoAdvance: Bool { get { b("rs.autoAdvance", true) } set { set("rs.autoAdvance", newValue) } }
+    /// Off by default since 2.2 (Levin): jumping on after every mark surprised more than it helped.
+    var autoAdvance: Bool { get { b("rs.autoAdvance", false) } set { set("rs.autoAdvance", newValue) } }
     var marks: [MarkDefinition] { get { MarkDefinition.normalized(cod("rs.marks", MarkDefinition.defaults)) } set { setCod("rs.marks", newValue) } }
 
     // Kopieren

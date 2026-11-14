@@ -98,7 +98,9 @@ private struct LargePreview: View {
                     .transition(.opacity)
                 }
             }
-            .padding(16)
+            // 12 pt further in than the photo (16): the panels float on the picture instead of
+            // sitting flush with its corner.
+            .padding(28)
 
             // Zoom mode (space bar): vertical slider on the right.
             if app.zoom.sliderActive {

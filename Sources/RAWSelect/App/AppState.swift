@@ -252,6 +252,10 @@ final class AppState: ObservableObject {
         // die App; braucht keine Bildschirmaufnahme-Berechtigung.
         if let out = env["RS_SNAPSHOT"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                // Tooltips of the toolbar items, to check that every button says its own thing.
+                for item in NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain })?.toolbar?.items ?? [] {
+                    print("toolbar:", item.itemIdentifier.rawValue, "|", item.toolTip ?? "–", "|", item.view?.toolTip ?? "–")
+                }
                 if let frameView = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain })?.contentView?.superview,
                    let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) {
                     frameView.cacheDisplay(in: frameView.bounds, to: rep)

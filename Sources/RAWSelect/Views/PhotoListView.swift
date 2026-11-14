@@ -68,7 +68,7 @@ struct PhotoListView: View {
                 .width(min: 60, ideal: 80)
             }
             .contextMenu(forSelectionType: String.self) { _ in
-                // Same as the toolbar: Teilen (app, Google Drive, Finder), then Kopieren.
+                // Same as the toolbar: app, Google Drive, Finder, then Kopieren.
                 Button(app.openWithButtonTitle) { app.openSelectionInExternalApp() }
                 Button("An Google Drive senden") { app.sendToGoogleDrive(marked: false) }
                 Button("Im Finder anzeigen") { app.revealCurrent() }

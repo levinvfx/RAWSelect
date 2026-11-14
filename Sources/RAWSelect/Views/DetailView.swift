@@ -117,11 +117,11 @@ struct DetailView: View {
         }
 
         // Centred over the photos: how to look at them, and in which order.
-        ToolbarItem(placement: .principal) {
-            HStack(spacing: 14) {
-                viewPicker
-                sortMenu
-            }
+        // Two items, not one HStack: a single toolbar item shows only ONE tooltip (the sort menu
+        // showed the view switch's).
+        ToolbarItemGroup(placement: .principal) {
+            viewPicker
+            sortMenu.padding(.leading, 8)
         }
 
         // Right-aligned: where the photos go next. Since macOS 26 trailing items follow the centre
@@ -129,44 +129,31 @@ struct DetailView: View {
         if #available(macOS 26.0, *) {
             ToolbarSpacer(.flexible, placement: .primaryAction)
         }
-        ToolbarItemGroup(placement: .primaryAction) {
-            // Teilen: the app from Settings → "Bilder öffnen mit" (Lightroom by default), Google
-            // Drive, the Finder — the three places the selection goes next. Nothing else.
-            Menu {
-                Button {
-                    app.openSelectionInExternalApp()
-                } label: {
-                    Label { Text(app.openWithButtonTitle) } icon: {
-                        AppIcon(path: app.openWithIconPath, fallback: "arrow.up.right.square")
-                    }
-                }
-                Button {
-                    app.sendToGoogleDrive(marked: false)
-                } label: {
-                    Label { Text(driveTitle) } icon: {
-                        AppIcon(path: AppIcon.googleDrivePath, fallback: "icloud.and.arrow.up")
-                    }
-                }
-                Button {
-                    app.revealCurrent()
-                } label: {
-                    Label { Text("Im Finder anzeigen") } icon: { AppIcon(path: AppIcon.finderPath, fallback: "folder") }
-                }
-            } label: {
-                Label("Teilen", systemImage: "square.and.arrow.up")
+        // Where the photos go next, then a clear break before Kopieren. One toolbar item PER tile:
+        // inside a single item macOS showed the first tooltip ("In Lightroom öffnen") on all of them.
+        ToolbarItem(placement: .primaryAction) {
+            ToolbarTile(title: app.openWithButtonTitle, disabled: tilesBusy, action: app.openSelectionInExternalApp) { openWithIcon }
+        }
+        ToolbarItem(placement: .primaryAction) {
+            ToolbarTile(title: driveTitle, disabled: tilesBusy, action: { app.sendToGoogleDrive(marked: false) }) {
+                Image(nsImage: BrandGlyph.googleDrive)
             }
-            .menuStyle(.button)
-            .disabled(app.currentGroup == nil || app.operation != nil)
-            .help("In Lightroom öffnen, an Google Drive senden oder im Finder anzeigen")
-
-            // Copy: pick a folder, copy (with XMP) — no menu, the one plain action.
-            Button {
-                app.copySelection()
-            } label: {
-                Label("Kopieren", systemImage: "doc.on.doc")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            ToolbarTile(title: "Im Finder anzeigen (⌘R)", disabled: tilesBusy, action: app.revealCurrent) {
+                appIcon(BrandGlyph.finderPath, fallback: "folder")
             }
-            .disabled(app.currentGroup == nil || app.operation != nil)
-            .help("Auswahl (inkl. XMP) in einen Ordner kopieren · alle markierten: ⌘⇧C. Die Farbmarkierungen bleiben in RAW Select.")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            // A Divider on its own in the toolbar lies flat; draw the upright line ourselves.
+            Rectangle().fill(Color.primary.opacity(0.18)).frame(width: 1, height: 18)
+                .padding(.horizontal, ToolbarTileMetrics.groupGap)
+        }
+        ToolbarItem(placement: .primaryAction) {
+            ToolbarTile(title: "Kopieren: Auswahl (inkl. XMP) in einen Ordner · alle markierten: ⌘⇧C",
+                        disabled: tilesBusy, action: { app.copySelection() }) {
+                Image(nsImage: BrandGlyph.copy).renderingMode(.template)
+            }
         }
 
         #if DEBUG
@@ -195,32 +182,25 @@ struct DetailView: View {
         }
     }
 
+    private var openWithIcon: some View {
+        appIcon(app.openWithIconPath, fallback: "arrow.up.right.square")
+    }
+
+    @ViewBuilder
+    private func appIcon(_ path: String, fallback: String) -> some View {
+        if let icon = BrandGlyph.appIcon(path: path) {
+            Image(nsImage: icon)
+        } else {
+            Image(systemName: fallback).font(.system(size: 16))
+        }
+    }
+
+    private var tilesBusy: Bool { app.currentGroup == nil || app.operation != nil }
+
     private var driveTitle: String {
         app.googleDriveFolderName.map { "An Google Drive senden (\($0))" } ?? "An Google Drive senden…"
     }
 
-}
-
-/// A real app icon (Lightroom, Google Drive, Finder) for the Teilen menu, so each target is
-/// recognisable at a glance. Sized like the icons in Finder's own "Öffnen mit" menu (16 pt): the
-/// NSImage itself carries the size, because a menu row takes the image size as-is — a full-size
-/// icon made every row twice as tall. Falls back to an SF Symbol when the app is not installed.
-private struct AppIcon: View {
-    static let finderPath = "/System/Library/CoreServices/Finder.app"
-    static let googleDrivePath = "/Applications/Google Drive.app"
-    let path: String
-    let fallback: String
-    var size: CGFloat = 16
-
-    var body: some View {
-        if !path.isEmpty, FileManager.default.fileExists(atPath: path),
-           let icon = NSWorkspace.shared.icon(forFile: path).copy() as? NSImage {
-            let _ = icon.size = NSSize(width: size, height: size)
-            Image(nsImage: icon)
-        } else {
-            Image(systemName: fallback)
-        }
-    }
 }
 
 private struct EmptyStateView: View {

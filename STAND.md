@@ -4,6 +4,24 @@
 **V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
 Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
 
+## 2.2 veröffentlicht (14.11.2026)
+Auftrag von Levin (über die Portfolio-Session): Hover-Hinweise falsch, «Nach Markierung springen» standardmässig aus,
+kurz prüfen, veröffentlichen, Logo reparieren.
+- **Hover:** Mehrere Knöpfe in EINEM Toolbar-Element zeigen nur einen Hinweis (den ersten). Jetzt eigenes Element pro
+  Kachel und für das Sortiermenü; geprüft über `RS_SNAPSHOT` (gibt die toolTips aller Toolbar-Elemente aus).
+  Folge: Divider liegt allein quer → eigene senkrechte Linie; Abstand über Padding der Kachel.
+- **autoAdvance** Standard jetzt aus (betrifft alle, die die Einstellung nie geändert haben).
+- **Logo:** macOS 26+ maskiert ältere Symbole mit der eigenen Squircle-Form; die Ecken der Kachel passten nicht, der
+  Farbrand wurde ungleich abgeschnitten (links dick violett, rechts/unten dunkel). `icon/make_icon.swift` zeichnet die
+  Fläche jetzt exakt in Apples kontinuierliche Squircle-Form und den Verlaufsrand neu darauf (Farben aus der Quelle).
+  Geprüft über NSWorkspace-Darstellung eines Test-App-Pakets auf macOS 27.2.
+
+## Nach 2.1.1 (08.11.2026, in 2.2 enthalten)
+Symbolleiste rechts: vier Einzelknöpfe statt Teilen-Menü (App aus «Bilder öffnen mit», Google Drive, Finder, Kopieren).
+Eigene Kacheln (`Views/ToolbarTile.swift`) mit den echten farbigen Logos: App-Symbol der gewählten App und des Finders vom System, Drive-Dreieck gezeichnet (`Views/BrandGlyphs.swift`, auch ohne installierte Drive-App da), Kopieren als Linien-Symbol, Trennlinie davor.
+Einblendungen der grossen Ansicht 12 pt weiter innen. **Beim nächsten Release:** Website, README und Release-Text
+erwähnen noch «Teilen» als Menü, anpassen.
+
 ## 2.1.1 Hotfix veröffentlicht (07.11.2026)
 **Fehler in 2.1:** Kopieren schlug auf exFAT/FAT (die meisten externen Platten und Karten, z. B. «Levin 2TB») für JEDE
 Datei fehl. Das atomare Umbenennen `renamex_np(…, RENAME_EXCL)` liefert dort ENOTSUP (nachgestellt auf einem

@@ -31,7 +31,7 @@ Voraussetzung: macOS 14 oder neuer, Apple Silicon oder Intel (Universal-Build se
    arbeitest. Es gibt nie ein Ladesymbol im Raster – erst eine kleine Vorschau, dann scharf.
 3. **Pfeiltasten** navigieren, **1–7** markieren (Farbpunkte wie die Finder-Tags: Rot, Orange, Gelb, Grün, Blau,
    Violett, Grau), dieselbe Taste nochmals oder **0** entfernt sie.
-   Nach einer Markierung springt die App automatisch zum nächsten Bild.
+   Auf Wunsch springt die App nach einer Markierung zum nächsten Bild (Einstellungen → Markierungen, seit 2.2 aus).
 4. **Return** öffnet die grosse Ansicht, **Z** oder das **Mausrad** zoomt auf 100 % – der
    Zoom-Ausschnitt bleibt beim Weiterblättern erhalten, so prüfst du eine Serie am selben
    Auge/AF-Punkt. **Tab** springt zum nächsten noch unmarkierten Bild.
@@ -91,8 +91,9 @@ Pinch zoomt) · ⌥-Klick auf einen Filterchip = nur diese Gruppe · Ordner aufs
 - Ansichten Raster, Liste und gross (Symbolleiste Mitte). Die Liste sortiert per Klick auf den Spaltenkopf
   (auf → ab → ohne) nach Name, Erstellungsdatum, Typ oder Grösse; das Sortiermenü daneben macht dasselbe.
   Kachelgrösse per Slider (Statusleiste).
-- **Teilen:** in der App aus *Bilder öffnen mit* (Standard Lightroom), an Google Drive senden (kopiert in den
-  Ordner von Google Drive für Desktop, RAW Select selbst verbindet sich nicht mit Google), im Finder anzeigen.
+- **Knöpfe oben rechts** (einzeln, mit den echten Logos): in der App aus *Bilder öffnen mit* öffnen (Standard
+  Lightroom), an Google Drive senden (kopiert in den Ordner von Google Drive für Desktop, RAW Select selbst
+  verbindet sich nicht mit Google), im Finder anzeigen, kopieren.
 - Der Vergleich A|B ist seit 2.1 entfernt.
 - Statusleiste: Auswahl-/Gesamtzähler, Position, Dateigrösse, Pfad.
 - Kopieren mit Fortschritt und Abbrechen; Fehler (z. B. eine inzwischen fehlende Datei) werden
