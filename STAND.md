@@ -1,18 +1,18 @@
 # RAW Select — Stand (15.11.2026)
 
 ## Ziel
-**V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
+**Aktuell: 2.2.1** (15.11.2026, Deutsch + Englisch). **V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
 Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
 
-## 2.2.1 gebaut, NICHT veröffentlicht (15.11.2026)
+## 2.2.1 veröffentlicht (15.11.2026)
+Levin: «Ja, veröffentlichen». Commit 537ed33, Tag v2.2.1, beide Repos, Website mit `--nginx` deployt (englische Seiten live).
 Auftrag von Levin: App und RAW-Select-Seite mehrsprachig, 2.2.1 prüfen, Rechtliches anpassen; ab jetzt laden Kunden.
 - **Sprachen:** Deutsch + Englisch (Entscheid: keine weiteren, damit jede Fassung geprüft bleibt). Systemsprache
   bestimmt, alle nicht-deutschen Systeme bekommen Englisch (`CFBundleDevelopmentRegion = en`). Mechanik siehe
   `CLAUDE.md` → Sprachen. 266 Texte, 17 davon mit Einzahl/Mehrzahl (stringsdict, auch auf Deutsch neu korrekt).
 - Markierungsnamen folgen der Sprache, solange sie nie umbenannt wurden (`MarkDefinition.localized`).
 - EXIF-Aufnahmedatum folgt dem Datumsformat des Systems. Update-Hinweise: nur der Teil der eigenen Sprache.
-- «Über» verlinkt auf Englisch auf `/rawselect/en/` und `/rawselect/en/privacy` – **Pfade mit der Portfolio-Session
-  abgleichen, bevor veröffentlicht wird.**
+- «Über» verlinkt auf Englisch auf `/rawselect/en/` und `/rawselect/en/privacy` (so eingerichtet und live).
 - Veralteter Hilfetext korrigiert (Google Drive: «Pfeil am Kopieren-Button» → Google-Drive-Knopf).
 - **Website:** macht die Portfolio-Session (Levins Entscheid), Dateien unter `server/` und `tools/deploy_site.sh`.
 - Screenshot-Haken: nimmt alle Fenster auf (`<out>.2.png` …), gibt Menütitel aus, öffnet Einstellungen ohne globales Tastaturereignis.
