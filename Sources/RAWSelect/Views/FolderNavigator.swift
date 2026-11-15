@@ -90,7 +90,7 @@ private struct FolderRow: View {
         // A folder without subfolders has nothing to expand: one click loads it (the double
         // click was the only way, and a single click did nothing at all).
         .onTapGesture(count: 1) { if canExpand { expanded.toggle() } else { app.open(url, setBrowseRoot: false) } }
-        .help(canExpand ? "Klick klappt auf · Doppelklick lädt die Bilder dieses Ordners" : "Klick lädt die Bilder dieses Ordners")
+        .help(canExpand ? L("Klick klappt auf · Doppelklick lädt die Bilder dieses Ordners") : L("Klick lädt die Bilder dieses Ordners"))
     }
 
     private func loadChildren() {

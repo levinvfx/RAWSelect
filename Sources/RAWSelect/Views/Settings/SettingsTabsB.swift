@@ -8,8 +8,8 @@ struct MarkSettingsTab: View {
     var body: some View {
         Form {
             Section {
-                SettingToggle(title: "Nach Markierung zum nächsten Bild springen",
-                              help: "Perfekt fürs schnelle Sichten.",
+                SettingToggle(title: L("Nach Markierung zum nächsten Bild springen"),
+                              help: L("Perfekt fürs schnelle Sichten."),
                               isOn: $settings.autoAdvance)
             }
             Section {
@@ -95,10 +95,10 @@ private struct GoogleDriveRow: View {
     @State private var accounts: [CloudFolderService.Account] = []
 
     private var targetLabel: String {
-        if accounts.isEmpty { return "Nicht eingerichtet" }
+        if accounts.isEmpty { return L("Nicht eingerichtet") }
         let path = settings.googleDriveTarget
         let account = accounts.map(\.account).joined(separator: ", ")
-        return path.isEmpty ? "\(account) · Ordner beim ersten Senden wählen"
+        return path.isEmpty ? L("\(account) · Ordner beim ersten Senden wählen")
                             : "\(account) · \((path as NSString).lastPathComponent)"
     }
 
@@ -131,8 +131,8 @@ private struct GoogleDriveRow: View {
                 }
             }
             Text(accounts.isEmpty
-                 ? "Mit der App „Google Drive für Desktop“ meldest du dich bei Google an, danach erscheint Google Drive im Finder. RAW Select legt die Bilder in den Drive-Ordner, die Google-App lädt sie hoch."
-                 : "Einen geteilten Ordner bindest du in Google Drive mit „Verknüpfung zu Meine Ablage hinzufügen“ ein. Gesendet wird über den Pfeil am Kopieren-Button; die Google-App lädt die Bilder im Hintergrund hoch.")
+                 ? L("Mit der App „Google Drive für Desktop“ meldest du dich bei Google an, danach erscheint Google Drive im Finder. RAW Select legt die Bilder in den Drive-Ordner, die Google-App lädt sie hoch.")
+                 : L("Einen geteilten Ordner bindest du in Google Drive mit „Verknüpfung zu Meine Ablage hinzufügen“ ein. Gesendet wird über den Google-Drive-Knopf in der Symbolleiste; die Google-App lädt die Bilder im Hintergrund hoch."))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .onAppear { accounts = CloudFolderService.googleDriveAccounts() }
@@ -154,20 +154,20 @@ struct AdvancedSettingsTab: View {
     }
     #endif
     private var openWithLabel: String {
-        settings.openWithAppPath.isEmpty ? "Beim ersten Klick wählen" : OpenWithService.appName(settings.openWithAppPath)
+        settings.openWithAppPath.isEmpty ? L("Beim ersten Klick wählen") : OpenWithService.appName(settings.openWithAppPath)
     }
 
     var body: some View {
         Form {
             Section("Darstellung") {
-                SettingPicker(title: "Erscheinungsbild",
-                              help: "Hell, Dunkel oder dem System folgen.",
+                SettingPicker(title: L("Erscheinungsbild"),
+                              help: L("Hell, Dunkel oder dem System folgen."),
                               selection: $settings.appearance) {
                     ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
                 }
             }
             Section("Kopieren") {
-                SettingToggle(title: "Nach dem Kopieren Zielordner im Finder zeigen", isOn: $settings.revealAfterExport)
+                SettingToggle(title: L("Nach dem Kopieren Zielordner im Finder zeigen"), isOn: $settings.revealAfterExport)
             }
             Section("Bilder öffnen mit") {
                 HStack {
@@ -226,13 +226,13 @@ struct AdvancedSettingsTab: View {
                             #if DEBUG
                             Task { await LightroomPreviewService.shared.clearCache() }
                             #endif
-                            status = "Cache geleert."
+                            status = L("Cache geleert.")
                         }
                         Button("Abbrechen", role: .cancel) {}
                     }
                 Button("Alle Einstellungen zurücksetzen…", role: .destructive) { confirmReset = true }
                     .confirmationDialog("Alle Einstellungen zurücksetzen?", isPresented: $confirmReset) {
-                        Button("Zurücksetzen", role: .destructive) { settings.resetAll(); status = "Auf Standard zurückgesetzt." }
+                        Button("Zurücksetzen", role: .destructive) { settings.resetAll(); status = L("Auf Standard zurückgesetzt.") }
                         Button("Abbrechen", role: .cancel) {}
                     } message: { Text("Setzt alle Einstellungen auf die Standardwerte zurück.") }
                 if !status.isEmpty { Text(status).font(.caption).foregroundStyle(.secondary) }

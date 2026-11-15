@@ -20,7 +20,7 @@ struct SidebarView: View {
                         app.browse(volume.url)
                     }
                 }
-                SidebarRow(title: "Ordner öffnen…", systemImage: "folder.badge.plus") { app.openFolderDialog() }
+                SidebarRow(title: L("Ordner öffnen…"), systemImage: "folder.badge.plus") { app.openFolderDialog() }
             }
 
             // Same folder on the internal disk the next day: one click instead of the whole tree.

@@ -32,15 +32,15 @@ struct CreditsSettingsTab: View {
             HStack(spacing: 12) {
                 BigLinkButton(title: "Instagram", subtitle: "@\(AppInfo.instagramHandle)",
                               url: AppInfo.instagramURL, icon: { InstagramGlyph() })
-                BigLinkButton(title: "Website", subtitle: "vfxmedia.ch",
+                BigLinkButton(title: L("Website"), subtitle: "vfxmedia.ch",
                               url: AppInfo.companyURL, icon: { WebsiteGlyph() })
             }
             .padding(.top, 28)
 
             HStack(spacing: 18) {
-                TextLink(title: "Feedback senden", systemImage: "bubble.left", url: AppInfo.feedbackURL, emphasized: true)
-                TextLink(title: "E-Mail", systemImage: "envelope", url: AppInfo.emailURL)
-                TextLink(title: "Datenschutz", systemImage: "hand.raised", url: AppInfo.privacyURL)
+                TextLink(title: L("Feedback senden"), systemImage: "bubble.left", url: AppInfo.feedbackURL, emphasized: true)
+                TextLink(title: L("E-Mail"), systemImage: "envelope", url: AppInfo.emailURL)
+                TextLink(title: L("Datenschutz"), systemImage: "hand.raised", url: AppInfo.privacyURL)
             }
             .padding(.top, 22)
 

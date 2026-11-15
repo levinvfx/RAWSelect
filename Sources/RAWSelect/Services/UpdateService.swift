@@ -48,13 +48,29 @@ enum UpdateService {
         case http(Int), parse, noAsset, unsigned, badSignature
         var errorDescription: String? {
             switch self {
-            case .http(let c): return "Server antwortete mit Status \(c)."
-            case .parse:       return "Antwort konnte nicht gelesen werden."
-            case .noAsset:     return "Im neuesten Release wurde kein DMG gefunden."
-            case .unsigned:    return "Das Update ist nicht signiert und wird aus Sicherheitsgründen nicht geladen."
-            case .badSignature: return "Die Signatur des Updates stimmt nicht – die Datei wurde verworfen."
+            case .http(let c): return L("Server antwortete mit Status \(c).")
+            case .parse:       return L("Antwort konnte nicht gelesen werden.")
+            case .noAsset:     return L("Im neuesten Release wurde kein DMG gefunden.")
+            case .unsigned:    return L("Das Update ist nicht signiert und wird aus Sicherheitsgründen nicht geladen.")
+            case .badSignature: return L("Die Signatur des Updates stimmt nicht – die Datei wurde verworfen.")
             }
         }
+    }
+
+    /// The line that separates the German release text from the English one in a release body.
+    static let englishNotesMarker = "— English —"
+
+    /// A release body carries both languages: German first, then `englishNotesMarker` on its own
+    /// line, then English. Returns the part for the app language; a body without the marker
+    /// (every release up to 2.2) is returned whole. Apps up to 2.2 show both parts.
+    static func localizedNotes(_ body: String, german: Bool) -> String {
+        let lines = body.components(separatedBy: .newlines)
+        guard let split = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == englishNotesMarker }) else {
+            return body.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let part = german ? lines[..<split] : lines[(split + 1)...]
+        let text = part.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? body.trimmingCharacters(in: .whitespacesAndNewlines) : text
     }
 
     private static var latestReleaseURL: URL {
@@ -79,7 +95,7 @@ enum UpdateService {
         let remote = tag.trimmingCharacters(in: CharacterSet(charactersIn: "vV "))
         guard isNewer(remote, than: AppInfo.version) else { return nil }
 
-        let notes = (obj["body"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let notes = localizedNotes((obj["body"] as? String) ?? "", german: AppLanguage.isGerman)
         let assets = (obj["assets"] as? [[String: Any]]) ?? []
         guard let dmg = assets.first(where: {
                   (($0["name"] as? String) ?? "").lowercased().hasSuffix(".dmg") }),
@@ -202,10 +218,9 @@ final class UpdateController: ObservableObject {
                 showSheet = false
                 phase = .idle
                 let a = NSAlert()
-                a.messageText = "Update \(info.version) geladen"
-                a.informativeText = "Ziehe „\(AppInfo.name)“ im geöffneten Fenster in den "
-                    + "Programme-Ordner (bestehende Version ersetzen) und starte die App neu."
-                a.addButton(withTitle: "OK")
+                a.messageText = L("Update \(info.version) geladen")
+                a.informativeText = L("Ziehe „\(AppInfo.name)“ im geöffneten Fenster in den Programme-Ordner (bestehende Version ersetzen) und starte die App neu.")
+                a.addButton(withTitle: L("OK"))
                 a.runModal()
             } catch {
                 phase = .failed(error.localizedDescription)

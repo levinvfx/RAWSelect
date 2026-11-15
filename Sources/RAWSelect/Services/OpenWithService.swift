@@ -53,12 +53,12 @@ enum OpenWithService {
     /// File picker to choose an application (defaults to /Applications).
     static func chooseApp() -> URL? {
         let panel = NSOpenPanel()
-        panel.title = "App zum Öffnen wählen"
+        panel.title = L("App zum Öffnen wählen")
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.prompt = "Auswählen"
+        panel.prompt = L("Auswählen")
         return panel.runModal() == .OK ? panel.url : nil
     }
 

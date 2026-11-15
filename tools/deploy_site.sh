@@ -1,6 +1,7 @@
 #!/bin/bash
 # Lädt die Download-Seite auf den vServer und prüft sie live.
-#   bash tools/deploy_site.sh            Seiten + static/ (index, datenschutz, impressum, Schriften, Animation)
+#   bash tools/deploy_site.sh            Seiten DE + EN (en/) + static/ (Schriften, Animation)
+#   Neue Pfade unter en/ brauchen zuerst das nginx-Snippet (--nginx), sonst 404.
 #   bash tools/deploy_site.sh --nginx    zusätzlich das nginx-Snippet (Backup, nginx -t, reload)
 # ping.php und download.php bleiben unberührt. Die Statistik steht im Portfolio-Admin (Insights → RAW Select).
 set -euo pipefail
@@ -16,20 +17,24 @@ if [[ "${1:-}" == "--nginx" ]]; then
 fi
 
 scp -q server/site/index.html server/site/datenschutz.html server/site/impressum.html "$HOST:/var/www/rawselect/"
+ssh "$HOST" 'mkdir -p /var/www/rawselect/en'
+scp -q server/site/en/index.html server/site/en/privacy.html server/site/en/imprint.html "$HOST:/var/www/rawselect/en/"
 scp -q -r server/site/static/. "$HOST:/var/www/rawselect/static/"
-ssh "$HOST" 'cd /var/www/rawselect && chown -R www-data:www-data index.html datenschutz.html impressum.html static && find static -type d -exec chmod 755 {} + && find static -type f -exec chmod 644 {} + && chmod 644 index.html datenschutz.html impressum.html'
+ssh "$HOST" 'cd /var/www/rawselect && chown -R www-data:www-data index.html datenschutz.html impressum.html en static && find static en -type d -exec chmod 755 {} + && find static en -type f -exec chmod 644 {} + && chmod 644 index.html datenschutz.html impressum.html'
 
 fail=0
-for path in "" datenschutz impressum static/site.css static/tutorial/tutorial.js static/tutorial/tutorial.css static/inter-400.woff2 static/vfxmedia-wortmarke.svg static/og.png; do
+for path in "" datenschutz impressum en/ en/privacy en/imprint static/site.css static/tutorial/tutorial.js static/tutorial/tutorial.css static/inter-400.woff2 static/vfxmedia-wortmarke.svg static/og.png; do
     code=$(curl -s -o /dev/null -w '%{http_code}' "https://vfxmedia.ch/rawselect/$path")
     printf '%-40s %s\n' "/rawselect/$path" "$code"
     [[ "$code" == 200 ]] || fail=1
 done
-for path in "rawselect/nicht-da.html" "rawselect/index.html.bak"; do
+for path in "rawselect/nicht-da.html" "rawselect/index.html.bak" "rawselect/en/index.html" "rawselect/en/nicht-da"; do
     code=$(curl -s -o /dev/null -w '%{http_code}' "https://vfxmedia.ch/$path")
     printf '%-40s %s (soll 404)\n' "/$path" "$code"
     [[ "$code" == 404 ]] || fail=1
 done
+en301=$(curl -s -o /dev/null -w '%{http_code}' https://vfxmedia.ch/rawselect/en)
+echo "/rawselect/en (soll 301): $en301"; [[ "$en301" == 301 ]] || fail=1
 main=$(curl -s -o /dev/null -w '%{http_code}' https://vfxmedia.ch/)
 echo "Hauptseite: $main"; [[ "$main" == 200 ]] || fail=1
 curl -s "https://vfxmedia.ch/rawselect/download?info"; echo

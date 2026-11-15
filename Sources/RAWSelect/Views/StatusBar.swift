@@ -72,8 +72,8 @@ struct StatusBar: View {
     private var selectionSummary: String {
         let total = app.filteredGroups.count
         let sel = app.selectionCount
-        if sel > 0 { return "\(sel) ausgewählt" }
-        return total == 1 ? "1 Bild geöffnet" : "\(total) Bilder geöffnet"
+        if sel > 0 { return L("\(sel) ausgewählt") }
+        return total == 1 ? L("1 Bild geöffnet") : L("\(total) Bilder geöffnet")
     }
 
     private var positionText: String {

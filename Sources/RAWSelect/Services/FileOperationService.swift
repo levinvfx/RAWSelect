@@ -56,7 +56,7 @@ struct FileOperationService {
                 guard let name = names[file.lastPathComponent], fm.fileExists(atPath: file.path) else {
                     // A vanished source is a FAILURE, not a silent skip — otherwise the report
                     // says "done" while photos are missing at the destination.
-                    failures.append("\(file.lastPathComponent): Quelldatei nicht gefunden")
+                    failures.append(L("\(file.lastPathComponent): Quelldatei nicht gefunden"))
                     completed += 1; progress(completed, totalFiles)
                     continue
                 }

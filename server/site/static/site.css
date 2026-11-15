@@ -124,6 +124,14 @@
     .top__nav a:hover { color: var(--text); }
     .top__nav .btn { color: #fff; }
     @media (max-width: 640px) { .top__nav a:not(.btn) { display: none; } }
+    /* Sprachumschalter DE/EN: bleibt auch auf dem Handy sichtbar */
+    .top__nav a.top__lang {
+      display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px;
+      border: 1px solid var(--line); border-radius: 999px;
+      font-size: .78rem; font-weight: 600; letter-spacing: .04em; color: var(--text-soft);
+    }
+    .top__nav a.top__lang:hover { color: var(--text); border-color: var(--text-dim); }
+    .top__nav a.top__lang:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
     /* ── Hero ── */
     .hero { padding-block: clamp(56px, 9vw, 120px) clamp(48px, 7vw, 96px); }
@@ -272,3 +280,6 @@ p, li, dt { text-wrap: pretty; }
 
 /* Lange Pfade in code dürfen umbrechen (sonst auf dem Handy abgeschnitten) */
 .legal code { overflow-wrap: anywhere; }
+
+/* Übersetzungshinweis auf den englischen Rechtsseiten */
+.legal-note { color: var(--text-dim); font-size: .9rem; }

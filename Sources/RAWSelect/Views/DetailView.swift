@@ -46,13 +46,13 @@ struct DetailView: View {
             ScanningView(name: app.rootURL?.lastPathComponent ?? "")
         } else if app.filteredGroups.isEmpty {
             ContentUnavailableView {
-                Label(app.groups.isEmpty ? (app.scanCancelled ? "Scan abgebrochen" : "Keine Bilder gefunden") : "Nichts in diesem Filter",
+                Label(app.groups.isEmpty ? (app.scanCancelled ? L("Scan abgebrochen") : L("Keine Bilder gefunden")) : L("Nichts in diesem Filter"),
                       systemImage: app.scanCancelled && app.groups.isEmpty ? "stop.circle" : "photo")
             } description: {
                 Text(app.groups.isEmpty
-                    ? (app.scanCancelled ? "Der Scan wurde abgebrochen, bevor Bilder geladen waren. Ordner erneut öffnen, um fortzufahren."
-                                         : "In diesem Ordner wurden keine unterstützten Bilder gefunden.")
-                    : "Für diesen Filter gibt es keine Bilder.")
+                    ? (app.scanCancelled ? L("Der Scan wurde abgebrochen, bevor Bilder geladen waren. Ordner erneut öffnen, um fortzufahren.")
+                                         : L("In diesem Ordner wurden keine unterstützten Bilder gefunden."))
+                    : L("Für diesen Filter gibt es keine Bilder."))
             } actions: {
                 if !app.groups.isEmpty {
                     Button("Alle zeigen (⌥0)") { app.tagFilter.setAll(shown: true) }
@@ -101,8 +101,8 @@ struct DetailView: View {
         .menuStyle(.button)
         .fixedSize()
         .help(settings.sortField == .unsorted
-              ? "Sortieren: ohne (Reihenfolge der Karte)"
-              : "Sortieren: \(settings.sortField.label), \(settings.sortReversed ? "absteigend" : "aufsteigend")")
+              ? L("Sortieren: ohne (Reihenfolge der Karte)")
+              : (settings.sortReversed ? L("Sortieren: \(settings.sortField.label), absteigend") : L("Sortieren: \(settings.sortField.label), aufsteigend")))
     }
 
     @ToolbarContentBuilder
@@ -140,7 +140,7 @@ struct DetailView: View {
             }
         }
         ToolbarItem(placement: .primaryAction) {
-            ToolbarTile(title: "Im Finder anzeigen (⌘R)", disabled: tilesBusy, action: app.revealCurrent) {
+            ToolbarTile(title: L("Im Finder anzeigen (⌘R)"), disabled: tilesBusy, action: app.revealCurrent) {
                 appIcon(BrandGlyph.finderPath, fallback: "folder")
             }
         }
@@ -150,7 +150,7 @@ struct DetailView: View {
                 .padding(.horizontal, ToolbarTileMetrics.groupGap)
         }
         ToolbarItem(placement: .primaryAction) {
-            ToolbarTile(title: "Kopieren: Auswahl (inkl. XMP) in einen Ordner · alle markierten: ⌘⇧C",
+            ToolbarTile(title: L("Kopieren: Auswahl (inkl. XMP) in einen Ordner · alle markierten: ⌘⇧C"),
                         disabled: tilesBusy, action: { app.copySelection() }) {
                 Image(nsImage: BrandGlyph.copy).renderingMode(.template)
             }
@@ -198,7 +198,7 @@ struct DetailView: View {
     private var tilesBusy: Bool { app.currentGroup == nil || app.operation != nil }
 
     private var driveTitle: String {
-        app.googleDriveFolderName.map { "An Google Drive senden (\($0))" } ?? "An Google Drive senden…"
+        app.googleDriveFolderName.map { L("An Google Drive senden (\($0))") } ?? L("An Google Drive senden…")
     }
 
 }
@@ -238,9 +238,9 @@ private struct ScanningView: View {
     var body: some View {
         VStack(spacing: 14) {
             ProgressView().controlSize(.large)
-            Text(name.isEmpty ? "Ordner wird gescannt…" : "\(name) wird gescannt…")
+            Text(name.isEmpty ? L("Ordner wird gescannt…") : L("\(name) wird gescannt…"))
                 .font(.headline).foregroundStyle(.secondary)
-            Text(app.scanFound > 0 ? "\(app.scanFound) Dateien gefunden…" : "Bilder werden gesucht und gruppiert.")
+            Text(app.scanFound > 0 ? L("\(app.scanFound) Dateien gefunden…") : L("Bilder werden gesucht und gruppiert."))
                 .font(.callout).foregroundStyle(.tertiary)
                 .monospacedDigit()
             Button("Abbrechen") { app.cancelScan() }

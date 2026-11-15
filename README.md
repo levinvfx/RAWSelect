@@ -21,6 +21,9 @@ eingebettete Kamera-Vorschau angezeigt, beim Zoom auf 100 % voll entwickelt).
 
 Voraussetzung: macOS 14 oder neuer, Apple Silicon oder Intel (Universal-Build seit V1.11).
 
+Sprachen: Deutsch und Englisch (seit 2.2.1). Die App folgt der Systemsprache; auf einem deutschen
+System erscheint sie auf Deutsch, in jeder anderen Sprache auf Englisch. Eine eigene Einstellung gibt es nicht.
+
 ---
 
 ## Workflow

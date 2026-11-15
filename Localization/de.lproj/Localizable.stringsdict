@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%@ · Taste %lld · %lld Bilder · ⌥-Klick: nur diese</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$@ · Taste %2$lld · %3$#@a@ · ⌥-Klick: nur diese</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+	</dict>
+	<key>%lld Bilder (%lld Dateien) in %@ kopiert – %@ lädt sie hoch.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ (%2$#@b@) in %3$@ kopiert – %4$@ lädt sie hoch.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+		<key>b</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Datei</string>
+			<key>other</key>
+			<string>%lld Dateien</string>
+		</dict>
+	</dict>
+	<key>%lld Bilder (%lld Dateien) kopiert.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ (%2$#@b@) kopiert.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+		<key>b</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Datei</string>
+			<key>other</key>
+			<string>%lld Dateien</string>
+		</dict>
+	</dict>
+	<key>%lld Bilder gefunden (%lld bereits markiert).</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ gefunden (%2$lld bereits markiert).</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+	</dict>
+	<key>%lld Bilder gefunden.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ gefunden.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+	</dict>
+	<key>%lld Bilder in den Papierkorb?</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ in den Papierkorb?</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+	</dict>
+	<key>%lld Datei(en) nicht gelöscht – Rest im Papierkorb.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ nicht gelöscht – Rest im Papierkorb.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Datei</string>
+			<key>other</key>
+			<string>%lld Dateien</string>
+		</dict>
+	</dict>
+	<key>%lld Datei(en) nicht kopiert – Rest ok.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ nicht kopiert – Rest ok.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Datei</string>
+			<key>other</key>
+			<string>%lld Dateien</string>
+		</dict>
+	</dict>
+	<key>%lld Dateien gefunden…</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ gefunden…</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Datei</string>
+			<key>other</key>
+			<string>%lld Dateien</string>
+		</dict>
+	</dict>
+	<key>%lld Dateien kopiert – %lld fehlgeschlagen.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%1$#@a@ kopiert – %2$lld fehlgeschlagen.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Datei</string>
+			<key>other</key>
+			<string>%lld Dateien</string>
+		</dict>
+	</dict>
+	<key>Abgebrochen – %lld Bilder im Papierkorb.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Abgebrochen – %1$#@a@ im Papierkorb.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+	</dict>
+	<key>Abgebrochen – %lld Dateien kopiert.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Abgebrochen – %1$#@a@ kopiert.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Datei</string>
+			<key>other</key>
+			<string>%lld Dateien</string>
+		</dict>
+	</dict>
+	<key>Datenträger wurde entfernt – %lld Markierungen sind gespeichert.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Datenträger wurde entfernt – %1$#@a@ gespeichert.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Markierung ist</string>
+			<key>other</key>
+			<string>%lld Markierungen sind</string>
+		</dict>
+	</dict>
+	<key>Scan abgebrochen – %lld Bilder geladen.</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Scan abgebrochen – %1$#@a@ geladen.</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+	</dict>
+	<key>Scanne … %lld Bilder geladen</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Scanne … %1$#@a@ geladen</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+	</dict>
+	<key>Ziel für %lld Bilder (inkl. XMP)</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Ziel für %1$#@a@ (inkl. XMP)</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld Bild</string>
+			<key>other</key>
+			<string>%lld Bilder</string>
+		</dict>
+	</dict>
+	<key>Ziel für %lld markierte Bilder (inkl. XMP)</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>Ziel für %1$#@a@ (inkl. XMP)</string>
+		<key>a</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld markiertes Bild</string>
+			<key>other</key>
+			<string>%lld markierte Bilder</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

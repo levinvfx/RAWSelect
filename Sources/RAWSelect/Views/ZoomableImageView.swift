@@ -451,7 +451,7 @@ struct ZoomControls: View {
             button(zoom.zoomed ? "arrow.down.right.and.arrow.up.left" : "1.magnifyingglass") {
                 if zoom.zoomed { zoom.fit() } else { zoom.toggle100() }
             }
-            .help(zoom.zoomed ? "Einpassen (Esc)" : "100% (Z)")
+            .help(zoom.zoomed ? L("Einpassen (Esc)") : L("100% (Z)"))
         }
         .padding(.horizontal, 8).padding(.vertical, 5)
         .background(.regularMaterial, in: Capsule())

@@ -28,6 +28,17 @@ Native macOS-App zum schnellen Aussortieren (Culling) von RAW-Bildern, offline. 
 - **Versions-Bump = zwei Stellen synchron:** `Utilities/Constants.swift` (`static let version`)
   **und** `build_app.sh` (`VERSION=`). Leicht zu vergessen.
 
+## Sprachen (seit 2.2.1)
+- Deutsch und Englisch, die App folgt der Systemsprache (keine Einstellung). **Der deutsche Text steht im Code
+  und ist der Schlüssel**, Englisch in `Localization/en.lproj/Localizable.strings`.
+- SwiftUI-Literale (`Text("…")`, `Button("…")`, `.help("…")`) werden automatisch nachgeschlagen. Überall, wo ein
+  `String` entsteht (Statuszeile, Toast, NSAlert, Panels, Parameter `title: String`, Ternäre), **`L("…")`** verwenden.
+- Texte mit Anzahl («1 Bild» / «2 Bilder») in `tools/make_plurals.py` eintragen und das Skript laufen lassen.
+- **Neuer oder geänderter Text = englischen Eintrag ergänzen.** `python3 tools/check_l10n.py` bricht ab, wenn einer
+  fehlt oder veraltet ist; `build_app.sh` ruft es auf.
+- Englisch ansehen: `.build/debug/RAWSelect -AppleLanguages '(en)'` (die Tabellen kopiert `build_app.sh` neben das Debug-Binary).
+- Release-Text (`Releases/v…/README.txt`): Deutsch, dann eine Zeile `— English —`, dann Englisch. Die App zeigt ihren Teil.
+
 ## Wichtig
 - **Geschwindigkeit** & stabile RAW/Full-HD-Vorschau ohne Ladeflackern; Tastatursteuerung; Zoom + Navigation im Zoom.
 - **Wenige Einstellungen, gute Defaults** — Levin will Settings streichen, nicht vermehren.

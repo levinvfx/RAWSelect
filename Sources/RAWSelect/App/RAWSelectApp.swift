@@ -16,6 +16,14 @@ enum EntryPoint {
             RawCheck.run(Array(CommandLine.arguments[(idx + 1)...]))
             exit(0)
         }
+        // Language check without a window: which language the app picks on this system and a few
+        // sample texts. `RAWSelect --langcheck -AppleLanguages '(fr)'` tests any system language.
+        if CommandLine.arguments.contains("--langcheck") {
+            let one = 1, three = 3
+            print("Sprache:", Bundle.main.preferredLocalizations.first ?? "–", "| verfügbar:", Bundle.main.localizations.sorted().joined(separator: ", "))
+            print(L("Ordner öffnen…"), "|", L("\(one) Bilder gefunden."), "|", L("\(three) Bilder gefunden."), "|", MarkDefinition.defaults[0].name, "|", AppInfo.privacyURL.absoluteString)
+            exit(0)
+        }
         #if DEBUG
         if let idx = CommandLine.arguments.firstIndex(of: "--slidercal") {
             SliderCal.run(Array(CommandLine.arguments[(idx + 1)...]))
@@ -74,7 +82,7 @@ struct RAWSelectApp: App {
             }
             CommandGroup(after: .toolbar) {
                 // The key monitor handles I first; the menu item makes it findable.
-                Button(app.showInfo ? "EXIF-Infos ausblenden" : "EXIF-Infos einblenden") { app.toggleInfo() }
+                Button(app.showInfo ? L("EXIF-Infos ausblenden") : L("EXIF-Infos einblenden")) { app.toggleInfo() }
                     .keyboardShortcut("i", modifiers: [])
                 Button("Im Finder anzeigen") { app.revealCurrent() }
                     .keyboardShortcut("r", modifiers: .command)
@@ -113,10 +121,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let app = AppState.shared, let op = app.operation else { return .terminateNow }
             let alert = NSAlert()
             alert.alertStyle = .warning
-            alert.messageText = "„\(op.title.replacingOccurrences(of: " …", with: ""))“ läuft noch"
-            alert.informativeText = "Beim Beenden wird der Vorgang abgebrochen. Bereits fertige Bilder bleiben erhalten."
-            alert.addButton(withTitle: "Weiterlaufen lassen")
-            alert.addButton(withTitle: "Abbrechen und beenden")
+            let opName = op.title.replacingOccurrences(of: " …", with: "")
+            alert.messageText = L("„\(opName)“ läuft noch")
+            alert.informativeText = L("Beim Beenden wird der Vorgang abgebrochen. Bereits fertige Bilder bleiben erhalten.")
+            alert.addButton(withTitle: L("Weiterlaufen lassen"))
+            alert.addButton(withTitle: L("Abbrechen und beenden"))
             guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
             app.cancelOperation()
             return .terminateNow

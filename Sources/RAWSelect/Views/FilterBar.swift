@@ -52,7 +52,7 @@ struct FilterBar: View {
         }
         .buttonStyle(.plain)
         .disabled(allShown)
-        .help(allShown ? "Alle Bilder werden gezeigt" : "Alle zeigen (⌥0)")
+        .help(allShown ? L("Alle Bilder werden gezeigt") : L("Alle zeigen (⌥0)"))
     }
 
     private func chip(bucket: Int) -> some View {

@@ -107,7 +107,7 @@ struct SessionStore {
             // Never overwrite a file we couldn't read — it may still be recoverable. If it can't
             // even be moved aside, stop here instead of writing over it.
             quarantined = quarantine(identityID: identityID)
-            if quarantined == nil { return .failed("Gespeicherte Markierungen unlesbar und nicht sicherbar") }
+            if quarantined == nil { return .failed(L("Gespeicherte Markierungen unlesbar und nicht sicherbar")) }
         }
 
         for key in scope { merged[key] = nil }

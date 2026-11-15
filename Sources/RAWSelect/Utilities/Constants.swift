@@ -5,7 +5,7 @@ enum AppInfo {
     static let name = "RAW Select"
     /// Release version. A pre-release carries a suffix ("2.0-beta1"); `UpdateService.isNewer` ranks
     /// it below the final "2.0". Must match `VERSION=` in build_app.sh.
-    static let version = "2.2"
+    static let version = "2.2.1"
     /// "2.0 Beta 1" — the same version as people read it.
     static var displayVersion: String { version.replacingOccurrences(of: "-beta", with: " Beta ") }
     static var isBeta: Bool { version.contains("-") }
@@ -21,8 +21,9 @@ enum AppInfo {
     /// VFX Media main site (About tab).
     static let companyURL = URL(string: "https://vfxmedia.ch/")!
     /// Official download page (also hosts the privacy statement and imprint).
-    static let websiteURL = URL(string: "https://vfxmedia.ch/rawselect/")!
-    static let privacyURL = URL(string: "https://vfxmedia.ch/rawselect/datenschutz")!
+    /// The English app links to the English pages.
+    static var websiteURL: URL { URL(string: AppLanguage.isGerman ? "https://vfxmedia.ch/rawselect/" : "https://vfxmedia.ch/rawselect/en/")! }
+    static var privacyURL: URL { URL(string: AppLanguage.isGerman ? "https://vfxmedia.ch/rawselect/datenschutz" : "https://vfxmedia.ch/rawselect/en/privacy")! }
 
     /// Pre-filled feedback mail: version and coarse macOS version go into the body so a bug report
     /// is useful without a back-and-forth. Nothing is sent unless the user hits "Senden".

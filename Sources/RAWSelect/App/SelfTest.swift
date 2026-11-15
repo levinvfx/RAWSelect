@@ -636,6 +636,29 @@ enum SelfTest {
         check(Color(hex: "#FFCC00").prefersDarkText && !Color(hex: "#007AFF").prefersDarkText,
               "colour: contrast helper (dark on yellow, light on blue)")
 
+        // Languages (2.2.1): release notes carry German and English, the app shows its own part.
+        let bothNotes = "RAW Select 9\n\nDeutsch.\n\n\(UpdateService.englishNotesMarker)\n\nRAW Select 9\n\nEnglish."
+        check(UpdateService.localizedNotes(bothNotes, german: true) == "RAW Select 9\n\nDeutsch.", "release notes: German part")
+        check(UpdateService.localizedNotes(bothNotes, german: false) == "RAW Select 9\n\nEnglish.", "release notes: English part")
+        check(UpdateService.localizedNotes(" nur deutsch \n", german: false) == "nur deutsch", "release notes without marker are shown whole")
+        // The English tables resolve counts and argument order (run from the repository root).
+        if let en = Bundle(path: fm.currentDirectoryPath + "/Localization/en.lproj"),
+           let de = Bundle(path: fm.currentDirectoryPath + "/Localization/de.lproj") {
+            func t(_ key: String.LocalizationValue, _ bundle: Bundle) -> String { String(localized: key, bundle: bundle) }
+            let one = 1, two = 2, drive = "Google Drive", red = "Red"
+            check(t("\(one) Bilder gefunden.", en) == "1 photo found.", "en: singular")
+            check(t("\(two) Bilder gefunden.", en) == "2 photos found.", "en: plural")
+            check(t("\(one) Bilder gefunden.", de) == "1 Bild gefunden.", "de: singular")
+            check(t("\(two) Bilder gefunden.", de) == "2 Bilder gefunden.", "de: plural")
+            check(t("\(one) Bilder (\(two) Dateien) in \(drive) kopiert – \(drive) lädt sie hoch.", en)
+                  == "1 photo (2 files) copied to Google Drive – Google Drive is uploading them.", "en: two counts and two names")
+            check(t("Markierung „\(red)“ für \(two) Bilder gesetzt.", en) == "Marked 2 photos “Red”.", "en: reordered arguments")
+            check(t("\(red) · Taste \(one) · \(one) Bilder · ⌥-Klick: nur diese", en) == "Red · key 1 · 1 photo · ⌥-click: only these", "en: count as third argument")
+            check(t("Ordner öffnen…", en) == "Open Folder…" && t("Ordner öffnen…", de) == "Ordner öffnen…", "plain text: English from the table, German from the code")
+        } else {
+            check(false, "language tables found (run the self-test from the repository root)")
+        }
+
         // Loupe zoom view (mouse wheel, fit, photo swap) — headless AppKit.
         zoomTests(check)
 

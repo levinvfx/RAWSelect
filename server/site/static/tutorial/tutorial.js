@@ -57,17 +57,42 @@
     end: 16.6, L: 16.95
   };
   var PTR = '<svg viewBox="0 0 17 25" aria-hidden="true"><path d="M1.2 1.2v19.6l4.9-4.7 3.2 7.2 3.3-1.4-3.2-7.1h6.9z"/></svg>';
+  // Sprache aus <html lang>: Englisch für /rawselect/en/, sonst Deutsch.
+  var EN = /^en/i.test(document.documentElement.lang || '');
+  var TX = EN ? {
+    c1: 'Use the arrow keys to switch photos',
+    c2: 'Keys 1 to 7 set a color mark',
+    c3: 'Optionally, the selection then jumps to the next photo',
+    c4: 'Return opens the large view',
+    c5: 'Z shows the photo at 100% to check sharpness',
+    c6: 'Esc takes you back to the grid step by step',
+    c7: '⌥-click a color mark to show only those photos',
+    c8: '⌘A selects all photos shown',
+    c9: '“Copy” puts the originals in a destination folder',
+    sel1: '1 selected', sel2: '2 selected', found: '9 photos found', copied: '2 photos (2 files) copied.'
+  } : {
+    c1: 'Mit den Pfeiltasten wechselst du das Bild',
+    c2: 'Die Tasten 1 bis 7 setzen einen Farbpunkt',
+    c3: 'Auf Wunsch springt die Auswahl danach zum nächsten Bild',
+    c4: 'Return öffnet die grosse Ansicht',
+    c5: 'Z zeigt das Bild bei 100 % für die Schärfekontrolle',
+    c6: 'Esc führt Schritt für Schritt zurück ins Raster',
+    c7: '⌥-Klick auf einen Farbpunkt zeigt nur diese Bilder',
+    c8: '⌘A wählt alle angezeigten Bilder aus',
+    c9: '«Auswahl kopieren» legt die Originale in einen Zielordner',
+    sel1: '1 ausgewählt', sel2: '2 ausgewählt', found: '9 Bilder gefunden', copied: '2 Bilder (2 Dateien) kopiert.'
+  };
   var STEPS = [
-    { t: 0.55, keys: ['→'], press: [1.2], cap: 'Mit den Pfeiltasten wechselst du das Bild' },
-    { t: 2.0, keys: ['1'], press: [2.45], cap: 'Die Tasten 1 bis 7 setzen einen Farbpunkt' },
-    { t: 3.3, keys: ['4'], press: [3.75], cap: 'Danach springt die Auswahl zum nächsten Bild' },
-    { t: 4.5, keys: ['1'], press: [4.9], cap: 'Danach springt die Auswahl zum nächsten Bild' },
-    { t: 5.8, keys: ['Return'], press: [6.3], cap: 'Return öffnet die grosse Ansicht' },
-    { t: 7.2, keys: ['Z'], press: [7.65], cap: 'Z zeigt das Bild bei 100 % für die Schärfekontrolle' },
-    { t: 8.85, keys: ['Esc'], press: [9.35, 9.9], cap: 'Esc führt Schritt für Schritt zurück ins Raster' },
-    { t: 10.45, keys: ['⌥'], hold: [11.35, 11.75], cap: '⌥-Klick auf einen Farbpunkt zeigt nur diese Bilder' },
-    { t: 12.5, keys: ['⌘', 'A'], press: [12.95], cap: '⌘A wählt alle angezeigten Bilder aus' },
-    { t: 13.75, keys: ['ptr'], press: [T.click2], cap: '«Auswahl kopieren» legt die Originale in einen Zielordner' }
+    { t: 0.55, keys: ['→'], press: [1.2], cap: TX.c1 },
+    { t: 2.0, keys: ['1'], press: [2.45], cap: TX.c2 },
+    { t: 3.3, keys: ['4'], press: [3.75], cap: TX.c3 },
+    { t: 4.5, keys: ['1'], press: [4.9], cap: TX.c3 },
+    { t: 5.8, keys: ['Return'], press: [6.3], cap: TX.c4 },
+    { t: 7.2, keys: ['Z'], press: [7.65], cap: TX.c5 },
+    { t: 8.85, keys: ['Esc'], press: [9.35, 9.9], cap: TX.c6 },
+    { t: 10.45, keys: ['⌥'], hold: [11.35, 11.75], cap: TX.c7 },
+    { t: 12.5, keys: ['⌘', 'A'], press: [12.95], cap: TX.c8 },
+    { t: 13.75, keys: ['ptr'], press: [T.click2], cap: TX.c9 }
   ];
   // Bildunterschriften: gleiche Texte hintereinander bilden einen Abschnitt (kein Wechsel).
   var CAPS = [];
@@ -263,9 +288,9 @@
     op(copyFlash, t >= T.click2 - 0.1 ? 0.3 * press(t, T.click2) + (t >= T.click2 ? 0.18 * (1 - seg(t, T.click2, 0.5, LIN)) : 0) : 0);
 
     // Statusleiste
-    txt(stSel, t >= T.cmdA ? '2 ausgewählt' : '1 ausgewählt');
+    txt(stSel, t >= T.cmdA ? TX.sel2 : TX.sel1);
     txt(stPos, t >= T.filt ? '1 / 2' : (idx + 1) + ' / 9');
-    txt(stMsg, t >= T.toast ? '2 Bilder (2 Dateien) kopiert.' : '9 Bilder gefunden');
+    txt(stMsg, t >= T.toast ? TX.copied : TX.found);
 
     if (still) return;
 

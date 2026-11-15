@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="RAW Select"
 BUNDLE_ID="ch.anneler.rawselect"
-VERSION="2.2"
+VERSION="2.2.1"
 # Bundle keys must stay numeric ("2.0"); the full string with the beta suffix lives in the app.
 SHORT_VERSION="${VERSION%%-*}"
 EXECUTABLE="RAWSelect"
@@ -16,6 +16,11 @@ EXECUTABLE="RAWSelect"
 # heavy expressions trip the release optimizer's type-checker. Debug proves the logic first.
 echo "▶︎ Running self-test (debug binary)…"
 swift build
+# The debug binary has no bundle: with the tables next to it, it runs in English too
+# (`.build/debug/RAWSelect -AppleLanguages '(en)'`).
+for lproj in Localization/*.lproj; do rm -rf ".build/debug/$(basename "$lproj")"; cp -R "$lproj" .build/debug/; done
+echo "▶︎ Checking the English translation…"
+python3 tools/check_l10n.py    # aborts if a text in the code has no English translation
 ".build/debug/${EXECUTABLE}" --selftest    # aborts the build (set -e) if any logic check fails
 
 # Universal binary (Apple Silicon + Intel). `swift build --arch a --arch b` needs Xcode's xcbuild,
@@ -70,6 +75,14 @@ else
     ICON_KEY=""
 fi
 
+# Languages: German (the text in the code) and English. Every other system language gets English
+# (CFBundleDevelopmentRegion = en); de.lproj must exist so macOS offers German at all.
+for lproj in Localization/*.lproj; do
+    cp -R "$lproj" "${APP_DIR}/Contents/Resources/"
+done
+[[ -f "${APP_DIR}/Contents/Resources/en.lproj/Localizable.strings" && -f "${APP_DIR}/Contents/Resources/de.lproj/Localizable.strings" ]] \
+    || { echo "✗ Language tables missing in the bundle" >&2; exit 1; }
+
 # VFX Media wordmark (black + white) for the Über tab, rendered from the Portfolio SVG.
 for logo in assets/VFXMedia-Schwarz.png assets/VFXMedia-Weiss.png; do
     [[ -f "$logo" ]] && cp "$logo" "${APP_DIR}/Contents/Resources/"
@@ -86,6 +99,8 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleName</key><string>${APP_NAME}</string>
     <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key><array><string>de</string><string>en</string></array>
     <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
     <key>CFBundleVersion</key><string>${SHORT_VERSION}</string>
     <key>CFBundleShortVersionString</key><string>${SHORT_VERSION}</string>

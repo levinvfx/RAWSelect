@@ -16,14 +16,14 @@ struct PhotoMetadata {
     var rows: [(String, String)] {
         var r: [(String, String)] = []
         func add(_ label: String, _ value: String?) { if let v = value, !v.isEmpty { r.append((label, v)) } }
-        add("Kamera", camera)
-        add("Objektiv", lens)
-        add("Brennweite", focalLength)
-        add("Blende", aperture)
-        add("Zeit", shutter)
-        add("ISO", iso)
-        add("Aufnahme", dateTime)
-        add("Pixel", pixels)
+        add(L("Kamera"), camera)
+        add(L("Objektiv"), lens)
+        add(L("Brennweite"), focalLength)
+        add(L("Blende"), aperture)
+        add(L("Zeit"), shutter)
+        add(L("ISO"), iso)
+        add(L("Aufnahme"), dateTime)
+        add(L("Pixel"), pixels)
         return r
     }
 }
@@ -83,13 +83,14 @@ enum MetadataService {
         return meta
     }
 
-    /// EXIF dates look like "2025:07:04 13:54:02" → "04.07.2025 13:54".
+    /// EXIF dates look like "2025:07:04 13:54:02" → "04.07.2025, 13:54" (order and clock follow the system region).
     private static func formatDate(_ raw: String) -> String {
         let inFmt = DateFormatter()
+        inFmt.locale = Locale(identifier: "en_US_POSIX")   // fixed format: must not follow a 12-hour region
         inFmt.dateFormat = "yyyy:MM:dd HH:mm:ss"
         guard let date = inFmt.date(from: raw) else { return raw }
         let outFmt = DateFormatter()
-        outFmt.dateFormat = "dd.MM.yyyy HH:mm"
+        outFmt.setLocalizedDateFormatFromTemplate("ddMMyyyyjmm")
         return outFmt.string(from: date)
     }
 }

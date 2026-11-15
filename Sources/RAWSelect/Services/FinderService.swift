@@ -19,7 +19,7 @@ enum FinderService {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = false
-        panel.prompt = "Öffnen"
+        panel.prompt = L("Öffnen")
         return panel.runModal() == .OK ? panel.url : nil
     }
 
@@ -34,7 +34,7 @@ enum FinderService {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
-        panel.prompt = "Zielordner wählen"
+        panel.prompt = L("Zielordner wählen")
         return panel.runModal() == .OK ? panel.url : nil
     }
 
@@ -42,11 +42,11 @@ enum FinderService {
     /// "An Google Drive senden" must never quietly land on the local disk.
     static func chooseGoogleDriveFolder(current: String) -> URL? {
         let start = !current.isEmpty ? current : (CloudFolderService.googleDriveAccounts().first?.url.path ?? "")
-        guard let url = chooseDestination(title: "Ordner in Google Drive wählen", startAt: start) else { return nil }
+        guard let url = chooseDestination(title: L("Ordner in Google Drive wählen"), startAt: start) else { return nil }
         guard CloudFolderService.provider(for: url) == "Google Drive" else {
             let alert = NSAlert()
-            alert.messageText = "Dieser Ordner liegt nicht in Google Drive."
-            alert.informativeText = "Wähle links unter „Orte“ Google Drive und darin den Ordner, in den die Bilder sollen."
+            alert.messageText = L("Dieser Ordner liegt nicht in Google Drive.")
+            alert.informativeText = L("Wähle links unter „Orte“ Google Drive und darin den Ordner, in den die Bilder sollen.")
             alert.runModal()
             return nil
         }

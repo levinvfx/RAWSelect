@@ -9,17 +9,17 @@ enum SortField: String, CaseIterable, Identifiable { case unsorted = "none", fil
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .unsorted: return "Ohne"
-        case .filename: return "Name"
-        case .captureDate: return "Erstellungsdatum"
-        case .type: return "Typ"
-        case .size: return "Grösse"
+        case .unsorted: return L("Ohne")
+        case .filename: return L("Name")
+        case .captureDate: return L("Erstellungsdatum")
+        case .type: return L("Typ")
+        case .size: return L("Grösse")
         }
     }
 }
 enum PreviewMode: String, CaseIterable, Identifiable { case fast, balanced, quality
     var id: String { rawValue }
-    var label: String { switch self { case .fast: return "Schnell"; case .balanced: return "Ausgewogen"; case .quality: return "Qualität" } }
+    var label: String { switch self { case .fast: return L("Schnell"); case .balanced: return L("Ausgewogen"); case .quality: return L("Qualität") } }
     var instantPixels: Int { switch self { case .fast: return 400; case .balanced: return 800; case .quality: return 1200 } }
     var perfectPixels: Int { switch self { case .fast: return 1920; case .balanced: return 2048; case .quality: return 3840 } }
     var preloadForward: Int { switch self { case .fast: return 10; case .balanced: return 20; case .quality: return 30 } }
@@ -30,7 +30,7 @@ enum PreviewMode: String, CaseIterable, Identifiable { case fast, balanced, qual
 /// App appearance, independent of the system setting.
 enum AppAppearance: String, CaseIterable, Identifiable { case system, light, dark
     var id: String { rawValue }
-    var label: String { switch self { case .system: return "System"; case .light: return "Hell"; case .dark: return "Dunkel" } }
+    var label: String { switch self { case .system: return L("System"); case .light: return L("Hell"); case .dark: return L("Dunkel") } }
     var colorScheme: ColorScheme? { switch self { case .system: return nil; case .light: return .light; case .dark: return .dark } }
 }
 
@@ -39,7 +39,7 @@ enum AppAppearance: String, CaseIterable, Identifiable { case system, light, dar
 /// through to `rename`. An option that lies is worse than no option.
 enum ConflictMode: String, CaseIterable, Identifiable { case rename, skip, overwrite
     var id: String { rawValue }
-    var label: String { switch self { case .rename: return "Automatisch _1, _2, _3 anhängen"; case .skip: return "Überspringen"; case .overwrite: return "Überschreiben" } }
+    var label: String { switch self { case .rename: return L("Automatisch _1, _2, _3 anhängen"); case .skip: return L("Überspringen"); case .overwrite: return L("Überschreiben") } }
 }
 
 // MARK: - Mark definitions
@@ -69,15 +69,17 @@ struct MarkDefinition: Codable, Identifiable, Equatable {
     ]
 
     static let defaults: [MarkDefinition] = [
-        .init(id: 1, name: "Rot",     colorHex: "#FF3B30"),
-        .init(id: 2, name: "Orange",  colorHex: "#FF9500"),
-        .init(id: 3, name: "Gelb",    colorHex: "#FFCC00"),
-        .init(id: 4, name: "Grün",    colorHex: "#34C759"),
-        .init(id: 5, name: "Blau",    colorHex: "#007AFF"),
-        .init(id: 6, name: "Violett", colorHex: "#AF52DE"),
-        .init(id: 7, name: "Grau",    colorHex: "#8E8E93"),
+        .init(id: 1, name: L("Rot"),     colorHex: "#FF3B30"),
+        .init(id: 2, name: L("Orange"),  colorHex: "#FF9500"),
+        .init(id: 3, name: L("Gelb"),    colorHex: "#FFCC00"),
+        .init(id: 4, name: L("Grün"),    colorHex: "#34C759"),
+        .init(id: 5, name: L("Blau"),    colorHex: "#007AFF"),
+        .init(id: 6, name: L("Violett"), colorHex: "#AF52DE"),
+        .init(id: 7, name: L("Grau"),    colorHex: "#8E8E93"),
     ]
 
+    /// The names follow the app language (2.2.1): an untouched mark is "Rot" in German and "Red" in
+    /// English, because `localized(_:)` swaps every stored default name for the current one.
     /// Every default colour and name any earlier version shipped (neon 1.0–1.11, the 9-colour
     /// palette of the first 2.0 build, English names before 1.9). A stored mark whose colour AND
     /// name are both such defaults was never touched by the user and follows the new palette;
@@ -87,7 +89,7 @@ struct MarkDefinition: Codable, Identifiable, Equatable {
         "#FF3B30", "#FFCC00", "#34C759", "#007AFF", "#AF52DE", "#5AC8FA", "#A2845E", "#8E8E93", "#FF9500",
     ]
     private static let legacyDefaultNames: Set<String> = [
-        "Red", "Yellow", "Green", "Blue", "Purple", "Cyan", "Brown", "Black", "White",
+        "Red", "Yellow", "Green", "Blue", "Purple", "Cyan", "Brown", "Black", "White", "Orange", "Gray",
         "Rot", "Gelb", "Grün", "Blau", "Violett", "Türkis", "Braun", "Schwarz", "Weiss", "Grau", "Orange",
     ]
 

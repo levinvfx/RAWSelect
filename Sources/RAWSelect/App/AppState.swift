@@ -60,7 +60,7 @@ final class AppState: ObservableObject {
     /// Files seen so far while scanning. The scanner always counted them — nobody asked for
     /// the number, so a 5000-photo folder showed a spinner with no end in sight.
     @Published var scanFound = 0
-    @Published var statusMessage = "Kein Ordner geöffnet."
+    @Published var statusMessage = L("Kein Ordner geöffnet.")
     /// Bumped when the list was re-sorted from Settings/Toolbar: the grid scrolls back to the
     /// current photo (currentID is unchanged, so its own onChange would not fire).
     @Published var scrollToCurrentTick = 0
@@ -256,11 +256,24 @@ final class AppState: ObservableObject {
                 for item in NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain })?.toolbar?.items ?? [] {
                     print("toolbar:", item.itemIdentifier.rawValue, "|", item.toolTip ?? "–", "|", item.view?.toolTip ?? "–")
                 }
-                if let frameView = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain })?.contentView?.superview,
-                   let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) {
+                // Every visible window (main window, sheets, settings): <out>, <out>-2.png, …
+                let base = URL(fileURLWithPath: out)
+                for (i, window) in NSApp.windows.filter({ $0.isVisible }).enumerated() {
+                    guard let frameView = window.contentView?.superview,
+                          let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) else { continue }
                     frameView.cacheDisplay(in: frameView.bounds, to: rep)
-                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
+                    let url = i == 0 ? base : base.deletingPathExtension().appendingPathExtension("\(i + 1).png")
+                    try? rep.representation(using: .png, properties: [:])?.write(to: url)
+                    print("window:", i + 1, window.title, Int(frameView.bounds.width), "×", Int(frameView.bounds.height))
                 }
+                // Menu titles, to check the menus in every language without a screen recording.
+                func dump(_ menu: NSMenu?, _ depth: Int) {
+                    for item in menu?.items ?? [] where !item.isSeparatorItem {
+                        print("menu:", String(repeating: "  ", count: depth) + item.title)
+                        dump(item.submenu, depth + 1)
+                    }
+                }
+                dump(NSApp.mainMenu, 0)
                 NSApp.terminate(nil)
             }
         }
@@ -269,12 +282,11 @@ final class AppState: ObservableObject {
         case "list": viewMode = .list
         case "shortcuts": showShortcuts = true
         case "settings":
-            // ⌘, als echtes Tastaturereignis – der Settings-Scene-Selector ist je nach macOS-Version anders.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                for down in [true, false] {
-                    if let e = CGEvent(keyboardEventSource: nil, virtualKey: 0x2B, keyDown: down) {
-                        e.flags = .maskCommand; e.post(tap: .cghidEventTap)
-                    }
+            // Über den Menüpunkt mit ⌘, – kein globales Tastaturereignis (träfe die App im Vordergrund).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                if let item = NSApp.mainMenu?.items.first?.submenu?.items.first(where: { $0.keyEquivalent == "," }),
+                   let action = item.action {
+                    NSApp.sendAction(action, to: item.target, from: item)
                 }
             }
         default: break
@@ -301,7 +313,7 @@ final class AppState: ObservableObject {
     /// one) used to unload it and drop filter and position.
     func browse(_ url: URL) {
         browseRoot = url
-        if rootURL == nil { statusMessage = "Ordner in der Seitenleiste anklicken, um die Bilder zu laden." }
+        if rootURL == nil { statusMessage = L("Ordner in der Seitenleiste anklicken, um die Bilder zu laden.") }
     }
 
     /// The volume holding the open folder was ejected/pulled. Until now nothing reacted: the
@@ -322,8 +334,8 @@ final class AppState: ObservableObject {
         selectedIDs = []; currentID = nil; anchorID = nil
         isScanning = false; scanCancelled = false
         viewMode = browseMode
-        statusMessage = "Datenträger wurde entfernt" + (n > 0 ? " – \(n) Markierungen sind gespeichert." : ".")
-        showToast("Datenträger entfernt – laufende Vorgänge abgebrochen.", kind: .error)
+        statusMessage = n > 0 ? L("Datenträger wurde entfernt – \(n) Markierungen sind gespeichert.") : L("Datenträger wurde entfernt.")
+        showToast(L("Datenträger entfernt – laufende Vorgänge abgebrochen."), kind: .error)
     }
 
     /// Abort an in-progress scan (large folders / slow network volumes).
@@ -333,12 +345,12 @@ final class AppState: ObservableObject {
         scanTask?.cancel()
         isScanning = false
         scanCancelled = true
-        statusMessage = groups.isEmpty ? "Scan abgebrochen." : "Scan abgebrochen – \(groups.count) Bilder geladen."
+        statusMessage = groups.isEmpty ? L("Scan abgebrochen.") : L("Scan abgebrochen – \(groups.count) Bilder geladen.")
     }
 
     // MARK: Opening / scanning
     func openFolderDialog() {
-        if let url = FinderService.chooseFolder(title: "Ordner oder SD-Karte öffnen") { open(url) }
+        if let url = FinderService.chooseFolder(title: L("Ordner oder SD-Karte öffnen")) { open(url) }
     }
 
     func open(_ url: URL, setBrowseRoot: Bool = true) {
@@ -368,7 +380,7 @@ final class AppState: ObservableObject {
         anchorID = nil
         isScanning = true
         scanFound = 0
-        statusMessage = "Scanne \(url.lastPathComponent) …"
+        statusMessage = L("Scanne \(url.lastPathComponent) …")
 
         if !url.isOnExternalVolume { settings.rememberRecentFolder(url.standardizedFileURL.path) }
         let identity = FolderIdentity(root: url)
@@ -424,7 +436,7 @@ final class AppState: ObservableObject {
             if Task.isCancelled || token.isCancelled {
                 // Keep what already arrived — a partial folder beats an empty one.
                 self.isScanning = false
-                self.statusMessage = self.groups.isEmpty ? "Scan abgebrochen." : "Scan abgebrochen – \(self.groups.count) Bilder geladen."
+                self.statusMessage = self.groups.isEmpty ? L("Scan abgebrochen.") : L("Scan abgebrochen – \(self.groups.count) Bilder geladen.")
                 return
             }
             // Batches were handed over as separate main-actor tasks; merge against the full list
@@ -453,10 +465,10 @@ final class AppState: ObservableObject {
             #if DEBUG
             self.applyDemoEnvironment()
             #endif
-            let markedNote = self.markedCount > 0 ? " (\(self.markedCount) bereits markiert)" : ""
             self.statusMessage = merged.isEmpty
-                ? "Keine Bilder gefunden."
-                : "\(merged.count) Bilder gefunden\(markedNote)."
+                ? L("Keine Bilder gefunden.")
+                : (self.markedCount > 0 ? L("\(merged.count) Bilder gefunden (\(self.markedCount) bereits markiert).")
+                                        : L("\(merged.count) Bilder gefunden."))
         }
     }
 
@@ -476,7 +488,7 @@ final class AppState: ObservableObject {
             ThumbnailLoader.shared.warmTiny(fresh.prefix(PreviewConfig.initialWarmCount - warmed).map { $0.previewURL },
                                             maxPixel: PreviewConfig.tinyMaxPixel)
         }
-        statusMessage = "Scanne … \(groups.count) Bilder geladen"
+        statusMessage = L("Scanne … \(groups.count) Bilder geladen")
     }
 
     // MARK: Selection
@@ -509,7 +521,7 @@ final class AppState: ObservableObject {
         selectedIDs = Set(list.map { $0.id })
         if currentID == nil { currentID = list.first?.id }
         anchorID = list.first?.id
-        statusMessage = "\(selectedIDs.count) Bilder ausgewählt."
+        statusMessage = L("\(selectedIDs.count) Bilder ausgewählt.")
     }
 
     /// Selection made by the list (mouse, ⇧/⌘-click handled by the table itself). A single new
@@ -555,7 +567,7 @@ final class AppState: ObservableObject {
             if list[i].mark == 0 { selectSingle(list[i].id); return }
             i += forward ? 1 : -1
         }
-        statusMessage = forward ? "Kein weiteres unmarkiertes Bild." : "Kein vorheriges unmarkiertes Bild."
+        statusMessage = forward ? L("Kein weiteres unmarkiertes Bild.") : L("Kein vorheriges unmarkiertes Bild.")
     }
 
     /// Selects the first/last photo in the current filtered list (Home/End).
@@ -638,8 +650,8 @@ final class AppState: ObservableObject {
         let newMark = toggleOff ? 0 : mark
         mutateSelection({ $0.mark = newMark }) { n in
             newMark == 0
-                ? (n == 1 ? "Markierung entfernt." : "Markierung von \(n) Bildern entfernt.")
-                : (n == 1 ? "Markierung „\(self.settings.markName(mark))“ gesetzt." : "Markierung „\(self.settings.markName(mark))“ für \(n) Bilder gesetzt.")
+                ? (n == 1 ? L("Markierung entfernt.") : L("Markierung von \(n) Bildern entfernt."))
+                : (n == 1 ? L("Markierung „\(self.settings.markName(mark))“ gesetzt.") : L("Markierung „\(self.settings.markName(mark))“ für \(n) Bilder gesetzt."))
         }
         // Auto-advance for fast culling (Settings → Markierungen).
         if settings.autoAdvance && newMark != 0 && single && currentID == before {
@@ -665,7 +677,7 @@ final class AppState: ObservableObject {
         refreshDerived()
         persistState()
         reconcileSelection()
-        statusMessage = "Markierung rückgängig gemacht."
+        statusMessage = L("Markierung rückgängig gemacht.")
     }
 
     private func mutateSelection(_ body: (inout PhotoGroup) -> Void, status: (Int) -> String) {
@@ -715,15 +727,15 @@ final class AppState: ObservableObject {
         case .ok:
             break
         case .quarantined(let name):
-            let msg = "Gespeicherte Markierungen waren beschädigt – beiseitegelegt als \(name). Neu wird sauber gespeichert."
+            let msg = L("Gespeicherte Markierungen waren beschädigt – beiseitegelegt als \(name). Neu wird sauber gespeichert.")
             statusMessage = msg
-            showToast("Session war beschädigt – beiseitegelegt, wird neu gespeichert.", kind: .error)
+            showToast(L("Session war beschädigt – beiseitegelegt, wird neu gespeichert."), kind: .error)
         case .failed(let msg):
             // Silence here meant marking for hours into the void when the disk was full.
             // The status line alone is not enough: the next keypress overwrites it, and it is
             // hidden entirely in focus mode — so an error MUST also raise a lingering toast.
-            statusMessage = "Markierungen konnten NICHT gespeichert werden: \(msg)"
-            showToast("Markierungen konnten NICHT gespeichert werden!", kind: .error)
+            statusMessage = L("Markierungen konnten NICHT gespeichert werden: \(msg)")
+            showToast(L("Markierungen konnten NICHT gespeichert werden!"), kind: .error)
         }
     }
 
@@ -821,7 +833,7 @@ final class AppState: ObservableObject {
     /// RAW of each photo, like "Öffnen mit". No selection: the photo under the cursor.
     func revealCurrent() {
         let photos = actionGroups
-        guard !photos.isEmpty else { statusMessage = "Kein Bild ausgewählt."; return }
+        guard !photos.isEmpty else { statusMessage = L("Kein Bild ausgewählt."); return }
         FinderService.reveal(photos.map { rawURL(for: $0) })
     }
     func revealFolder(_ url: URL) { FinderService.revealFolder(url) }
@@ -845,7 +857,7 @@ final class AppState: ObservableObject {
 
     /// Opens the standalone editor for the active photo (loupe or grid).
     func openEditor() {
-        guard currentGroup != nil else { statusMessage = "Kein Bild ausgewählt."; return }
+        guard currentGroup != nil else { statusMessage = L("Kein Bild ausgewählt."); return }
         showEditor = true
     }
     #endif
@@ -858,7 +870,7 @@ final class AppState: ObservableObject {
     }
     /// Title for the toolbar button — reflects the chosen app once set.
     var openWithButtonTitle: String {
-        settings.openWithAppPath.isEmpty ? "Öffnen mit…" : "In \(openWithAppName) öffnen"
+        settings.openWithAppPath.isEmpty ? L("Öffnen mit…") : L("In \(openWithAppName) öffnen")
     }
     /// Icon for that button: the chosen app, else an installed Lightroom (the likely pick).
     var openWithIconPath: String {
@@ -871,8 +883,8 @@ final class AppState: ObservableObject {
     func openSelectionInExternalApp() {
         let sel = actionGroups
         guard !sel.isEmpty else {
-            statusMessage = "Keine Bilder ausgewählt."
-            showToast("Keine Bilder ausgewählt.", kind: .error); return
+            statusMessage = L("Keine Bilder ausgewählt.")
+            showToast(L("Keine Bilder ausgewählt."), kind: .error); return
         }
         // First use: let the user pick the default app, then store it.
         if settings.openWithAppPath.isEmpty {
@@ -881,13 +893,13 @@ final class AppState: ObservableObject {
         }
         let files = sel.map { rawURL(for: $0) }               // the RAW/original per photo
         if OpenWithService.open(files, withAppAt: settings.openWithAppPath) {
-            statusMessage = "\(sel.count == 1 ? "Bild" : "\(sel.count) Bilder") in \(openWithAppName) geöffnet."
+            statusMessage = sel.count == 1 ? L("Bild in \(openWithAppName) geöffnet.") : L("\(sel.count) Bilder in \(openWithAppName) geöffnet.")
         } else {
             // App missing → clear the stale path so the next click asks again.
             let missing = openWithAppName
             settings.openWithAppPath = ""
-            statusMessage = "App zum Öffnen nicht gefunden."
-            showToast("„\(missing)“ nicht gefunden – bitte neu wählen.", kind: .error)
+            statusMessage = L("App zum Öffnen nicht gefunden.")
+            showToast(L("„\(missing)“ nicht gefunden – bitte neu wählen."), kind: .error)
         }
     }
 
@@ -903,21 +915,22 @@ final class AppState: ObservableObject {
 
     /// Copies the selection (or the photo under the cursor) into a chosen folder.
     func copySelection(includeSidecars: Bool = true) {
-        copyToChosenFolder(actionGroups, what: "Auswahl")
+        copyToChosenFolder(actionGroups, marked: false)
     }
 
     /// Copies every marked photo WITHOUT touching the selection: setting it to all marked photos
     /// (incl. filtered-out ones) left a hidden selection behind, so the next digit re-coloured them all.
     func copyMarked() {
-        copyToChosenFolder(markedGroups, what: "markierte")
+        copyToChosenFolder(markedGroups, marked: true)
     }
 
-    private func copyToChosenFolder(_ photos: [PhotoGroup], what: String) {
+    private func copyToChosenFolder(_ photos: [PhotoGroup], marked: Bool) {
         guard operation == nil else { return }   // one operation at a time (see runCopy)
         guard !photos.isEmpty else {
-            statusMessage = what == "markierte" ? "Keine markierten Bilder." : "Keine Bilder ausgewählt."; return
+            statusMessage = marked ? L("Keine markierten Bilder.") : L("Keine Bilder ausgewählt."); return
         }
-        guard let target = FinderService.chooseDestination(title: "Ziel für \(photos.count) \(what == "markierte" ? "markierte " : "")Bilder (inkl. XMP)",
+        let title = marked ? L("Ziel für \(photos.count) markierte Bilder (inkl. XMP)") : L("Ziel für \(photos.count) Bilder (inkl. XMP)")
+        guard let target = FinderService.chooseDestination(title: title,
                                                            startAt: settings.lastExportTarget) else { return }
         settings.lastExportTarget = target.path   // same target after every game → offered next time
         // The card is the one place we promise never to write to. Copying INTO it is allowed,
@@ -937,10 +950,10 @@ final class AppState: ObservableObject {
     func sendToGoogleDrive(marked: Bool) {
         guard operation == nil else { return }
         let photos = marked ? markedGroups : actionGroups
-        guard !photos.isEmpty else { statusMessage = marked ? "Keine markierten Bilder." : "Keine Bilder ausgewählt."; return }
+        guard !photos.isEmpty else { statusMessage = marked ? L("Keine markierten Bilder.") : L("Keine Bilder ausgewählt."); return }
         guard !CloudFolderService.googleDriveAccounts().isEmpty else {
-            statusMessage = "Google Drive ist nicht eingerichtet."
-            showToast("Google Drive fehlt – Einstellungen → Erweitert.", kind: .error)
+            statusMessage = L("Google Drive ist nicht eingerichtet.")
+            showToast(L("Google Drive fehlt – Einstellungen → Erweitert."), kind: .error)
             return
         }
         var target = settings.googleDriveTarget
@@ -957,7 +970,7 @@ final class AppState: ObservableObject {
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
             settings.forgetRecentFolder(path)
-            statusMessage = "Ordner nicht mehr vorhanden: \((path as NSString).lastPathComponent)"
+            statusMessage = L("Ordner nicht mehr vorhanden: \((path as NSString).lastPathComponent)")
             return
         }
         open(URL(fileURLWithPath: path, isDirectory: true))
@@ -972,10 +985,10 @@ final class AppState: ObservableObject {
     private func confirmCopyOntoCard() -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Zielordner liegt auf der Quell-Karte"
-        alert.informativeText = "Die Bilder würden auf dieselbe SD-Karte kopiert, von der sie stammen. Trotzdem kopieren?"
-        alert.addButton(withTitle: "Abbrechen")
-        alert.addButton(withTitle: "Trotzdem kopieren")
+        alert.messageText = L("Zielordner liegt auf der Quell-Karte")
+        alert.informativeText = L("Die Bilder würden auf dieselbe SD-Karte kopiert, von der sie stammen. Trotzdem kopieren?")
+        alert.addButton(withTitle: L("Abbrechen"))
+        alert.addButton(withTitle: L("Trotzdem kopieren"))
         return alert.runModal() == .alertSecondButtonReturn
     }
 
@@ -987,10 +1000,10 @@ final class AppState: ObservableObject {
     func trashSelection() {
         guard operation == nil else { return }
         let sel = actionGroups
-        guard !sel.isEmpty else { statusMessage = "Keine Bilder ausgewählt."; return }
+        guard !sel.isEmpty else { statusMessage = L("Keine Bilder ausgewählt."); return }
         guard !sourceIsExternal else {
-            statusMessage = "Löschen ist von SD-Karten/externen Datenträgern deaktiviert – bitte erst kopieren."
-            showToast("Löschen von SD-Karten ist deaktiviert.", kind: .error); return
+            statusMessage = L("Löschen ist von SD-Karten/externen Datenträgern deaktiviert – bitte erst kopieren.")
+            showToast(L("Löschen von SD-Karten ist deaktiviert."), kind: .error); return
         }
         // One photo goes straight away (fast culling). More than one asks first: ⌘A + ⌫ was a
         // whole folder in the Trash on a single keypress, with no in-app undo.
@@ -1012,7 +1025,7 @@ final class AppState: ObservableObject {
         let gen = folderGeneration
         let token = CancellationToken()
         cancelToken = token
-        operation = OperationState(title: "In den Papierkorb …", completed: 0, total: 0)
+        operation = OperationState(title: L("In den Papierkorb …"), completed: 0, total: 0)
         Task {
             let outcome = await Task.detached(priority: .userInitiated) { [weak self] in
                 FileOperationService.trash(groups: sel,
@@ -1026,7 +1039,7 @@ final class AppState: ObservableObject {
             }.value
             self.operation = nil
             guard gen == self.folderGeneration else {
-                self.showToast("Papierkorb-Vorgang beendet – der Ordner wurde inzwischen gewechselt.", kind: .info)
+                self.showToast(L("Papierkorb-Vorgang beendet – der Ordner wurde inzwischen gewechselt."), kind: .info)
                 return
             }
             let trashed = outcome.trashedGroupIDs
@@ -1044,14 +1057,14 @@ final class AppState: ObservableObject {
             else { self.selectSingle(list[min(anchorPos ?? 0, list.count - 1)].id) }
 
             if outcome.cancelled {
-                self.statusMessage = "Abgebrochen – \(outcome.photos) Bilder im Papierkorb."
-                self.showToast("Abgebrochen – \(outcome.photos) im Papierkorb.", kind: .info)
+                self.statusMessage = L("Abgebrochen – \(outcome.photos) Bilder im Papierkorb.")
+                self.showToast(L("Abgebrochen – \(outcome.photos) im Papierkorb."), kind: .info)
             } else if outcome.failures.isEmpty {
                 let n = outcome.photos
-                self.statusMessage = "\(n) \(n == 1 ? "Bild" : "Bilder") in den Papierkorb verschoben."
+                self.statusMessage = n == 1 ? L("1 Bild in den Papierkorb verschoben.") : L("\(n) Bilder in den Papierkorb verschoben.")
             } else {
-                self.statusMessage = "\(outcome.failures.count) Datei(en) nicht gelöscht – Rest im Papierkorb."
-                self.showToast("\(outcome.failures.count) nicht gelöscht – Rest im Papierkorb.", kind: .error)
+                self.statusMessage = L("\(outcome.failures.count) Datei(en) nicht gelöscht – Rest im Papierkorb.")
+                self.showToast(L("\(outcome.failures.count) nicht gelöscht – Rest im Papierkorb."), kind: .error)
             }
         }
     }
@@ -1062,9 +1075,9 @@ final class AppState: ObservableObject {
         // only the second, and the first one finishing lifted the key lock under the second.
         guard operation == nil else { return }
         let snapshot = selection
-        guard !snapshot.isEmpty else { statusMessage = "Keine Bilder zum Kopieren."; return }
+        guard !snapshot.isEmpty else { statusMessage = L("Keine Bilder zum Kopieren."); return }
 
-        let title = "Kopiere Bilder …"
+        let title = L("Kopiere Bilder …")
         let token = CancellationToken()
         cancelToken = token
         operation = OperationState(title: title, completed: 0, total: 0)
@@ -1085,29 +1098,28 @@ final class AppState: ObservableObject {
                 }.value
 
                 self.operation = nil
-                let verb = "kopiert"
 
                 if outcome.cancelled {
-                    self.statusMessage = "Abgebrochen – \(outcome.files) Dateien \(verb)."
-                    self.showToast("Abgebrochen – \(outcome.files) Dateien \(verb).", kind: .info)
+                    self.statusMessage = L("Abgebrochen – \(outcome.files) Dateien kopiert.")
+                    self.showToast(L("Abgebrochen – \(outcome.files) Dateien kopiert."), kind: .info)
                 } else if outcome.failures.isEmpty {
                     // In a cloud folder the copy is on disk, not yet online: the provider's app
                     // uploads it — say so, the Finder shows the upload state per file.
                     if let cloud = CloudFolderService.provider(for: target) {
-                        self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) in \(cloud) \(verb) – \(cloud) lädt sie hoch."
-                        self.showToast("In \(cloud) \(verb) – Upload läuft im Hintergrund.")
+                        self.statusMessage = L("\(outcome.photos) Bilder (\(outcome.files) Dateien) in \(cloud) kopiert – \(cloud) lädt sie hoch.")
+                        self.showToast(L("In \(cloud) kopiert – Upload läuft im Hintergrund."))
                     } else {
-                        self.statusMessage = "\(outcome.photos) Bilder (\(outcome.files) Dateien) \(verb)."
+                        self.statusMessage = L("\(outcome.photos) Bilder (\(outcome.files) Dateien) kopiert.")
                     }
                     if self.settings.revealAfterExport { FinderService.revealFolder(target) }
                 } else {
-                    self.statusMessage = "\(outcome.files) Dateien \(verb) – \(outcome.failures.count) fehlgeschlagen."
-                    self.showToast("\(outcome.failures.count) Datei(en) nicht \(verb) – Rest ok.", kind: .error)
+                    self.statusMessage = L("\(outcome.files) Dateien kopiert – \(outcome.failures.count) fehlgeschlagen.")
+                    self.showToast(L("\(outcome.failures.count) Datei(en) nicht kopiert – Rest ok."), kind: .error)
                 }
             } catch {
                 self.operation = nil
-                self.statusMessage = "Fehler: \(error.localizedDescription)"
-                self.showToast("Fehler: \(error.localizedDescription)", kind: .error)
+                self.statusMessage = L("Fehler: \(error.localizedDescription)")
+                self.showToast(L("Fehler: \(error.localizedDescription)"), kind: .error)
             }
         }
     }

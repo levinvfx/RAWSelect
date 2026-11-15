@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy · RAW Select</title>
+  <meta name="description" content="Privacy policy for the macOS app RAW Select and its download page: local image processing, update check via GitHub, download counter." />
+  <meta name="author" content="VFX Media" />
+  <meta name="theme-color" content="#F7F7F5" />
+  <meta name="color-scheme" content="light" />
+
+  <link rel="icon" type="image/png" sizes="64x64" href="../static/icon-64.png" />
+  <link rel="apple-touch-icon" href="../static/icon-256.png" />
+  <link rel="canonical" href="https://vfxmedia.ch/rawselect/en/privacy" />
+  <link rel="alternate" hreflang="de" href="https://vfxmedia.ch/rawselect/datenschutz" />
+  <link rel="alternate" hreflang="en" href="https://vfxmedia.ch/rawselect/en/privacy" />
+  <link rel="alternate" hreflang="x-default" href="https://vfxmedia.ch/rawselect/en/privacy" />
+  
+
+  <link rel="stylesheet" href="../static/site.css?v=20261115" />
+</head>
+
+<body>
+  <a class="skip-link" href="#inhalt">Skip to content</a>
+
+  <header class="top">
+    <a class="top__logo" href="https://vfxmedia.ch/" aria-label="VFX Media"><img src="../static/vfxmedia-wortmarke.svg" alt="VFX Media" width="144" height="20" /></a>
+    <nav class="top__nav" aria-label="Page">
+      <a href="./#ablauf">How it works</a>
+      <a href="./#kuerzel">Keyboard</a>
+      <a href="privacy">Privacy</a>
+      <a class="top__lang" href="../datenschutz" hreflang="de" lang="de" aria-label="Deutsche Version">DE</a>
+      <a class="btn btn--accent btn--sm" href="../download" data-download>Download</a>
+    </nav>
+  </header>
+
+  <main id="inhalt">
+    <!-- ═══ Datenschutz ═══ -->
+    <section class="section legal-page">
+      <div class="container"><div class="legal">
+        <span class="eyebrow">Privacy</span>
+        <h1 class="h2">Privacy Policy for RAW Select</h1>
+        <p class="legal-note"><em>This is a translation. If the English and German versions differ, the <a href="../datenschutz" hreflang="de" lang="de">German version</a> applies.</em></p>
+        <p>This privacy policy applies to the macOS app RAW Select and the download page at vfxmedia.ch/rawselect. Data processing is governed by the Swiss Federal Act on Data Protection. Where people in the European Union are affected, the provisions of the General Data Protection Regulation (GDPR) may also apply. Last updated: 6&nbsp;November&nbsp;2026.</p>
+
+        <h3>1. Controller</h3>
+        <address>
+          <p>Levin Anneler<br />VFX Media<br />Mühlemattweg 2k<br />3608 Thun<br />Switzerland<br />Email: <a href="mailto:levin@annelers.ch">levin@annelers.ch</a></p>
+        </address>
+
+        <h3>2. Local processing of photos</h3>
+        <p>RAW Select reads photos from folders, memory cards and other drives that you choose. The photos are processed and displayed locally on your Mac.</p>
+        <p>With <strong>Send to Google Drive</strong>, RAW Select copies photos into a folder of the Google Drive for desktop app on your Mac. RAW Select itself does not connect to Google. The upload is handled by Google's app, and Google's terms apply.</p>
+        <p>The app stores marks and session data in <code>~/Library/Application&nbsp;Support/RAW&nbsp;Select</code> and settings in <code>~/Library/Preferences/ch.anneler.rawselect.plist</code>. Preview images may be stored temporarily in the Mac's local cache. This data is not sent to vfxmedia.ch or to any other service I operate.</p>
+
+        <h3>3. Update check</h3>
+        <p>At launch, RAW Select uses the GitHub API to check whether a new version is available. For technical reasons, GitHub receives information through this connection, including the IP address of the internet connection used. GitHub is operated by GitHub, Inc., based in the USA, and the data may be processed there. Processing by GitHub is governed by <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub's privacy statement</a>.</p>
+        <p>The update check does not give me any image, user or device data. An update file is only downloaded if you confirm the download.</p>
+
+        <h3>4. No usage statistics</h3>
+        <p>From version 2.0, RAW Select does not collect any usage data. The app sends no identifier, no version information and no information about your Mac to vfxmedia.ch. The only connection it makes on its own is the update check with GitHub (section 3).</p>
+        <p><strong>Older versions:</strong> Up to version 2.0&nbsp;Beta&nbsp;1, RAW Select sent a randomly generated installation identifier, the app version and the major and minor version of macOS to vfxmedia.ch at most once a day. Since 21&nbsp;October&nbsp;2026, the server still accepts such reports but no longer stores them. Older versions keep sending them until you update to version 2.0.</p>
+        <p>I deleted all entries stored up to that point (identifier, version, macOS version, date, no IP addresses) on 21&nbsp;October&nbsp;2026. Version 2.0 also removes the identifier from your Mac on first launch.</p>
+
+        <h3>5. Download page</h3>
+        <p>The download page sets no cookies and uses no analytics or advertising network. Fonts, images and page elements are loaded directly from this section of vfxmedia.ch.</p>
+        <p>Visiting the page technically creates a connection to the web server. Access logging is turned off for requests under https://vfxmedia.ch/rawselect/. If you open the page via an unencrypted http address, the server first redirects to https; this redirect is logged as on the main site. When you click “Download RAW Select”, you download the file directly from vfxmedia.ch. Once it has been transferred in full, the server increases that day's download count by one. So that several clicks by the same person on the same day only count once, the server creates a check value (SHA-256) from the IP address, browser identifier, date and a secret key. Without this key, the IP address cannot be derived from it. The IP address itself is not stored, and the check value is only kept until the end of the day, after which it is deleted. Only the total per day is kept permanently, with no cookie and no further information about you. If the file is ever unavailable on vfxmedia.ch, you are redirected to the file on GitHub. In that case GitHub counts the download and shows the number publicly, and GitHub's privacy statement applies.</p>
+
+        <h3>6. Other data transfers</h3>
+        <p>RAW Select does not transfer any photos, file names, file paths, marks, EXIF data, location data or crash reports. The app uses no user account and no cloud sync. To remove the app completely, also delete the file <code>~/Library/Preferences/ch.anneler.rawselect.plist</code> and the folder <code>~/Library/Application&nbsp;Support/RAW&nbsp;Select</code>.</p>
+
+        <h3>7. Contact by email</h3>
+        <p>If you write to me, for example via <strong>Help → Send Feedback</strong>, I process your email address and the content of your message in order to reply. The feedback template contains the version of RAW Select and of macOS. I keep emails for as long as needed to deal with them.</p>
+
+        <h3>8. Your rights and contact</h3>
+        <p>You can request information about the processing of your personal data and ask for it to be corrected or deleted. Where the GDPR applies, you may also have the right to restrict processing, to data portability and to object.</p>
+        <p>For questions about data protection or to exercise your rights, you can reach me at <a href="mailto:levin@annelers.ch">levin@annelers.ch</a>. In Switzerland, the Federal Data Protection and Information Commissioner (FDPIC) is responsible. People in the European Union can contact their competent data protection supervisory authority.</p>
+      </div></div>
+    </section>
+
+    <div class="container"><div class="legal"><p class="legal-back"><a href="./">← Back to RAW Select</a></p></div></div>
+  </main>
+
+  <footer class="foot">
+    <div class="container">
+      <span>© 2026 Levin Anneler · VFX Media</span>
+      <nav aria-label="More links">
+        <a href="https://vfxmedia.ch/">vfxmedia.ch</a>
+        <a href="https://www.instagram.com/levin.vfx/" target="_blank" rel="noopener">Instagram</a>
+        <a href="privacy">Privacy</a>
+        <a href="imprint">Imprint</a>
+        <a href="../datenschutz" hreflang="de" lang="de">Deutsch</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

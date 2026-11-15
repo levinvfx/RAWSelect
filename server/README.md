@@ -8,6 +8,7 @@ der Node-Server des Portfolios ist nicht beteiligt).
 |---|---|---|
 | `site/index.html` | `/var/www/rawselect/index.html` | Download-Seite: Erststart-Hinweis, Erklär-Animation, Funktionen, Tastatur, Datenverarbeitung |
 | `site/datenschutz.html`, `site/impressum.html` | `/var/www/rawselect/` | eigene Seiten, nginx liefert sie unter `/rawselect/datenschutz` und `/rawselect/impressum` |
+| `site/en/index.html`, `site/en/privacy.html`, `site/en/imprint.html` | `/var/www/rawselect/en/` | englische Fassung unter `/rawselect/en/`, `/rawselect/en/privacy`, `/rawselect/en/imprint`; Sprachumschalter DE/EN und `hreflang` auf allen Seiten, `x-default` zeigt auf Englisch. Inhalt deckungsgleich mit Deutsch halten, die Erklär-Animation liest ihre Texte aus `<html lang>` |
 | `site/static/*` | `/var/www/rawselect/static/` | `site.css` (geteilt), Schriften, Wortmarke, App-Icon, `og.png` (`tools/make_og.py`), `tutorial/` (Animation + Fotos aus öffentlichen Portfolio-Seiten) |
 | `download.php` | `/var/www/rawselect/download.php` | `/rawselect/download` → 302 auf das neueste **signierte** DMG; `?info` → JSON für die Seite |
 | `ping.php` | `/var/www/rawselect/` | Stillgelegt seit 21.10.2026: antwortet 204, liest und speichert nichts (Apps bis 2.0 Beta 1 pingen weiter, bis sie aktualisieren) |
