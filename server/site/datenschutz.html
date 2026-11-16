@@ -40,7 +40,7 @@
       <div class="container"><div class="legal">
         <span class="eyebrow">Datenschutz</span>
         <h1 class="h2">Datenschutzerklärung für RAW Select</h1>
-        <p>Diese Datenschutzerklärung gilt für die macOS-App RAW Select und die Download-Seite unter vfxmedia.ch/rawselect. Für die Datenbearbeitung gilt das Schweizer Datenschutzgesetz. Soweit Personen in der Europäischen Union betroffen sind, können ergänzend die Bestimmungen der Datenschutz-Grundverordnung (DSGVO) gelten. Stand: 15.&nbsp;November&nbsp;2026.</p>
+        <p>Diese Datenschutzerklärung gilt für die macOS-App RAW Select und die Download-Seite unter vfxmedia.ch/rawselect. Für die Datenbearbeitung gilt das Schweizer Datenschutzgesetz. Soweit Personen in der Europäischen Union betroffen sind, können ergänzend die Bestimmungen der Datenschutz-Grundverordnung (DSGVO) gelten. Stand: 16.&nbsp;November&nbsp;2026.</p>
 
         <h3>1. Verantwortlicher</h3>
         <address>
@@ -56,8 +56,10 @@
         <p>Beim Start fragt RAW Select über die GitHub-API ab, ob eine neue Version verfügbar ist. Bei dieser Verbindung erhält GitHub technisch bedingt unter anderem die IP-Adresse des verwendeten Internetanschlusses. GitHub wird von GitHub, Inc. mit Sitz in den USA betrieben, die Daten können dort bearbeitet werden. Für die Verarbeitung durch GitHub gelten die <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">Datenschutzbestimmungen von GitHub</a>.</p>
         <p>Ich erhalte durch die Update-Prüfung keine Bild-, Benutzer- oder Gerätedaten. Eine Update-Datei wird nur geladen, wenn du den Download bestätigst.</p>
 
-        <h3>4. Keine Nutzungsstatistik</h3>
-        <p>Ab Version 2.0 sammelt RAW Select keine Nutzungsdaten. Die App sendet keine Kennung, keine Versionsangaben und keine Angaben zu deinem Mac an vfxmedia.ch. Die einzige Verbindung, die sie von sich aus aufbaut, ist die Update-Prüfung bei GitHub (Abschnitt 3).</p>
+        <h3>4. Zählung der Installationen</h3>
+        <p>Ab Version 2.2.2 meldet RAW Select beim ersten Start jeder Version einmal eine zufällig erzeugte Nummer und die App-Version an vfxmedia.ch. Ist der Server nicht erreichbar, versucht es die App beim nächsten Start erneut, bis die Meldung bestätigt ist. So weiss ich, wie viele Installationen es gibt und welche Version sie nutzen. Die Nummer entsteht auf deinem Mac und hat keinen Bezug zu dir, zu deinem Mac oder zu deinen Bildern. Der Server speichert nicht die Nummer selbst, sondern nur einen daraus berechneten Prüfwert (SHA-256 mit einem geheimen Schlüssel), die Version und das Datum. Bei dieser Verbindung erhält der Server technisch bedingt die IP-Adresse des verwendeten Internetanschlusses. Sie wird nicht gespeichert, das Zugriffsprotokoll ist für diesen Bereich ausgeschaltet. Weitere Nutzungsdaten sammelt die App nicht, auch keine Angaben zu deinem Mac oder zur Systemsprache.</p>
+        <p>Unter Einstellungen → Erweitert → Statistik kannst du «Installation anonym zählen» ausschalten. Dann sendet die App nichts mehr. Die erste Meldung geht beim ersten Start einer Version hinaus, also bevor du die Einstellung sehen kannst; das Ausschalten verhindert alle weiteren Meldungen.</p>
+        <p>Die Versionen 2.0 bis 2.2.1 senden keine Nummer. Ausser dieser Zählung baut die App von sich aus nur die Update-Prüfung bei GitHub auf (Abschnitt 3).</p>
         <p><strong>Ältere Versionen:</strong> Bis Version 2.0&nbsp;Beta&nbsp;1 hat RAW Select höchstens einmal pro Tag eine zufällig erzeugte Installationskennung, die App-Version und die Haupt- und Nebenversion von macOS an vfxmedia.ch übermittelt. Seit dem 21.&nbsp;Oktober&nbsp;2026 nimmt der Server solche Meldungen noch an, speichert sie aber nicht mehr. Ältere Versionen senden sie weiter, bis du auf Version 2.0 aktualisierst.</p>
         <p>Alle bis dahin gespeicherten Einträge (Kennung, Version, macOS-Version, Datum, keine IP-Adressen) habe ich am 21.&nbsp;Oktober&nbsp;2026 gelöscht. Version 2.0 entfernt die Kennung beim ersten Start auch von deinem Mac.</p>
 

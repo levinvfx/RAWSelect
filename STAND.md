@@ -4,6 +4,19 @@
 **Aktuell: 2.2.1** (15.11.2026, Deutsch + Englisch). **V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
 Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
 
+## 2.2.2 gebaut, NICHT veröffentlicht (16.11.2026)
+Levin (in der Portfolio-Session, hier per Auswahl bestätigt: «Mit Schalter»): Er will genau wissen, wie viele Leute
+die App nutzen. **Das hebt den Entscheid vom 21.10. («nichts von den Leuten, nur Downloads») auf.**
+- `Services/InstallCounter.swift`: einmal pro Version POST `https://vfxmedia.ch/rawselect/start` mit
+  `{"id":"<UUID v4>","v":"<Version>"}`, sonst nichts (User-Agent fest «RAWSelect», Accept-Language «*»). Erst bei 204
+  wird die Version gemerkt, sonst neuer Versuch beim nächsten Start. Ohne Abfrage, standardmässig an.
+- Schalter: Einstellungen → Erweitert → Statistik → «Installation anonym zählen» (`rs.countInstallation`).
+- Schlüssel `rs.installID`, `rs.reportedVersion`; «Alle Einstellungen zurücksetzen» lässt beide stehen (sonst zählt
+  eine Installation doppelt). **DEBUG-Builds melden nie.**
+- Server (`server/start.php`, nginx, Datenschutz DE/EN, Admin): Portfolio-Session. **Erst veröffentlichen, wenn
+  Endpunkt und Datenschutztext live sind** – vorher stimmt «Die App sendet keine Kennung» nicht mehr.
+- Nicht nach /Applications installiert (würde melden, sobald der Endpunkt lebt).
+
 ## 2.2.1 veröffentlicht (15.11.2026)
 Levin: «Ja, veröffentlichen». Commit 537ed33, Tag v2.2.1, beide Repos, Website mit `--nginx` deployt (englische Seiten live).
 Auftrag von Levin: App und RAW-Select-Seite mehrsprachig, 2.2.1 prüfen, Rechtliches anpassen; ab jetzt laden Kunden.

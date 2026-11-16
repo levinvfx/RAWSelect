@@ -228,6 +228,9 @@
 "Im Finder zeigen" = "Show in Finder";
 "Mit der App „Google Drive für Desktop“ meldest du dich bei Google an, danach erscheint Google Drive im Finder. RAW Select legt die Bilder in den Drive-Ordner, die Google-App lädt sie hoch." = "You sign in to Google with the “Google Drive for desktop” app; Google Drive then appears in the Finder. RAW Select puts the photos into the Drive folder and the Google app uploads them.";
 "Einen geteilten Ordner bindest du in Google Drive mit „Verknüpfung zu Meine Ablage hinzufügen“ ein. Gesendet wird über den Google-Drive-Knopf in der Symbolleiste; die Google-App lädt die Bilder im Hintergrund hoch." = "To use a shared folder, add it in Google Drive with “Add shortcut to Drive”. Send with the Google Drive button in the toolbar; the Google app uploads the photos in the background.";
+"Statistik" = "Statistics";
+"Installation anonym zählen" = "Count installation anonymously";
+"Die App meldet einmal pro Version eine zufällige Nummer und ihre Versionsnummer an vfxmedia.ch. So sehe ich, wie viele Installationen es gibt. Keine Bilder, keine Dateinamen, keine Angaben zu deinem Mac." = "Once per version, the app sends a random number and its version number to vfxmedia.ch. This shows me how many installations there are. No photos, no file names, no details about your Mac.";
 "Cache leeren" = "Clear Cache";
 "Cache leeren?" = "Clear the cache?";
 "Leeren" = "Clear";

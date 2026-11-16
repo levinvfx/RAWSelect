@@ -41,7 +41,7 @@
         <span class="eyebrow">Privacy</span>
         <h1 class="h2">Privacy Policy for RAW Select</h1>
         <p class="legal-note"><em>This is a translation. If the English and German versions differ, the <a href="../datenschutz" hreflang="de" lang="de">German version</a> applies.</em></p>
-        <p>This privacy policy applies to the macOS app RAW Select and the download page at vfxmedia.ch/rawselect. Data processing is governed by the Swiss Federal Act on Data Protection. Where people in the European Union are affected, the provisions of the General Data Protection Regulation (GDPR) may also apply. Last updated: 15&nbsp;November&nbsp;2026.</p>
+        <p>This privacy policy applies to the macOS app RAW Select and the download page at vfxmedia.ch/rawselect. Data processing is governed by the Swiss Federal Act on Data Protection. Where people in the European Union are affected, the provisions of the General Data Protection Regulation (GDPR) may also apply. Last updated: 16&nbsp;November&nbsp;2026.</p>
 
         <h3>1. Controller</h3>
         <address>
@@ -57,8 +57,10 @@
         <p>At launch, RAW Select uses the GitHub API to check whether a new version is available. For technical reasons, GitHub receives information through this connection, including the IP address of the internet connection used. GitHub is operated by GitHub, Inc., based in the USA, and the data may be processed there. Processing by GitHub is governed by <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub's privacy statement</a>.</p>
         <p>The update check does not give me any image, user or device data. An update file is only downloaded if you confirm the download.</p>
 
-        <h3>4. No usage statistics</h3>
-        <p>From version 2.0, RAW Select does not collect any usage data. The app sends no identifier, no version information and no information about your Mac to vfxmedia.ch. The only connection it makes on its own is the update check with GitHub (section 3).</p>
+        <h3>4. Counting installations</h3>
+        <p>From version 2.2.2, on the first launch of each version RAW Select sends a randomly generated number and the app version to vfxmedia.ch once. If the server cannot be reached, the app tries again on the next launch until the report is confirmed. This tells me how many installations there are and which version they use. The number is created on your Mac and has no link to you, your Mac or your photos. The server does not store the number itself, only a check value derived from it (SHA-256 with a secret key), the version and the date. For technical reasons, the server receives the IP address of the internet connection used. It is not stored, and access logging is turned off for this section. The app collects no other usage data, including no information about your Mac or its system language.</p>
+        <p>Under Settings → Advanced → Statistics you can turn off “Count installation anonymously”. The app then sends nothing more. The first report is sent on the first launch of a version, before you can see the setting; turning it off prevents all further reports.</p>
+        <p>Versions 2.0 to 2.2.1 send no number. Apart from this count, the only connection the app makes on its own is the update check with GitHub (section 3).</p>
         <p><strong>Older versions:</strong> Up to version 2.0&nbsp;Beta&nbsp;1, RAW Select sent a randomly generated installation identifier, the app version and the major and minor version of macOS to vfxmedia.ch at most once a day. Since 21&nbsp;October&nbsp;2026, the server still accepts such reports but no longer stores them. Older versions keep sending them until you update to version 2.0.</p>
         <p>I deleted all entries stored up to that point (identifier, version, macOS version, date, no IP addresses) on 21&nbsp;October&nbsp;2026. Version 2.0 also removes the identifier from your Mac on first launch.</p>
 

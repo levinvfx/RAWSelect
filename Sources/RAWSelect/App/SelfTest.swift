@@ -659,6 +659,19 @@ enum SelfTest {
             check(false, "language tables found (run the self-test from the repository root)")
         }
 
+        // Installation counter (2.2.2): once per version, never when switched off, body = id + version only.
+        check(InstallCounter.shouldReport(enabled: true, reportedVersion: "", currentVersion: "2.2.2"), "counter: first start reports")
+        check(!InstallCounter.shouldReport(enabled: true, reportedVersion: "2.2.2", currentVersion: "2.2.2"), "counter: same version reports once")
+        check(InstallCounter.shouldReport(enabled: true, reportedVersion: "2.2.2", currentVersion: "2.3"), "counter: an update reports again")
+        check(!InstallCounter.shouldReport(enabled: false, reportedVersion: "", currentVersion: "2.2.2"), "counter: switched off sends nothing")
+        let counterID = InstallCounter.newID()
+        check(counterID.range(of: "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", options: .regularExpression) != nil,
+              "counter: id is a lowercase UUID v4 (what the server accepts)")
+        let counterBody = (try? JSONSerialization.jsonObject(with: InstallCounter.body(id: counterID, version: "2.2.2"))) as? [String: String]
+        check(counterBody == ["id": counterID, "v": "2.2.2"], "counter: body carries the id and the version, nothing else")
+        check(AppSettings.keptOnReset == ["rs.installID", "rs.reportedVersion"], "counter: reset keeps the installation number")
+        check(InstallCounter.endpoint.absoluteString == "https://vfxmedia.ch/rawselect/start", "counter: endpoint")
+
         // Loupe zoom view (mouse wheel, fit, photo swap) — headless AppKit.
         zoomTests(check)
 

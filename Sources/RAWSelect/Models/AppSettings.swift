@@ -176,6 +176,15 @@ final class AppSettings: ObservableObject {
     /// any app). Empty = not yet chosen → picked on first use, then editable here.
     var openWithAppPath: String { get { str("rs.openWithAppPath", "") } set { set("rs.openWithAppPath", newValue) } }
     /// Folder inside Google Drive for "An Google Drive senden". Empty = picked on first send.
+    // Installations-Zähler (seit 2.2.2, siehe InstallCounter)
+    /// "Installation anonym zählen" in Einstellungen → Erweitert. On by default.
+    var countInstallation: Bool { get { b("rs.countInstallation", true) } set { set("rs.countInstallation", newValue) } }
+    /// Random number of this installation, created at the first report. Not `rs.anonID`: that key
+    /// belonged to the usage statistics removed in 2.0 and is deleted at every launch.
+    var installID: String { get { str("rs.installID", "") } set { d.set(newValue, forKey: "rs.installID") } }
+    /// The version the server last confirmed; a new version reports once more.
+    var reportedVersion: String { get { str("rs.reportedVersion", "") } set { d.set(newValue, forKey: "rs.reportedVersion") } }
+
     var googleDriveTarget: String { get { str("rs.googleDriveTarget", "") } set { set("rs.googleDriveTarget", newValue) } }
 
     #if DEBUG
@@ -268,10 +277,13 @@ final class AppSettings: ObservableObject {
 
     func resetAll() {
         objectWillChange.send()
-        for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") {
+        // The installation number and its reported version are not settings: a reset must not turn
+        // one installation into two in the count.
+        for key in d.dictionaryRepresentation().keys where key.hasPrefix("rs.") && !Self.keptOnReset.contains(key) {
             d.removeObject(forKey: key)
         }
     }
+    static let keptOnReset: Set<String> = ["rs.installID", "rs.reportedVersion"]
 }
 
 // MARK: - Color <-> hex

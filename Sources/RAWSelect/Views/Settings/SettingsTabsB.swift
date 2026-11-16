@@ -197,6 +197,11 @@ struct AdvancedSettingsTab: View {
             Section("Google Drive") {
                 GoogleDriveRow()
             }
+            Section("Statistik") {
+                SettingToggle(title: L("Installation anonym zählen"),
+                              help: L("Die App meldet einmal pro Version eine zufällige Nummer und ihre Versionsnummer an vfxmedia.ch. So sehe ich, wie viele Installationen es gibt. Keine Bilder, keine Dateinamen, keine Angaben zu deinem Mac."),
+                              isOn: $settings.countInstallation)
+            }
             #if DEBUG
             Section("Lightroom Classic (Entwicklungs-Build)") {
                 HStack {

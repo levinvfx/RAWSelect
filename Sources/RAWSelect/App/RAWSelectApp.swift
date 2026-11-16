@@ -108,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         BridgeInstaller.installIfNeeded()
         #endif
         AppSettings.shared.removeObsoleteKeys()
+        InstallCounter.reportIfNeeded()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
