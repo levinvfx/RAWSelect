@@ -1,10 +1,12 @@
 # RAW Select — Stand (15.11.2026)
 
 ## Ziel
-**Aktuell: 2.2.1** (15.11.2026, Deutsch + Englisch). **V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
+**Aktuell: 2.2.2** (16.11.2026, Deutsch + Englisch, Installations-Zähler). **V2.0 (final) veröffentlicht** (21.10.2026, beide Repos, `releases/latest` = v2.0, Download-Seite leitet auf 2.0).
 Davor: V1.11 (Universal-Build + Download-Seite) veröffentlicht 13.10.2026.
 
-## 2.2.2 gebaut, NICHT veröffentlicht (16.11.2026)
+## 2.2.2 veröffentlicht (16.11.2026)
+Levin: «Ja, veröffentlichen». Commit 8139c79, Tag v2.2.2, beide Repos; `start.php`, Seiten und nginx-Snippet live
+(POST ungültig 400, GET 405, start.php direkt 404). Admin-Anzeige stellt die Portfolio-Session live.
 Levin (in der Portfolio-Session, hier per Auswahl bestätigt: «Mit Schalter»): Er will genau wissen, wie viele Leute
 die App nutzen. **Das hebt den Entscheid vom 21.10. («nichts von den Leuten, nur Downloads») auf.**
 - `Services/InstallCounter.swift`: einmal pro Version POST `https://vfxmedia.ch/rawselect/start` mit
@@ -13,9 +15,9 @@ die App nutzen. **Das hebt den Entscheid vom 21.10. («nichts von den Leuten, nu
 - Schalter: Einstellungen → Erweitert → Statistik → «Installation anonym zählen» (`rs.countInstallation`).
 - Schlüssel `rs.installID`, `rs.reportedVersion`; «Alle Einstellungen zurücksetzen» lässt beide stehen (sonst zählt
   eine Installation doppelt). **DEBUG-Builds melden nie.**
-- Server (`server/start.php`, nginx, Datenschutz DE/EN, Admin): Portfolio-Session. **Erst veröffentlichen, wenn
-  Endpunkt und Datenschutztext live sind** – vorher stimmt «Die App sendet keine Kennung» nicht mehr.
-- Nicht nach /Applications installiert (würde melden, sobald der Endpunkt lebt).
+- Server (`server/start.php`, nginx, Datenschutz DE/EN, Admin): von der Portfolio-Session gebaut. `start.php` wird von
+  Hand deployt (nicht Teil von `deploy_site.sh`): scp, `php -l`, www-data 644.
+- Download-Zählung seit 16.11. in `downloads_tag` (pro Schweizer Tag, Version, Art), siehe `server/README.md`.
 
 ## 2.2.1 veröffentlicht (15.11.2026)
 Levin: «Ja, veröffentlichen». Commit 537ed33, Tag v2.2.1, beide Repos, Website mit `--nginx` deployt (englische Seiten live).
