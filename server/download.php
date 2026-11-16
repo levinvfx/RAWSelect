@@ -6,22 +6,45 @@
 //
 // GitHub wird höchstens alle 10 Minuten gefragt (Cache ausserhalb des Webroots); fällt GitHub aus,
 // gilt der letzte bekannte Stand.
-// Zählung seit 02.11.2026 (Levin: Mehrfachklicks und abgebrochene Downloads zählten mit): nur ein
-// vollständig übertragener Download zählt, höchstens einmal pro Person und Tag. Dafür entsteht pro
-// Download ein Prüfwert aus Tag, geheimem Salz, IP und Browserkennung (SHA-256). Die IP selbst wird nie
-// gespeichert, die Prüfwerte nur in einer Datei des laufenden Tages, die am nächsten Tag gelöscht wird.
-// Tageszahl in usage.sqlite, Tabelle `downloads_fertig`. Die alte Klickzählung `downloads` bleibt als Altbestand.
+//
+// Zählung seit 15.11.2026 (Levin: «ich will die Analyse richtig haben»), Tabelle `downloads_tag` in
+// usage.sqlite, eine Zeile pro Schweizer Kalendertag (Europe/Zurich), Version und Art:
+//   website        vollständig ausgelieferter Download, höchstens einmal pro Person, Tag und Version
+//   umweg          Rückfall auf GitHub (302), weil die lokale Kopie fehlt; höchstens einmal pro Person,
+//                  Tag und Version. Ob der Download dort fertig wurde, weiss nur GitHub.
+//   umweg_github   jeder Rückfall-302 (auch Mehrfachklicks): so oft kann GitHubs Zähler dadurch steigen
+//   server         eigener Abruf der DMG bei GitHub für die lokale Kopie, erfolgreich
+//   server_fehler  eigener Abruf, fehlgeschlagen (kann GitHubs Zähler trotzdem erhöht haben)
+// Die Version ist die Datei, die tatsächlich ausgeliefert oder umgeleitet wurde, nicht ein späterer Stand.
+// «Einmal pro Person» läuft über einen Prüfwert aus Tag, geheimem Salz, IP, Browserkennung, Version und Art
+// (SHA-256). Die IP selbst wird nie gespeichert, die Prüfwerte nur in einer Datei des laufenden Tages, die am
+// nächsten Tag gelöscht wird. Dauerhaft bleiben nur die Zahlen pro Tag, Version und Art.
+// Altbestand: `downloads_fertig` (bis 15.11.2026, Tag in UTC, ohne Version) und `downloads` (Klicks bis 02.11.).
+// Beide werden nicht mehr beschrieben.
 //
 // Reihenfolge der Repos: das erste Repo mit einem Release gewinnt. RAWSelect-Releases ist das
 // öffentliche Download-Repo (nur DMG + Signatur, kein Code). Das alte Repo bleibt als Rückfall, solange
 // es öffentlich ist – so läuft die Seite auch, bevor das neue Repo existiert.
+//
+// Tests (tools/test_download.sh) setzen RAWSELECT_TESTDIR: dann liegen alle Dateien dort, GitHub wird nie
+// gefragt (nur der vorbereitete Cache gilt) und RAWSELECT_TESTZEIT kann die Uhrzeit vorgeben.
+date_default_timezone_set('Europe/Zurich');
+$TESTDIR = getenv('RAWSELECT_TESTDIR') ?: '';
+define('TEST', $TESTDIR !== '');
+define('BASIS', TEST ? rtrim($TESTDIR, '/') : '/var/lib/rawselect');
 const REPOS    = ['levinvfx/RAWSelect-Releases', 'levinvfx/RAWSelect'];
-const CACHE    = '/var/lib/rawselect/latest.json';
-const DB_PFAD  = '/var/lib/rawselect/usage.sqlite';
+define('CACHE', BASIS . '/latest.json');
+define('DB_PFAD', BASIS . '/usage.sqlite');
 const MAX_ALTER = 600;   // Sekunden, bis GitHub erneut gefragt wird
-const DMG_ORDNER = '/var/lib/rawselect/dmg';
-const TAGES_ORDNER = '/var/lib/rawselect/heute';   // eine Datei pro Tag mit den Prüfwerten, ältere werden gelöscht
-const SALZ      = '/var/lib/rawselect/salz';
+define('DMG_ORDNER', BASIS . '/dmg');
+define('TAGES_ORDNER', BASIS . '/heute');   // eine Datei pro Tag mit den Prüfwerten, ältere werden gelöscht
+define('SALZ', BASIS . '/salz');
+const BOT_UA = '/bot|crawl|spider|preview|slurp|facebookexternalhit|whatsapp|curl|wget|python/i';
+
+function jetzt(): int {
+    $t = TEST ? getenv('RAWSELECT_TESTZEIT') : false;
+    return ($t !== false && $t !== '') ? (int)$t : time();
+}
 
 function github(string $url): ?array {
     $ctx = stream_context_create(['http' => [
@@ -48,6 +71,7 @@ function neuester(): ?array {
         $cache = json_decode((string)file_get_contents(CACHE), true);
         if (is_array($cache) && (time() - (int)($cache['geholt'] ?? 0)) < MAX_ALTER) { return $cache; }
     }
+    if (TEST) { return is_array($cache) ? $cache : null; }
     foreach (REPOS as $repo) {
         $rel = github("https://api.github.com/repos/$repo/releases/latest");
         if (!$rel || empty($rel['assets'])) { continue; }
@@ -91,6 +115,8 @@ function lokalesDmg(array $stand): ?string {
     $ctx = stream_context_create(['http' => ['timeout' => 20, 'header' => "User-Agent: RAWSelect-Download\r\n"]]);
     $daten = @file_get_contents((string)$stand['url'], false, $ctx);
     $ok = $daten !== false && strlen($daten) === (int)$stand['size'];
+    // Jeder eigene Abruf kann GitHubs Zähler erhöhen; festhalten, damit die Auswertung ihn abzieht.
+    zaehle((string)$stand['version'], $ok ? 'server' : 'server_fehler');
     if ($ok) {
         @file_put_contents($ziel . '.tmp', $daten);
         @rename($ziel . '.tmp', $ziel);
@@ -101,35 +127,47 @@ function lokalesDmg(array $stand): ?string {
     return $ok && is_file($ziel) ? $ziel : null;
 }
 
-/** Fertigen Download zählen, höchstens einmal pro Person und Tag. */
-function zaehleDownload(): void {
+/** Zahl pro Schweizer Tag, Version und Art um eins erhöhen. Zählen darf nie einen Download verhindern. */
+function zaehle(string $version, string $art): void {
     try {
-        $tag = gmdate('Y-m-d');
+        $db = new SQLite3(DB_PFAD);
+        $db->busyTimeout(3000);
+        $db->exec('CREATE TABLE IF NOT EXISTS downloads_tag (day TEXT NOT NULL, version TEXT NOT NULL, art TEXT NOT NULL,
+                   n INTEGER NOT NULL, PRIMARY KEY (day, version, art))');
+        $stmt = $db->prepare('INSERT INTO downloads_tag (day, version, art, n) VALUES (:d, :v, :a, 1)
+                              ON CONFLICT(day, version, art) DO UPDATE SET n = n + 1');
+        $stmt->bindValue(':d', date('Y-m-d', jetzt()));
+        $stmt->bindValue(':v', $version);
+        $stmt->bindValue(':a', $art);
+        $stmt->execute();
+        $db->close();
+    } catch (Throwable $e) {
+        // Zählen darf den Download nie verhindern.
+    }
+}
+
+/** True beim ersten Mal heute für diese Person, Version und Art (Prüfwert in der Tagesdatei). */
+function ersteMalHeute(string $version, string $art): bool {
+    try {
+        $tag = date('Y-m-d', jetzt());
         if (!is_file(SALZ)) { @file_put_contents(SALZ, bin2hex(random_bytes(32))); @chmod(SALZ, 0600); }
         $salz = (string)@file_get_contents(SALZ);
-        $pruef = hash('sha256', $tag . '|' . $salz . '|' . ($_SERVER['REMOTE_ADDR'] ?? '') . '|' . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        $pruef = hash('sha256', $tag . '|' . $salz . '|' . ($_SERVER['REMOTE_ADDR'] ?? '') . '|'
+            . ($_SERVER['HTTP_USER_AGENT'] ?? '') . '|' . $version . '|' . $art);
         if (!is_dir(TAGES_ORDNER)) { @mkdir(TAGES_ORDNER, 0700, true); }
         // Prüfwerte älterer Tage sofort weg: eine Datei pro Tag, nur die heutige bleibt
         foreach (glob(TAGES_ORDNER . '/*.txt') ?: [] as $f) { if (basename($f) !== "$tag.txt") { @unlink($f); } }
         $datei = TAGES_ORDNER . "/$tag.txt";
         $fh = fopen($datei, 'c+');
-        if (!$fh || !flock($fh, LOCK_EX)) { return; }
+        if (!$fh || !flock($fh, LOCK_EX)) { return false; }
         $bekannt = in_array($pruef, preg_split('/\R/', (string)stream_get_contents($fh)), true);
         if (!$bekannt) { fseek($fh, 0, SEEK_END); fwrite($fh, $pruef . "\n"); }
         flock($fh, LOCK_UN);
         fclose($fh);
         @chmod($datei, 0600);
-        if ($bekannt) { return; }
-        $db = new SQLite3(DB_PFAD);
-        $db->busyTimeout(3000);
-        $db->exec('CREATE TABLE IF NOT EXISTS downloads_fertig (day TEXT PRIMARY KEY, n INTEGER NOT NULL)');
-        $stmt = $db->prepare('INSERT INTO downloads_fertig (day, n) VALUES (:d, 1)
-                              ON CONFLICT(day) DO UPDATE SET n = n + 1');
-        $stmt->bindValue(':d', $tag);
-        $stmt->execute();
-        $db->close();
+        return !$bekannt;
     } catch (Throwable $e) {
-        // Zählen darf den Download nie verhindern.
+        return false;
     }
 }
 
@@ -163,6 +201,12 @@ if (!$stand) {
 $datei = lokalesDmg($stand);
 if ($datei === null) {
     // Keine lokale Kopie (GitHub gerade nicht ladbar): wie früher zu GitHub, dort zählt es GitHub.
+    // Festhalten, damit die Auswertung diesen Download der Website zuordnet und bei GitHub abzieht.
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        $v = (string)$stand['version'];
+        zaehle($v, 'umweg_github');
+        if (!preg_match(BOT_UA, $_SERVER['HTTP_USER_AGENT'] ?? '') && ersteMalHeute($v, 'umweg')) { zaehle($v, 'umweg'); }
+    }
     header('Location: ' . $stand['url'], true, 302);
     exit;
 }
@@ -189,8 +233,9 @@ while (!feof($fh) && !connection_aborted()) {
 fclose($fh);
 
 // Nur echte, vollständige Downloads zählen: kein Bot/Link-Vorschau, nichts abgebrochen.
+// Gezählt wird die Version der Datei, die eben ausgeliefert wurde.
 $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
-if ($gesendet === $groesse && !connection_aborted()
-    && !preg_match('/bot|crawl|spider|preview|slurp|facebookexternalhit|whatsapp|curl|wget|python/i', $ua)) {
-    zaehleDownload();
+if ($gesendet === $groesse && !connection_aborted() && !preg_match(BOT_UA, $ua)
+    && ersteMalHeute((string)$stand['version'], 'website')) {
+    zaehle((string)$stand['version'], 'website');
 }

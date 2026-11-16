@@ -28,9 +28,19 @@ Seit 02.11.2026 liefert die Weiche das DMG selbst aus (Kopie in `/var/lib/rawsel
 
 ## Was gezählt wird
 **Nur Downloads** (Levins Entscheid 21.10.2026: «ich will wirklich nichts von den Leuten, nur Downloads»):
-- `download.php`: jeder echte Klick auf «Herunterladen» (GET, kein Bot) erhöht die Tageszahl in `downloads`.
-- GitHub zählt die Downloads jedes Release-Assets selbst (öffentlich über die API, `download_count`). Darin
-  stecken auch die Downloads über die Seite und die Updates, die die App direkt bei GitHub lädt.
+- `download.php` schreibt seit 15.11.2026 in `downloads_tag` (Tag nach Europe/Zurich, Version, Art, Anzahl). Arten:
+  `website` = vollständig ausgelieferter Download, höchstens einmal pro Person, Tag und Version, keine Bots, kein HEAD;
+  `umweg` = Rückfall-302 auf GitHub (Kopie fehlt), einmal pro Person; `umweg_github` = jeder solche 302;
+  `server` / `server_fehler` = eigener Abruf der DMG bei GitHub für die lokale Kopie. Gezählt wird die Version der
+  tatsächlich ausgelieferten Datei. Test: `bash tools/test_download.sh` (leerer Temp-Ordner, nie echte Daten).
+- Altbestand, wird nicht mehr beschrieben: `downloads_fertig` (02.11.–15.11.2026, Tag in UTC, ohne Version) und
+  `downloads` (Klicks bis 02.11.).
+- GitHub zählt die Abrufe jedes Release-Assets selbst (`download_count`, reine Abrufzahl ohne Personen): In-App-Updates
+  (Signatur + DMG), direkte Downloads, der eigene Abruf des Servers und Rückfall-302. Die Auswertung im
+  Portfolio-Admin zieht `server`, `server_fehler` und `umweg_github` davon ab und kennzeichnet, was exakt ist und
+  was nur eine Obergrenze.
+- **Reihenfolge beim Deploy:** zuerst die Auswertung im Portfolio (liest alte und neue Tabelle), dann `download.php`.
+  Umgekehrt zeigt der Admin keine Website-Downloads mehr an, bis das Portfolio nachzieht.
 
 Die App (ab 2.0) sendet nichts mehr. `ping.php` nimmt Meldungen alter Versionen an und verwirft sie.
 **Altbestand gelöscht (21.10.2026, Levins OK):** Die Tabellen `pings` und `pings_bis_2026_10_15` (Kennung, Version,

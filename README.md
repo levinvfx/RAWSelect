@@ -11,10 +11,9 @@ eingebettete Kamera-Vorschau angezeigt, beim Zoom auf 100 % voll entwickelt).
 
 ## Installation
 
-1. Auf **[vfxmedia.ch/rawselect](https://vfxmedia.ch/rawselect/)** „RAW Select herunterladen" klicken (führt
-   zum neuesten signierten DMG im Download-Repo
-   [RAWSelect-Releases](https://github.com/levinvfx/RAWSelect-Releases/releases)), öffnen, App nach
-   `Programme` ziehen.
+1. Auf **[vfxmedia.ch/rawselect](https://vfxmedia.ch/rawselect/)** „RAW Select herunterladen" klicken (die
+   Seite liefert das neueste signierte DMG aus und zählt den Download), öffnen, App nach `Programme` ziehen.
+   Bewusst kein direkter Link auf GitHub: der ginge am Zähler der Seite vorbei.
 2. Beim ersten Start warnt macOS (die App ist nur ad-hoc signiert, nicht notarisiert): auf **Fertig**, dann
    **Systemeinstellungen → Datenschutz & Sicherheit → Dennoch öffnen**. Unter macOS 14 reicht **Rechtsklick → Öffnen**.
 3. Ab dann meldet sich die App selbst, wenn es ein Update gibt (siehe *Netzwerk* unten).
